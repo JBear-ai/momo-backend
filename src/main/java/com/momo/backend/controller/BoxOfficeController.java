@@ -1,0 +1,25 @@
+package com.momo.backend.controller;
+
+import com.momo.backend.service.MovieService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/boxoffice")
+@RequiredArgsConstructor
+public class BoxOfficeController {
+
+    private final MovieService movieService;
+
+    // 일별 박스오피스 조회
+    @GetMapping(value = "/daily", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> getDailyBoxOffice(
+            @RequestParam String targetDate) {
+
+        String result = movieService.getDailyBoxOffice(targetDate);
+
+        return ResponseEntity.ok(result);
+    }
+}
