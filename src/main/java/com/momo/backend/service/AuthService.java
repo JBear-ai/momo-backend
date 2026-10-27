@@ -1,4 +1,99 @@
 package com.momo.backend.service;
 
+import com.momo.backend.dto.auth.SignupRequest;
+import com.momo.backend.dto.auth.UserResponse;
+import com.momo.backend.entity.User;
+import com.momo.backend.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Slf4j
+@Service
+@Transactional
+@RequiredArgsConstructor
 public class AuthService {
+
+    // 회원 DB 접근과 비밀번호 암호화에 필요한 객체를 Spring에서 주입받음
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    // 로그인 아이디가 이미 사용 중인지 확인
+    public boolean isMember(String loginId) {
+        return userRepository.existsByLoginId(loginId);
+    }
+
+    // 회원가입 처리
+    public UserResponse signUp(SignupRequest dto) {
+
+        // 로그인 아이디 중복 확인
+        if (userRepository.existsByLoginId(dto.getLoginId())) {
+            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
+        }
+
+        // 닉네임 중복 확인
+        if (userRepository.existsByNickname(dto.getNickname())) {
+            throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+        }
+
+        // 입력받은 회원 정보를 Entity로 변환
+        User user = toEntity(dto);
+
+        // 회원 정보를 DB에 저장
+        User savedUser = userRepository.save(user);
+
+        // 저장된 회원 정보를 응답 DTO로 변환
+        return new UserResponse(savedUser);
+    }
+
+    // 회원가입 DTO를 User Entity로 변환
+    private User toEntity(SignupRequest dto) {
+
+        // 비밀번호를 암호화한 뒤 User 객체 생성
+        return new User(
+                dto.getLoginId(),
+                passwordEncoder.encode(dto.getPassword()),
+                dto.getNickname(),
+                dto.getEmail()
+        );
+    }
+
+    // 로그인 아이디와 비밀번호가 일치하는지 확인
+    public User login(String loginId, String password) {
+
+        // 로그인 아이디로 회원 조회
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
+
+        // 회원 조회 성공 확인
+        log.info("로그인 회원 조회 성공: {}", user.getLoginId());
+
+        // 비밀번호 일치 여부 확인
+        boolean passwordMatches =
+                passwordEncoder.matches(password, user.getPasswordHash());
+
+        log.info("비밀번호 일치 여부: {}", passwordMatches);
+
+        if (!passwordMatches) {
+            throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+
+        // 로그인 성공 시 회원 반환
+        return user;
+    }
+
+    // 로그인 아이디로 현재 로그인한 회원 정보 조회
+    @Transactional(readOnly = true)
+    public User getLoginUser(String loginId) {
+
+        return userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+    }
+
 }
