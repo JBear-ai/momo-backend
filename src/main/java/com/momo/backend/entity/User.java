@@ -1,4 +1,45 @@
 package com.momo.backend.entity;
 
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "users")
+@Getter
+@NoArgsConstructor
 public class User {
+
+    // 회원을 구분하는 고유 번호(PK)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Long userId;
+
+    // 로그인할 때 사용하는 아이디
+    @Column(name = "login_id", nullable = false, unique = true, length = 20)
+    private String loginId;
+
+    // 암호화된 비밀번호를 저장
+    @Column(name = "password_hash", nullable = false, length = 255)
+    private String passwordHash;
+
+    // 화면에 표시할 회원 닉네임
+    @Column(nullable = false, unique = true, length = 12)
+    private String nickname;
+
+    // 회원이 선택적으로 등록하는 이메일
+    @Column(length = 254)
+    private String email;
+
+    // 회원 정보가 처음 저장된 날짜와 시간
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        // 회원 정보가 DB에 처음 저장될 때 현재 시간을 기록
+        this.createdAt = LocalDateTime.now();
+    }
 }
