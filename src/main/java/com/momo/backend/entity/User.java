@@ -42,4 +42,14 @@ public class User {
         // 회원 정보가 DB에 처음 저장될 때 현재 시간을 기록
         this.createdAt = LocalDateTime.now();
     }
+    // 회원가입 시 입력받은 정보로 회원 객체를 생성
+    public User(String loginId, String passwordHash,
+                String nickname, String email) {
+        this.loginId = loginId;
+        this.passwordHash = passwordHash; // 암호화가 목적
+        this.nickname = nickname;
+        this.email = email;
+    }
+
+
 }
