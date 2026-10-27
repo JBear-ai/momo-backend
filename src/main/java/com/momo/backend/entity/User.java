@@ -30,7 +30,7 @@ public class User {
     private String nickname;
 
     // 회원이 선택적으로 등록하는 이메일
-    @Column(length = 254)
+    @Column(name = "email", nullable = false, length = 254)
     private String email;
 
     // 회원 정보가 처음 저장된 날짜와 시간

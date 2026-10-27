@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.momo.backend.dto.review.ReviewUpdateRequest;
 import com.momo.backend.repository.CommentRepository;
 
+import com.momo.backend.exception.CustomException;
+
 
 @Service
 @Transactional
@@ -36,7 +38,9 @@ public class ReviewService {
         // 로그인 아이디로 작성자 조회
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+                        new CustomException(
+                                "USER_NOT_FOUND",
+                                "회원 정보를 찾을 수 없습니다.")); // 예외처리 추가
 
         // 같은 영화에 이미 리뷰를 작성했는지 확인
         boolean exists = reviewRepository
@@ -46,8 +50,9 @@ public class ReviewService {
                 );
 
         if (exists) {
-            throw new IllegalStateException(
-                    "이미 해당 영화에 리뷰를 작성했습니다.");
+            throw new CustomException(
+                    "DUPLICATE_REVIEW",
+                    "이미 해당 영화에 리뷰를 작성했습니다."); // 예외 처리 추가
         }
 
         // 요청 DTO의 데이터로 리뷰 Entity 생성
@@ -71,7 +76,9 @@ public class ReviewService {
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+                        new CustomException(
+                                "REVIEW_NOT_FOUND",
+                                "리뷰를 찾을 수 없습니다."));
 
         return new ReviewResponse(review);
     }
@@ -105,7 +112,9 @@ public class ReviewService {
 
         // 리뷰 작성자와 현재 로그인한 사용자 비교
         if (!review.getUser().getLoginId().equals(loginId)) {
-            throw new SecurityException("본인이 작성한 리뷰만 수정할 수 있습니다.");
+            throw new CustomException(
+                    "FORBIDDEN",
+                    "본인이 작성한 리뷰만 수정할 수 있습니다.");
         }
 
         // 기존 Entity의 수정 메서드 재사용
@@ -129,7 +138,9 @@ public class ReviewService {
 
         // 리뷰 작성자와 현재 로그인한 사용자 비교
         if (!review.getUser().getLoginId().equals(loginId)) {
-            throw new SecurityException("본인이 작성한 리뷰만 삭제할 수 있습니다.");
+            throw new CustomException(
+                    "FORBIDDEN",
+                    "본인이 작성한 리뷰만 삭제할 수 있습니다.");
         }
 
         // 리뷰에 연결된 댓글을 먼저 삭제하여 외래 키 충돌 방지
