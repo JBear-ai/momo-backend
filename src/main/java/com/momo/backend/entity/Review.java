@@ -42,9 +42,9 @@ public class Review {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    // 영화 평점 (1~5)
+    // 영화 평가 (true: 좋아요, false: 싫어요)
     @Column(nullable = false)
-    private Integer rating;
+    private Boolean liked;
 
     // 리뷰 작성 시간
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -56,12 +56,12 @@ public class Review {
 
     // 리뷰 작성 시 필요한 정보를 전달받아 저장
     public Review(User user, String movieCode, String title,
-                  String content, Integer rating) {
+                  String content, Boolean liked) {
         this.user = user;
         this.movieCode = movieCode;
         this.title = title;
         this.content = content;
-        this.rating = rating;
+        this.liked = liked;
     }
 
     @PrePersist
@@ -79,9 +79,9 @@ public class Review {
     }
 
     // 기존 리뷰의 제목, 내용, 평점을 변경
-    public void updateReview(String title, String content, Integer rating) {
+    public void updateReview(String title, String content, Boolean liked) {
         this.title = title;
         this.content = content;
-        this.rating = rating;
+        this.liked = liked;
     }
 }

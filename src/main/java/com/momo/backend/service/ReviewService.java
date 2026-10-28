@@ -61,7 +61,7 @@ public class ReviewService {
                 dto.getMovieCode(),
                 dto.getTitle(),
                 dto.getContent(),
-                dto.getRating()
+                dto.getLiked()
         );
 
         // 리뷰 저장 후 응답 DTO 반환
@@ -108,7 +108,9 @@ public class ReviewService {
         // 수정할 리뷰 조회
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+                        new CustomException(
+                                "REVIEW_NOT_FOUND",
+                                "리뷰를 찾을 수 없습니다."));
 
         // 리뷰 작성자와 현재 로그인한 사용자 비교
         if (!review.getUser().getLoginId().equals(loginId)) {
@@ -121,7 +123,7 @@ public class ReviewService {
         review.updateReview(
                 dto.getTitle(),
                 dto.getContent(),
-                dto.getRating()
+                dto.getLiked()
         );
 
         // 트랜잭션 종료 시 JPA 변경 감지로 DB에 반영
@@ -134,7 +136,9 @@ public class ReviewService {
         // 삭제할 리뷰 조회
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+                        new CustomException(
+                                "REVIEW_NOT_FOUND",
+                                "리뷰를 찾을 수 없습니다."));
 
         // 리뷰 작성자와 현재 로그인한 사용자 비교
         if (!review.getUser().getLoginId().equals(loginId)) {

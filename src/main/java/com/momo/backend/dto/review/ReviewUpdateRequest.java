@@ -23,9 +23,7 @@ public class ReviewUpdateRequest {
     @Size(max = 2000, message = "리뷰 내용은 2000자 이하여야 합니다.")
     private String content;
 
-    // 수정할 평점: 1~5점
-    @NotNull(message = "평점은 필수입니다.")
-    @Min(value = 1, message = "평점은 최소 1점입니다.")
-    @Max(value = 5, message = "평점은 최대 5점입니다.")
-    private Integer rating;
+    // 수정할 영화 평가 (true: 좋아요, false: 싫어요)
+    @NotNull(message = "영화 평가는 필수입니다.")
+    private Boolean liked;
 }
