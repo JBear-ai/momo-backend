@@ -3,17 +3,18 @@ package com.momo.backend.controller;
 import com.momo.backend.dto.auth.SignupRequest;
 import com.momo.backend.dto.auth.UserResponse;
 import com.momo.backend.service.AuthService;
+import com.momo.backend.dto.auth.LoginRequest;
+import com.momo.backend.entity.User;
+import com.momo.backend.dto.auth.UserUpdateRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
-
-import com.momo.backend.dto.auth.LoginRequest;
-import com.momo.backend.entity.User;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -28,6 +29,9 @@ import java.util.Collections;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@CrossOrigin()
+@Slf4j
+
 public class AuthController {
 
     // 회원가입 기능을 처리하는 Service 객체
@@ -95,6 +99,44 @@ public class AuthController {
 
         return ResponseEntity.ok(new UserResponse(user));
     }
+
+
+    // 현재 로그인한 회원의 닉네임과 이메일 수정
+    @PutMapping("/me")
+    public ResponseEntity<UserResponse> updateMyInfo(
+            @Valid @RequestBody UserUpdateRequest dto,
+            Authentication authentication) {
+
+        UserResponse response = authService.updateMyInfo(
+                authentication.getName(), dto);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // 현재 로그인한 회원 탈퇴 (탈퇴 시 리뷰 및 댓글 삭제)
+    @DeleteMapping("/me")
+    public ResponseEntity<String> deleteMyAccount(
+            Authentication authentication,
+            HttpServletRequest request) {
+
+        // 로그인한 회원의 계정 삭제
+        authService.deleteMyAccount(authentication.getName());
+
+        // 회원 탈퇴 후 세션 종료
+        HttpSession session = request.getSession(false);
+
+        if (session != null) {
+            session.invalidate();
+        }
+
+        // 현재 요청의 인증 정보 제거
+        SecurityContextHolder.clearContext();
+
+        // 회원 탈퇴 성공 메시지 반환
+        return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
+    }
+
+
 
     // 로그아웃 시 현재 세션을 종료
     @PostMapping("/logout")

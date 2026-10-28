@@ -4,6 +4,11 @@ import com.momo.backend.dto.auth.SignupRequest;
 import com.momo.backend.dto.auth.UserResponse;
 import com.momo.backend.entity.User;
 import com.momo.backend.repository.UserRepository;
+import com.momo.backend.dto.auth.UserUpdateRequest;
+import com.momo.backend.repository.ReviewRepository;
+import com.momo.backend.repository.CommentRepository;
+import com.momo.backend.entity.Review;
+import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +26,10 @@ public class AuthService {
     // 회원 DB 접근과 비밀번호 암호화에 필요한 객체를 Spring에서 주입받음
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    // 회원 탈퇴시 리뷰와 댓글 삭제를 위한
+    private final ReviewRepository reviewRepository;
+    private final CommentRepository commentRepository;
 
     // 로그인 아이디가 이미 사용 중인지 확인
     public boolean isMember(String loginId) {
@@ -94,6 +103,51 @@ public class AuthService {
         return userRepository.findByLoginId(loginId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+    }
+
+
+    // 현재 로그인한 회원의 닉네임과 이메일 수정
+    public UserResponse updateMyInfo(String loginId, UserUpdateRequest dto) {
+
+        // 로그인 아이디로 현재 회원 정보 조회
+        User user = getLoginUser(loginId);
+
+        // 닉네임을 변경할 경우 다른 회원과 중복되는지 확인
+        if (!user.getNickname().equals(dto.nickname())
+                && userRepository.existsByNickname(dto.nickname())) {
+            throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+        }
+
+        // 입력받은 닉네임과 이메일로 회원 정보 수정
+        user.updateProfile(dto.nickname(), dto.email());
+
+        // 수정된 회원 정보를 응답 DTO로 변환
+        return new UserResponse(user);
+    }
+
+    // 회원 탈퇴 시 작성한 댓글과 리뷰를 모두 삭제
+    public void deleteMyAccount(String loginId) {
+
+        // 현재 로그인한 회원 조회
+        User user = getLoginUser(loginId);
+        Long userId = user.getUserId();
+
+        // 탈퇴 회원이 작성한 댓글 삭제
+        commentRepository.deleteByUser_UserId(userId);
+
+        // 탈퇴 회원이 작성한 리뷰 조회
+        List<Review> reviews = reviewRepository.findAllByUser_UserId(userId);
+
+        // 리뷰에 달린 댓글을 먼저 삭제
+        for (Review review : reviews) {
+            commentRepository.deleteByReview_ReviewId(review.getReviewId());
+        }
+
+        // 탈퇴 회원이 작성한 리뷰 삭제
+        reviewRepository.deleteAll(reviews);
+
+        // 회원 정보 삭제
+        userRepository.delete(user);
     }
 
 }

@@ -29,7 +29,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 12)
     private String nickname;
 
-    // 회원이 선택적으로 등록하는 이메일
+    // 회원이 필수로 등록하는 이메일
     @Column(name = "email", nullable = false, length = 254)
     private String email;
 
@@ -49,6 +49,18 @@ public class User {
         this.passwordHash = passwordHash; // 암호화가 목적
         this.nickname = nickname;
         this.email = email;
+    }
+
+
+    // 회원의 닉네임과 이메일 수정
+    public void updateProfile(String nickname, String email) {
+        this.nickname = nickname;
+        this.email = email;
+    }
+
+    // 회원 비밀번호 수정
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
 

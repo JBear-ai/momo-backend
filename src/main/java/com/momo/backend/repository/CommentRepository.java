@@ -17,4 +17,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     // 리뷰 삭제 시 해당 리뷰의 댓글을 먼저 삭제
     void deleteByReview_ReviewId(Long reviewId);
+
+    // 특정 회원이 작성한 댓글 전체 삭제
+    void deleteByUser_UserId(Long userId);
 }

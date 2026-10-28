@@ -4,6 +4,7 @@ import com.momo.backend.entity.Review;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
@@ -21,4 +22,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Page<Review> findByUser_UserId(
             Long userId, Pageable pageable
     );
+
+    // 특정 회원이 작성한 리뷰 전체 조회
+    List<Review> findAllByUser_UserId(Long userId);
+
 }
