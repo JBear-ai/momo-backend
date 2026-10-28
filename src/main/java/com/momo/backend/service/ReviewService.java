@@ -4,8 +4,7 @@ import com.momo.backend.dto.review.ReviewCreateRequest;
 import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.entity.Review;
 import com.momo.backend.entity.User;
-import com.momo.backend.repository.ReviewRepository;
-import com.momo.backend.repository.UserRepository;
+import com.momo.backend.repository.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
@@ -13,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.momo.backend.dto.review.ReviewUpdateRequest;
-import com.momo.backend.repository.CommentRepository;
 
 import com.momo.backend.exception.CustomException;
 
@@ -29,6 +27,10 @@ public class ReviewService {
 
     // 리뷰 삭제 시 해당 리뷰의 댓글도 함께 삭제
     private final CommentRepository commentRepository;
+
+    // 리뷰 및 댓글 좋아요 삭제부분
+    private final ReviewReactionRepository reviewReactionRepository;
+    private final CommentReactionRepository commentReactionRepository;
 
     // 로그인한 사용자의 리뷰 작성
     public ReviewResponse createReview(
@@ -130,6 +132,7 @@ public class ReviewService {
         return new ReviewResponse(review);
     }
 
+
     // 로그인한 사용자가 작성한 리뷰 삭제
     public void deleteReview(Long reviewId, String loginId) {
 
@@ -147,10 +150,16 @@ public class ReviewService {
                     "본인이 작성한 리뷰만 삭제할 수 있습니다.");
         }
 
-        // 리뷰에 연결된 댓글을 먼저 삭제하여 외래 키 충돌 방지
+        // 리뷰에 작성된 댓글의 좋아요/싫어요 삭제
+        commentReactionRepository.deleteByComment_Review_ReviewId(reviewId);
+
+        // 리뷰에 작성된 댓글 삭제
         commentRepository.deleteByReview_ReviewId(reviewId);
 
-        // 댓글 삭제 후 리뷰 삭제
+        // 리뷰에 남겨진 좋아요/싫어요 삭제
+        reviewReactionRepository.deleteByReview_ReviewId(reviewId);
+
+        // 리뷰 삭제
         reviewRepository.delete(review);
     }
 }

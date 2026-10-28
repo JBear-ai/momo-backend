@@ -8,6 +8,8 @@ import com.momo.backend.dto.auth.UserUpdateRequest;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.entity.Review;
+import com.momo.backend.repository.ReviewReactionRepository;
+import com.momo.backend.repository.CommentReactionRepository;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,10 @@ public class AuthService {
     // 회원 탈퇴시 리뷰와 댓글 삭제를 위한
     private final ReviewRepository reviewRepository;
     private final CommentRepository commentRepository;
+
+    // 회원 탈퇴시 리뷰와 댓글 좋아요/싫어요 데이터 접근
+    private final ReviewReactionRepository reviewReactionRepository;
+    private final CommentReactionRepository commentReactionRepository;
 
     // 로그인 아이디가 이미 사용 중인지 확인
     public boolean isMember(String loginId) {
@@ -125,12 +131,22 @@ public class AuthService {
         return new UserResponse(user);
     }
 
-    // 회원 탈퇴 시 작성한 댓글과 리뷰를 모두 삭제
+
+    // 회원 탈퇴 시 작성한 댓글과 리뷰, 좋아요/싫어요를 모두 삭제
     public void deleteMyAccount(String loginId) {
 
         // 현재 로그인한 회원 조회
         User user = getLoginUser(loginId);
         Long userId = user.getUserId();
+
+        // 탈퇴 회원이 남긴 댓글 좋아요/싫어요 삭제
+        commentReactionRepository.deleteByUser_UserId(userId);
+
+        // 탈퇴 회원이 작성한 댓글에 달린 좋아요/싫어요 삭제
+        commentReactionRepository.deleteByComment_User_UserId(userId);
+
+        // 탈퇴 회원이 남긴 리뷰 좋아요/싫어요 삭제
+        reviewReactionRepository.deleteByUser_UserId(userId);
 
         // 탈퇴 회원이 작성한 댓글 삭제
         commentRepository.deleteByUser_UserId(userId);
@@ -138,9 +154,19 @@ public class AuthService {
         // 탈퇴 회원이 작성한 리뷰 조회
         List<Review> reviews = reviewRepository.findAllByUser_UserId(userId);
 
-        // 리뷰에 달린 댓글을 먼저 삭제
+        // 탈퇴 회원의 리뷰에 연결된 데이터 삭제
         for (Review review : reviews) {
-            commentRepository.deleteByReview_ReviewId(review.getReviewId());
+
+            Long reviewId = review.getReviewId();
+
+            // 리뷰에 달린 댓글의 좋아요/싫어요 삭제
+            commentReactionRepository.deleteByComment_Review_ReviewId(reviewId);
+
+            // 리뷰에 달린 댓글 삭제
+            commentRepository.deleteByReview_ReviewId(reviewId);
+
+            // 리뷰에 달린 좋아요/싫어요 삭제
+            reviewReactionRepository.deleteByReview_ReviewId(reviewId);
         }
 
         // 탈퇴 회원이 작성한 리뷰 삭제
@@ -149,5 +175,6 @@ public class AuthService {
         // 회원 정보 삭제
         userRepository.delete(user);
     }
+
 
 }

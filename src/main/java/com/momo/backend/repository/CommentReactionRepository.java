@@ -31,4 +31,6 @@ public interface CommentReactionRepository
     // 특정 회원이 남긴 모든 댓글 반응 삭제
     void deleteByUser_UserId(Long userId);
 
+    // 특정 회원이 작성한 댓글에 달린 모든 반응 삭제
+    void deleteByComment_User_UserId(Long userId);
 }

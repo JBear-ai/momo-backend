@@ -8,6 +8,7 @@ import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
+import com.momo.backend.repository.CommentReactionRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +27,10 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
+
+    // 댓글 좋아요/싫어요 데이터 접근을 위한 참조
+    private final CommentReactionRepository commentReactionRepository;
+
 
     // 댓글 작성
     public CommentResponse createComment(
@@ -115,6 +120,9 @@ public class CommentService {
             throw new SecurityException(
                     "본인이 작성한 댓글만 삭제할 수 있습니다.");
         }
+
+        // 댓글에 남겨진 좋아요/싫어요 삭제
+        commentReactionRepository.deleteByComment_CommentId(commentId);
 
         // 댓글 삭제
         commentRepository.delete(comment);
