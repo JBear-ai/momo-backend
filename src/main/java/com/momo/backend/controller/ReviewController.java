@@ -8,6 +8,7 @@ import com.momo.backend.dto.review.ReviewUpdateRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
+@CrossOrigin(origins="http://localhost:3000")
+@Slf4j
 public class ReviewController {
 
     // 리뷰 관련 비즈니스 로직을 처리하는 Service

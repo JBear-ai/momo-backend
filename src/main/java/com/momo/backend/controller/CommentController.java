@@ -7,6 +7,7 @@ import com.momo.backend.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
+@CrossOrigin(origins="http://localhost:3000")
+@Slf4j
 public class CommentController {
 
     // 댓글 작성, 조회, 수정, 삭제 기능을 처리하는 Service

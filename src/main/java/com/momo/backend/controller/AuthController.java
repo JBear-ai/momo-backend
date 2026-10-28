@@ -29,7 +29,7 @@ import java.util.Collections;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:3000")
+@CrossOrigin(origins="http://localhost:3000")
 @Slf4j
 
 public class AuthController {

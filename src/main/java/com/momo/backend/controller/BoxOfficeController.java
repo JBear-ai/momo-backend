@@ -2,6 +2,7 @@ package com.momo.backend.controller;
 
 import com.momo.backend.service.MovieService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/boxoffice")
 @RequiredArgsConstructor
+@CrossOrigin(origins="http://localhost:3000")
+@Slf4j
 public class BoxOfficeController {
 
     private final MovieService movieService;

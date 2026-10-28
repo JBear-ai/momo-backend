@@ -4,6 +4,7 @@ import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.service.MovieService;
 import com.momo.backend.service.ReviewService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,8 @@ import com.momo.backend.dto.movie.MovieDetailResponse;
 @RestController
 @RequestMapping("/api/movies")
 @RequiredArgsConstructor
+@CrossOrigin(origins="http://localhost:3000")
+@Slf4j
 public class MovieController {
 
     private final ReviewService reviewService;
