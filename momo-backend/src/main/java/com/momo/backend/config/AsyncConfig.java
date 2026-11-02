@@ -12,28 +12,23 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class AsyncConfig {
 
-    // 포스터 조회 전용 비동기 실행 환경
     @Bean(name = "posterTaskExecutor")
     public Executor posterTaskExecutor() {
 
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
-        // 기본 작업 스레드 수
-        executor.setCorePoolSize(3);
+        // 동시에 처리할 포스터 검색 작업
+        executor.setCorePoolSize(8);
+        executor.setMaxPoolSize(8);
 
-        // 최대 작업 스레드 수
-        executor.setMaxPoolSize(3);
-
-        // 대기 가능한 작업 수
+        // 대기 작업
         executor.setQueueCapacity(100);
 
         // 스레드 이름
         executor.setThreadNamePrefix("poster-");
 
-        // 종료 시 진행 중인 작업 완료 대기
+        // 서버 종료 시 작업 완료 대기
         executor.setWaitForTasksToCompleteOnShutdown(true);
-
-        // 종료 대기 시간
         executor.setAwaitTerminationSeconds(30);
 
         executor.initialize();

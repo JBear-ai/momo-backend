@@ -22,12 +22,15 @@ public class TmdbService {
     private static final String IMAGE_BASE_URL =
             "https://image.tmdb.org/t/p/w500";
 
-    // 영화 포스터 검색
+    /**
+     * 영화 포스터 검색
+     */
     public String findMoviePosterUrl(
             String title,
             String releaseDate) {
 
         if (title == null || title.isBlank()) {
+            log.warn("TMDb 검색 실패 - 영화 제목이 비어 있습니다.");
             return null;
         }
 
@@ -36,9 +39,15 @@ public class TmdbService {
             String normalizedTitle = normalizeTitle(title);
             String normalizedDate = normalizeDate(releaseDate);
 
+            log.info(
+                    "TMDb API 요청 - 원본 제목: {}, 정규화 제목: {}, 개봉일: {}",
+                    title, normalizedTitle, normalizedDate
+            );
+
             String json = tmdbApiClient.searchMovie(title);
 
             if (json == null || json.isBlank()) {
+                log.warn("TMDb API 응답이 비어 있습니다. 제목: {}", title);
                 return null;
             }
 
@@ -46,45 +55,70 @@ public class TmdbService {
                     .path("results");
 
             if (!results.isArray() || results.isEmpty()) {
+                log.warn(
+                        "TMDb 검색 결과 없음 - 제목: {}, results: {}",
+                        title, results
+                );
                 return null;
             }
+
+            log.info(
+                    "TMDb 검색 후보 개수: {}",
+                    results.size()
+            );
 
             String fallbackPosterUrl = null;
 
             for (JsonNode result : results) {
 
-                String tmdbTitle = normalizeTitle(
-                        getText(result, "title")
-                );
+                String rawTitle = getText(result, "title");
+                String rawOriginalTitle = getText(result, "original_title");
+                String rawDate = getText(result, "release_date");
+                String rawPosterPath = getText(result, "poster_path");
 
-                String originalTitle = normalizeTitle(
-                        getText(result, "original_title")
+                String tmdbTitle = normalizeTitle(rawTitle);
+                String originalTitle = normalizeTitle(rawOriginalTitle);
+
+                log.info(
+                        "TMDb 후보 - 제목: [{}], 원제: [{}], " +
+                                "개봉일: [{}], 포스터 경로: [{}]",
+                        rawTitle,
+                        rawOriginalTitle,
+                        rawDate,
+                        rawPosterPath
                 );
 
                 // 제목이 일치하지 않으면 제외
                 if (!normalizedTitle.equals(tmdbTitle)
                         && !normalizedTitle.equals(originalTitle)) {
+
+                    log.info(
+                            "TMDb 제목 불일치 - 요청: [{}], 검색 제목: [{}], 원제: [{}]",
+                            normalizedTitle, tmdbTitle, originalTitle
+                    );
+
                     continue;
                 }
 
                 String posterUrl = extractPoster(result);
 
                 if (posterUrl == null) {
+                    log.info(
+                            "TMDb 제목 일치했으나 포스터 경로 없음 - 제목: {}",
+                            rawTitle
+                    );
                     continue;
                 }
 
-                String tmdbReleaseDate = normalizeDate(
-                        getText(result, "release_date")
-                );
+                String tmdbReleaseDate = normalizeDate(rawDate);
 
                 // 제목과 개봉일이 모두 일치하면 우선 반환
                 if (!normalizedDate.isBlank()
                         && normalizedDate.equals(tmdbReleaseDate)) {
 
                     log.info(
-                            "TMDB 영화 포스터 정확 매칭 - 제목: {}, 개봉일: {}",
-                            title,
-                            releaseDate
+                            "TMDb 영화 포스터 정확 매칭 성공 - 제목: {}, 개봉일: {}",
+                            rawTitle, rawDate
                     );
 
                     return posterUrl;
@@ -99,21 +133,24 @@ public class TmdbService {
             if (fallbackPosterUrl != null) {
 
                 log.info(
-                        "TMDB 영화 포스터 제목 매칭 - 개봉일 차이 - 제목: {}",
+                        "TMDb 영화 포스터 제목 매칭 성공 - 개봉일 차이 - 제목: {}",
                         title
                 );
 
                 return fallbackPosterUrl;
             }
 
-            log.info("TMDB 영화 포스터 검색 결과 없음 - 제목: {}", title);
+            log.warn(
+                    "TMDb 최종 검색 결과 없음 - 제목: {}, 개봉일: {}",
+                    title, releaseDate
+            );
 
             return null;
 
         } catch (Exception e) {
 
-            log.warn(
-                    "TMDB 영화 포스터 조회 실패 - 제목: {}",
+            log.error(
+                    "TMDb 포스터 조회 중 예외 발생 - 제목: {}",
                     title,
                     e
             );
@@ -122,7 +159,9 @@ public class TmdbService {
         }
     }
 
-    // TV 프로그램 포스터 검색
+    /**
+     * TV 프로그램 포스터 검색
+     */
     public String findTvPosterUrl(String title) {
 
         if (title == null || title.isBlank()) {
@@ -166,7 +205,7 @@ public class TmdbService {
                 if (posterUrl != null) {
 
                     log.info(
-                            "TMDB TV 포스터 검색 성공 - 제목: {}",
+                            "TMDb TV 포스터 검색 성공 - 제목: {}",
                             title
                     );
 
@@ -174,14 +213,14 @@ public class TmdbService {
                 }
             }
 
-            log.info("TMDB TV 포스터 검색 결과 없음 - 제목: {}", title);
+            log.info("TMDb TV 포스터 검색 결과 없음 - 제목: {}", title);
 
             return null;
 
         } catch (Exception e) {
 
             log.warn(
-                    "TMDB TV 포스터 조회 실패 - 제목: {}",
+                    "TMDb TV 포스터 조회 실패 - 제목: {}",
                     title,
                     e
             );
@@ -190,7 +229,9 @@ public class TmdbService {
         }
     }
 
-    // TMDB 포스터 주소 생성
+    /**
+     * TMDb 포스터 주소 생성
+     */
     private String extractPoster(JsonNode result) {
 
         String posterPath = getText(result, "poster_path");
@@ -202,7 +243,9 @@ public class TmdbService {
         return IMAGE_BASE_URL + posterPath;
     }
 
-    // JSON 문자열 안전하게 가져오기
+    /**
+     * JSON 문자열 안전하게 가져오기
+     */
     private String getText(JsonNode node, String fieldName) {
 
         JsonNode value = node.path(fieldName);
@@ -214,7 +257,9 @@ public class TmdbService {
         return value.asText("").trim();
     }
 
-    // 개봉일 정규화
+    /**
+     * 개봉일 정규화
+     */
     private String normalizeDate(String date) {
 
         if (date == null || date.isBlank()) {
@@ -224,7 +269,9 @@ public class TmdbService {
         return date.replaceAll("[^0-9]", "");
     }
 
-    // 제목 정규화
+    /**
+     * 제목 정규화
+     */
     private String normalizeTitle(String title) {
 
         if (title == null) {

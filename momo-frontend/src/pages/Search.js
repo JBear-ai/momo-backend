@@ -285,24 +285,6 @@ function Search() {
   }, []);
 
   // ==========================================
-  // 포스터 상태에 따른 정렬
-  // 포스터 성공 → 조회 중 → 포스터 없음
-  // ==========================================
-
-  const sortedMovies = [...movies].sort((a, b) => {
-    const order = {
-      success: 0,
-      loading: 1,
-      failed: 2,
-    };
-
-    const statusA = posterStatuses[a.movieCode] || "loading";
-    const statusB = posterStatuses[b.movieCode] || "loading";
-
-    return order[statusA] - order[statusB];
-  });
-
-  // ==========================================
   // 영화 검색 API
   // ==========================================
 
@@ -644,7 +626,7 @@ function Search() {
       ) : (
         <>
           <MovieGrid>
-            {sortedMovies.map((movie, index) => (
+            {movies.map((movie, index) => (
               <MovieItem
                 key={movie.movieCode}
                 movie={movie}

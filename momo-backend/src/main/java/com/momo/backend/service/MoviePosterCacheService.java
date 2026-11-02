@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -22,18 +23,12 @@ public class MoviePosterCacheService {
 
     private final MoviePosterCacheRepository posterCacheRepository;
 
-    // =========================================================
-    // 1. 영화 포스터 캐시 단건 조회
-    // =========================================================
-
+    // 포스터 캐시 단건 조회
     public Optional<MoviePosterCache> findCache(String movieCode) {
         return posterCacheRepository.findById(movieCode);
     }
 
-    // =========================================================
-    // 2. 영화 포스터 캐시 생성
-    // =========================================================
-
+    // 포스터 캐시 생성
     @Transactional
     public synchronized MoviePosterCache createCache(
             String movieCode,
@@ -57,10 +52,7 @@ public class MoviePosterCacheService {
         return posterCacheRepository.save(newCache);
     }
 
-    // =========================================================
-    // 3. 포스터 조회 작업 시작
-    // =========================================================
-
+    // 포스터 검색 작업 시작
     @Transactional
     public synchronized boolean tryMarkAsProcessing(String movieCode) {
 
@@ -72,20 +64,36 @@ public class MoviePosterCacheService {
             return false;
         }
 
-        // PENDING 상태인 경우에만 작업 시작
-        if (cache.getStatus() != PosterStatus.PENDING) {
+        PosterStatus status = cache.getStatus();
+
+        // 처음 검색하는 영화
+        boolean isPending = status == PosterStatus.PENDING;
+
+        // 이전 검색에 실패한 영화
+        boolean isFailed = status == PosterStatus.FAILED;
+
+        // 서버 종료 등으로 10분 이상 처리 중인 영화
+        boolean isStaleProcessing =
+                status == PosterStatus.PROCESSING
+                        && (
+                        cache.getUpdatedAt() == null
+                                || cache.getUpdatedAt().isBefore(
+                                LocalDateTime.now().minusMinutes(10)
+                        )
+                );
+
+        // 재검색 대상이 아니면 작업하지 않음
+        if (!isPending && !isFailed && !isStaleProcessing) {
             return false;
         }
 
+        // 처리 상태로 변경
         cache.markAsProcessing();
 
         return true;
     }
 
-    // =========================================================
-    // 4. 포스터 조회 진행 상태 변경
-    // =========================================================
-
+    // 포스터 조회 진행 상태 변경
     @Transactional
     public synchronized void markAsProcessing(String movieCode) {
 
@@ -93,10 +101,7 @@ public class MoviePosterCacheService {
                 .ifPresent(MoviePosterCache::markAsProcessing);
     }
 
-    // =========================================================
-    // 5. 포스터 조회 성공 및 주소 저장
-    // =========================================================
-
+    // 포스터 조회 성공 및 주소 저장
     @Transactional
     public void updatePoster(String movieCode, String posterUrl) {
 
@@ -104,10 +109,7 @@ public class MoviePosterCacheService {
                 .ifPresent(cache -> cache.updatePoster(posterUrl));
     }
 
-    // =========================================================
-    // 6. 포스터 조회 실패 처리
-    // =========================================================
-
+    // 포스터 조회 실패 처리
     @Transactional
     public void markAsFailed(String movieCode) {
 
@@ -115,10 +117,7 @@ public class MoviePosterCacheService {
                 .ifPresent(MoviePosterCache::markAsFailed);
     }
 
-    // =========================================================
-    // 7. 영화 포스터 상태 일괄 조회
-    // =========================================================
-
+    // 여러 영화의 포스터 상태 일괄 조회
     public List<MoviePosterStatusResponse> findPosterStatuses(
             Collection<String> movieCodes
     ) {
@@ -140,10 +139,7 @@ public class MoviePosterCacheService {
                 .toList();
     }
 
-    // =========================================================
-    // 8. 영화 포스터 상태 단건 조회
-    // =========================================================
-
+    // 영화 포스터 상태 단건 조회
     public Optional<MoviePosterStatusResponse> findPosterStatus(
             String movieCode
     ) {
