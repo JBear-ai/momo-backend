@@ -47,7 +47,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/signup",
                                 "/api/auth/login").permitAll()
-
+                        // 아이디 중복 확인은 로그인 없이 접근 허용 (11/02 추가)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/auth/exists/id/**").permitAll()
                         // 로그아웃은 로그인한 사용자만 요청 가능
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/logout").authenticated()

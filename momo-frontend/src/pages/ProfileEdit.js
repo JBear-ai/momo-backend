@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../App.css";
+import AxiosApi from "../api/AxiosApi";
 
 function ProfileEdit() {
   const navigate = useNavigate();
@@ -20,25 +21,28 @@ function ProfileEdit() {
     setEmail(localStorage.getItem("email") || "");
   }, []);
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
+    //
     event.preventDefault();
 
+    // 닉네임 입력 확인
     if (!nickname.trim()) {
       alert("닉네임을 입력해 주세요.");
       return;
     }
 
-    // 비밀번호 변경 필드 중 하나라도 입력된 경우에만 비밀번호 검사 및 변경 진행
-    if (currentPassword || newPassword || confirmPassword) {
-      const savedPassword = localStorage.getItem("password") || "1234"; // 임시 기본 비번
+    // 이메일 입력 확인
+    if (!email.trim()) {
+      alert("이메일을 입력해 주세요.");
+      return;
+    }
 
+    // 비밀번호 변경 여부 확인
+    const changePassword = currentPassword || newPassword || confirmPassword;
+
+    if (changePassword) {
       if (!currentPassword) {
         alert("현재 비밀번호를 입력해 주세요.");
-        return;
-      }
-
-      if (currentPassword !== savedPassword) {
-        alert("현재 비밀번호가 일치하지 않습니다.");
         return;
       }
 
@@ -47,8 +51,14 @@ function ProfileEdit() {
         return;
       }
 
-      if (newPassword.length < 6) {
-        alert("비밀번호는 6자 이상으로 설정해 주세요.");
+      // 백엔드 비밀번호 규칙과 동일하게 검사
+      const passwordRegex =
+        /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,20}$/;
+
+      if (!passwordRegex.test(newPassword)) {
+        alert(
+          "비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자로 입력해 주세요.",
+        );
         return;
       }
 
@@ -56,17 +66,33 @@ function ProfileEdit() {
         alert("새 비밀번호가 일치하지 않습니다.");
         return;
       }
-
-      // 새 비밀번호 저장
-      localStorage.setItem("password", newPassword);
     }
 
-    // 닉네임과 이메일 저장
-    localStorage.setItem("nickname", nickname.trim());
-    localStorage.setItem("email", email.trim());
+    try {
+      // Spring Boot 회원정보 수정 API 호출
+      await AxiosApi.memberUpdate({
+        nickname: nickname.trim(),
+        email: email.trim(),
+        currentPassword: changePassword ? currentPassword : null,
+        newPassword: changePassword ? newPassword : null,
+      });
 
-    alert("프로필 정보가 수정되었습니다.");
-    navigate("/profile");
+      // API 요청 성공 후 화면 표시용 정보 갱신
+      localStorage.setItem("nickname", nickname.trim());
+      localStorage.setItem("email", email.trim());
+
+      alert("프로필 정보가 수정되었습니다.");
+      navigate("/profile");
+    } catch (error) {
+      console.error("회원정보 수정 실패:", error);
+
+      alert(
+        error.response?.data?.message ||
+          (typeof error.response?.data === "string"
+            ? error.response.data
+            : "회원정보 수정 중 오류가 발생했습니다."),
+      );
+    }
   };
 
   return (

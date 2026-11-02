@@ -12,6 +12,7 @@ import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.CommentReactionRepository;
 import java.util.List;
 
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -107,22 +108,54 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
     }
 
-    // 현재 로그인한 회원의 닉네임과 이메일 수정
+    // 현재 로그인한 회원의 정보 수정
     public UserResponse updateMyInfo(String loginId, UserUpdateRequest dto) {
 
-        // 로그인 아이디로 현재 회원 정보 조회
+        // 로그인한 회원 조회
         User user = getLoginUser(loginId);
 
-        // 닉네임을 변경할 경우 다른 회원과 중복되는지 확인
+        // 닉네임 중복 확인
         if (!user.getNickname().equals(dto.nickname())
                 && userRepository.existsByNickname(dto.nickname())) {
             throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
         }
 
-        // 입력받은 닉네임과 이메일로 회원 정보 수정
+        // 비밀번호 변경 요청 여부 확인
+        boolean changePassword =
+                (dto.currentPassword() != null && !dto.currentPassword().isEmpty())
+                        || (dto.newPassword() != null && !dto.newPassword().isEmpty());
+
+        if (changePassword) {
+
+            // 현재 비밀번호 입력 확인
+            if (dto.currentPassword() == null || dto.currentPassword().isBlank()) {
+                throw new IllegalArgumentException("현재 비밀번호를 입력해 주세요.");
+            }
+
+            // 현재 비밀번호 일치 여부 확인
+            if (!passwordEncoder.matches(dto.currentPassword(), user.getPasswordHash())) {
+                throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+            }
+
+            // 새 비밀번호 입력 확인
+            if (dto.newPassword() == null || dto.newPassword().isBlank()) {
+                throw new IllegalArgumentException("새 비밀번호를 입력해 주세요.");
+            }
+
+            // 새 비밀번호 형식 검사 (영문, 숫자, 특수문자 포함 8~20자)
+            if (!dto.newPassword().matches(
+                    "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*])[A-Za-z\\d!@#$%^&*]{8,20}$")) {
+                throw new IllegalArgumentException(
+                        "비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자로 입력해 주세요.");
+            }
+
+            // 새 비밀번호 암호화 후 변경
+            user.updatePassword(passwordEncoder.encode(dto.newPassword()));
+        }
+
+        // 닉네임과 이메일 수정
         user.updateProfile(dto.nickname(), dto.email());
 
-        // 수정된 회원 정보를 응답 DTO로 변환
         return new UserResponse(user);
     }
 
@@ -150,10 +183,15 @@ public class AuthService {
     }
 
     // 회원 탈퇴 시 작성한 댓글과 리뷰, 좋아요/싫어요를 모두 삭제
-    public void deleteMyAccount(String loginId) {
+    public void deleteMyAccount(String loginId, String password) {
 
         // 현재 로그인한 회원 조회
         User user = getLoginUser(loginId);
+
+        // 현재 비밀번호 검증 (추가 / 11.02)
+        if(!passwordEncoder.matches(password, user.getPasswordHash())){
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
         Long userId = user.getUserId();
 
         // 탈퇴 회원이 남긴 댓글 좋아요/싫어요 삭제

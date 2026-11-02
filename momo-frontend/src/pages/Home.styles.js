@@ -1,27 +1,30 @@
 import styled from "styled-components";
 
-/* 전체 홈 화면 */
+/* 전체 홈 화면: 포근하고 깨끗한 다이어리 미색 배경 */
 export const HomePage = styled.div`
   width: 100%;
-  color: #292720;
+  background-color: #f8f6f0;
+  color: #2d2a26;
   padding-bottom: 80px;
 `;
 
-/* 메인 추천 영역 */
+/* 메인 추천 영역: 배경과 부드럽게 이어지는 고급 메모지 카드 톤 */
 export const FeatureSection = styled.section`
   display: grid;
   grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
   min-height: 440px;
   align-items: stretch;
-  margin-bottom: 100px;
-  background: #eeeadf;
+  margin-bottom: 80px;
+  background: #ffffff;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 16px;
+  border: 1px solid #e6e1d6;
+  box-shadow: 0 12px 32px -8px rgba(50, 44, 32, 0.05);
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
     min-height: auto;
-    margin-bottom: 64px;
+    margin-bottom: 54px;
   }
 `;
 
@@ -40,27 +43,29 @@ export const FeatureInfo = styled.div`
 /* 상단 작은 문구 */
 export const Eyebrow = styled.span`
   display: block;
-  margin-bottom: 22px;
-  color: #927b37;
+  margin-bottom: 18px;
+  color: #a37e1c; /* 차분하고 고급스러운 빈티지 골드 */
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 `;
 
 /* 메인 제목 */
 export const FeatureTitle = styled.h1`
   margin: 0;
-  font-size: clamp(34px, 4vw, 58px);
-  line-height: 1.15;
-  letter-spacing: -0.065em;
-  font-weight: 700;
+  font-size: clamp(34px, 4vw, 54px);
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  color: #1f1d1a;
   word-break: keep-all;
 `;
 
 /* 메인 설명 */
 export const FeatureDescription = styled.p`
-  margin: 22px 0 0;
-  color: #777164;
+  margin: 20px 0 0;
+  color: #736e63;
   font-size: 15px;
   line-height: 1.8;
   word-break: keep-all;
@@ -74,7 +79,7 @@ export const FeatureVisual = styled.div`
   min-width: 0;
   min-height: 440px;
   overflow: hidden;
-  background: #d8d2c5;
+  background: #efece4;
 
   /* 추천작 컴포넌트 전체 */
   .recommend-banner {
@@ -84,7 +89,7 @@ export const FeatureVisual = styled.div`
     height: 100%;
     min-height: 100%;
     overflow: hidden;
-    border-radius: 5px;
+    border-radius: 0;
   }
 
   /* 영화 포스터 */
@@ -107,9 +112,9 @@ export const FeatureVisual = styled.div`
     z-index: 1;
     background: linear-gradient(
       90deg,
-      rgb(0 0 0 / 72%) 0%,
-      rgb(0 0 0 / 35%) 55%,
-      rgb(0 0 0 / 8%) 100%
+      rgba(15, 14, 12, 0.88) 0%,
+      rgba(15, 14, 12, 0.55) 55%,
+      rgba(15, 14, 12, 0.15) 100%
     );
   }
 
@@ -123,48 +128,53 @@ export const FeatureVisual = styled.div`
     color: #fff;
   }
 
-  /* 추천작 레이블 */
+  /* 오늘의 추천작 레이블 - 쨍한 노랑을 빼고 차분한 크림 옐로우로 고정 */
   .recommend-label {
     display: inline-block;
-    margin-bottom: 3px;
-    padding: 7px 12px;
-    border-radius: 3px;
-    background: #f0d66e;
-    color: #292720;
-    font-size: 13px;
-    font-weight: 700;
+    margin-bottom: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #f3e9c8;
+    color: #4a3800;
+    border: 1px solid #e5d7b5;
+    font-size: 12px;
+    font-weight: 800;
     letter-spacing: 0.02em;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 
   .recommend-title {
     margin: 0;
-    font-size: clamp(28px, 3.5vw, 44px);
-    font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.05em;
+    font-size: clamp(26px, 3.2vw, 40px);
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
     word-break: keep-all;
   }
 
   .recommend-info {
-    margin: 8px 0 1px;
-    color: rgb(255 255 255 / 80%);
+    margin: 8px 0 14px;
+    color: rgba(255, 255, 255, 0.8);
     font-size: 14px;
   }
 
+  /* 오늘의 추천작 버튼 - 쨍한 노랑을 빼고 차분한 크림 옐로우로 고정 */
   .recommend-button {
-    padding: 10px 18px;
-    border: 1px solid rgb(255 255 255 / 65%);
-    background: transparent;
-    color: #fff;
+    padding: 11px 20px;
+    border: 1px solid #e5d7b5;
+    background: #f3e9c8;
+    color: #4a3800;
     font-size: 13px;
+    font-weight: 800;
+    border-radius: 8px;
     cursor: pointer;
-    transition: 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
   }
 
   .recommend-button:hover {
-    border-color: #f0d66e;
-    background: #f0d66e;
-    color: #292720;
+    filter: brightness(0.95);
+    transform: translateY(-1px);
   }
 
   /* 로딩 및 오류 화면 */
@@ -177,9 +187,10 @@ export const FeatureVisual = styled.div`
     justify-content: center;
     width: 100%;
     height: 100%;
-    background: #e9e4d9;
-    color: #777164;
+    background: #faf8f2;
+    color: #736e63;
     font-size: 14px;
+    font-weight: 600;
   }
 
   /* 포스터 확대 효과 */
@@ -199,17 +210,17 @@ export const FeatureVisual = styled.div`
     }
 
     .recommend-title {
-      font-size: 30px;
+      font-size: 26px;
     }
   }
 `;
 
 /* 공통 섹션 */
 export const Section = styled.section`
-  margin-bottom: 104px;
+  margin-bottom: 90px;
 
   @media (max-width: 768px) {
-    margin-bottom: 68px;
+    margin-bottom: 60px;
   }
 `;
 
@@ -219,25 +230,26 @@ export const SectionHeading = styled.div`
   justify-content: space-between;
   align-items: end;
   gap: 20px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 
   h2 {
     margin: 0;
-    font-size: clamp(24px, 3vw, 34px);
-    letter-spacing: -0.055em;
-    font-weight: 700;
+    font-size: clamp(22px, 2.8vw, 30px);
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    color: #1f1d1a;
   }
 
   p {
-    margin: 8px 0 0;
-    color: #898477;
+    margin: 6px 0 0;
+    color: #736e63;
     font-size: 13px;
   }
 `;
 
 /* 섹션 우측 설명 */
 export const MoreText = styled.span`
-  color: #777164;
+  color: #8c8578;
   font-size: 13px;
   white-space: nowrap;
 `;
@@ -277,7 +289,7 @@ export const MovieCard = styled.button`
   }
 
   &:focus-visible {
-    outline: 2px solid #a78b35;
+    outline: 2px solid #a37e1c;
     outline-offset: 5px;
   }
 `;
@@ -288,7 +300,10 @@ export const PosterWrap = styled.div`
   width: 100%;
   aspect-ratio: 2 / 2.85;
   overflow: hidden;
-  background: #e9e4d9;
+  background: #efece4;
+  border-radius: 10px;
+  border: 1px solid #e2dcce;
+  box-shadow: 0 4px 12px rgba(50, 44, 32, 0.04);
 
   img {
     width: 100%;
@@ -304,32 +319,32 @@ export const Rank = styled.span`
   position: absolute;
   left: 12px;
   bottom: 8px;
-  color: #fff;
-  font-size: 30px;
+  color: #ffffff;
+  font-size: 32px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 900;
   font-style: italic;
-  text-shadow: 0 2px 8px rgb(0 0 0 / 45%);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
 `;
 
 /* 영화 제목 및 개봉일 */
 export const MovieInfo = styled.div`
-  padding-top: 13px;
+  padding-top: 12px;
 
   h3 {
     margin: 0;
     overflow: hidden;
-    color: #292720;
+    color: #1f1d1a;
     font-size: 15px;
-    font-weight: 650;
-    letter-spacing: -0.035em;
+    font-weight: 750;
+    letter-spacing: -0.02em;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   p {
-    margin: 7px 0 0;
-    color: #898477;
+    margin: 6px 0 0;
+    color: #736e63;
     font-size: 12px;
   }
 `;
@@ -341,20 +356,22 @@ export const GenreList = styled.div`
   gap: 10px;
 
   button {
-    padding: 13px 22px;
-    border: 1px solid #ded8ca;
+    padding: 11px 20px;
+    border: 1px solid #e2dcce;
     border-radius: 999px;
-    background: transparent;
-    color: #5f594e;
+    background: #ffffff;
+    color: #4a453c;
     font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    transition: 0.2s ease;
+    box-shadow: 0 2px 5px rgba(50, 44, 32, 0.02);
+    transition: all 0.2s ease;
   }
 
   button:hover {
-    border-color: #b69a46;
-    background: #f0d66e;
-    color: #403719;
+    border-color: #a37e1c;
+    background: #ffd43b;
+    color: #4a3800;
   }
 `;
 
@@ -364,27 +381,22 @@ export const BrandLine = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 30px 0;
-  border-top: 1px solid #ded8ca;
-  border-bottom: 1px solid #ded8ca;
+  padding: 36px 0;
+  border-top: 1px solid #e2dcce;
+  border-bottom: 1px solid #e2dcce;
 
   h2 {
     margin: 0;
-    font-size: clamp(20px, 3vw, 28px);
-    letter-spacing: -0.055em;
-    font-weight: 600;
+    font-size: clamp(20px, 3vw, 26px);
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    color: #1f1d1a;
   }
 
   p {
-    margin: 8px 0 0;
-    color: #898477;
+    margin: 6px 0 0;
+    color: #736e63;
     font-size: 13px;
-  }
-
-  strong {
-    color: #a78b35;
-    font-size: 22px;
-    letter-spacing: -0.06em;
   }
 
   @media (max-width: 600px) {
@@ -400,6 +412,7 @@ export const EmptyPoster = styled.div`
   height: 100%;
   align-items: center;
   justify-content: center;
-  color: #9b9486;
+  color: #8c8578;
   font-size: 12px;
+  font-weight: 600;
 `;

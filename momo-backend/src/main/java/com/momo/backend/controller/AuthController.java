@@ -6,6 +6,7 @@ import com.momo.backend.service.AuthService;
 import com.momo.backend.dto.auth.LoginRequest;
 import com.momo.backend.entity.User;
 import com.momo.backend.dto.auth.UserUpdateRequest;
+import com.momo.backend.dto.auth.UserDeleteRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -118,23 +119,21 @@ public class AuthController {
     // 현재 로그인한 회원 탈퇴 (탈퇴 시 리뷰 및 댓글 삭제)
     @DeleteMapping("/me")
     public ResponseEntity<String> deleteMyAccount(
-            Authentication authentication,
+            @Valid @RequestBody UserDeleteRequest dto,
+            Authentication auth,
             HttpServletRequest request) {
 
-        // 로그인한 회원의 계정 삭제
-        authService.deleteMyAccount(authentication.getName());
+        // 현재 비밀번호를 전달하여 회원 탈퇴 처리
+        authService.deleteMyAccount(auth.getName(), dto.password());
 
-        // 회원 탈퇴 후 세션 종료
+        // 탈퇴 성공 후 로그인 세션 종료
         HttpSession session = request.getSession(false);
-
         if (session != null) {
             session.invalidate();
         }
 
-        // 현재 요청의 인증 정보 제거
         SecurityContextHolder.clearContext();
 
-        // 회원 탈퇴 성공 메시지 반환
         return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
     }
 
@@ -164,4 +163,11 @@ public class AuthController {
 
         return ResponseEntity.ok(count);
     }
+    // 로그인 아이디 중복 확인
+    @GetMapping("/exists/id/{loginId}")
+    public ResponseEntity<Boolean> checkLoginId(@PathVariable String loginId) {
+        boolean exists = authService.isMember(loginId);
+        return ResponseEntity.ok(exists);
+    }
+
 }

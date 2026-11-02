@@ -13,20 +13,25 @@ const Container = styled.div`
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #fff8de;
-  color: #292929;
+  background-color: #f5f2eb;
+  color: #1c1a17;
+  letter-spacing: -0.01em;
 `;
 
 const Header = styled.header`
-  min-height: 72px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 76px;
   padding: 0 8%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
   background-color: #ffffff;
-  border-bottom: 1px solid #e8e5df;
+  border-bottom: 1px solid #e2dbd0;
   box-sizing: border-box;
+  box-shadow: 0 4px 20px -4px rgba(45, 38, 26, 0.03);
 `;
 
 const Logo = styled(Link)`
@@ -38,23 +43,25 @@ const Logo = styled(Link)`
 const LogoImage = styled.img`
   display: block;
   width: auto;
-  height: 40px;
+  height: 38px;
   object-fit: contain;
 `;
 
 const SearchForm = styled.form`
   display: flex;
   align-items: center;
-  background-color: #f7f4e9;
-  border: 1px solid #e8e5df;
+  background-color: #fffaec;
+  border: 1px solid #efe6d0;
   border-radius: 20px;
-  padding: 6px 14px;
-  width: 320px;
+  padding: 6px 16px;
+  width: 340px;
   max-width: 100%;
   box-sizing: border-box;
+  transition: all 0.2s ease;
 
   &:focus-within {
-    border-color: #292929; /* 포커스 시 테두리 진하게 */
+    border-color: #ffd43b;
+    box-shadow: 0 0 0 3px rgba(255, 212, 59, 0.2);
   }
 `;
 
@@ -64,10 +71,10 @@ const SearchInput = styled.input`
   background: transparent;
   outline: none;
   font-size: 14px;
-  color: #292929;
+  color: #1c1a17;
 
   &::placeholder {
-    color: #999999;
+    color: #948b7c;
   }
 `;
 
@@ -75,13 +82,14 @@ const SearchButton = styled.button`
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
-  color: #666666;
-  padding: 0;
-  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #594400;
+  padding: 2px 4px;
+  margin-left: 6px;
 
   &:hover {
-    color: #292929;
+    color: #1c1a17;
   }
 `;
 
@@ -93,64 +101,177 @@ const Navigation = styled.nav`
   gap: 24px;
 
   a {
-    color: #666666;
+    color: #787062;
     text-decoration: none;
     font-size: 14px;
+    font-weight: 600;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #1c1a17;
+    }
   }
 
   a.active {
-    color: #292929;
-    font-weight: 700;
+    color: #1c1a17;
+    font-weight: 800;
   }
 `;
 
 const UserArea = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   white-space: nowrap;
   font-size: 14px;
 `;
 
 const ActionButton = styled.button`
-  padding: 8px 12px;
-  border: 1px solid #e8e5df;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border: 1px solid #e2dbd0;
+  border-radius: 8px;
   background-color: #ffffff;
-  color: #292929;
+  color: #1c1a17;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
 
   &:hover {
-    background-color: #faf9f6;
+    background-color: #fffaec;
+    border-color: #ffd43b;
+    transform: translateY(-1px);
   }
 `;
 
 const Main = styled.main`
   flex: 1;
-  padding: 28px 8%;
+  padding: 40px 8%;
   width: 100%;
   box-sizing: border-box;
 `;
 
+/* ========================================
+   푸터 영역 (로고와 텍스트 가로 배치 구조)
+======================================== */
 const Footer = styled.footer`
-  padding: 28px 8%;
-  background-color: #292929;
-  color: #ffffff;
+  padding: 44px 8%;
+  background-color: #efe8da;
+  color: #595042;
+  border-top: 1px solid #e2dbd0;
+  box-sizing: border-box;
+  width: 100%;
+`;
+
+const FooterContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* 세로 중앙 정렬로 가로 배치에 최적화 */
+  gap: 40px;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #e2dbd0;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+  }
+`;
+
+const FooterLeft = styled.div`
+  display: flex;
+  align-items: center; /* 로고와 설명 텍스트를 나란히 가로로 배치 */
+  gap: 28px; /* 로고와 텍스트 사이 간격 */
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
 `;
 
 const FooterLogo = styled.img`
   display: block;
   width: auto;
-  height: 32px;
+  height: 28px;
   object-fit: contain;
-  margin-bottom: 12px;
+  flex-shrink: 0;
 `;
 
-const FooterText = styled.p`
+const FooterDesc = styled.p`
   margin: 0;
-  color: #c7c7c7;
+  color: #787062;
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.5;
+  max-width: 380px;
+  word-break: keep-all;
+  border-left: 1px solid #e2dbd0; /* 감성적인 구분선 추가 */
+  padding-left: 20px;
+
+  @media (max-width: 600px) {
+    border-left: none;
+    padding-left: 0;
+  }
+`;
+
+const FooterRight = styled.div`
+  display: flex;
+  gap: 48px;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    gap: 20px;
+  }
+`;
+
+const FooterColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  h4 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #1c1a17;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  span,
+  a {
+    color: #787062;
+    font-size: 13px;
+    text-decoration: none;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #1c1a17;
+    }
+  }
+`;
+
+const FooterBottom = styled.div`
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #948b7c;
+  box-sizing: border-box;
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
 `;
 
 function Layout() {
@@ -171,12 +292,12 @@ function Layout() {
     e.preventDefault();
     if (!keyword.trim()) return;
 
-    // 엔터나 검색 버튼을 누르면 검색 결과 페이지로 이동 (예: /search?keyword=사랑)
     navigate(`/search?keyword=${encodeURIComponent(keyword.trim())}`);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("username");
+    localStorage.removeItem("nickname");
     setNickname("");
     navigate("/login");
   };
@@ -218,11 +339,28 @@ function Layout() {
       </Main>
 
       <Footer>
-        <FooterLogo src={textlogo} alt="MOMO" />
-        <FooterText>영화에 대한 생각을 기록하는 공간, MOVIEMEMO.</FooterText>
-        <FooterText>
-          나만의 감상과 다른 사람의 시선을 함께 기록하세요.
-        </FooterText>
+        <FooterContainer>
+          <FooterLeft>
+            <FooterLogo src={textlogo} alt="MOMO" />
+            <FooterDesc>
+              영화를 메모하다, 메모지처럼 가볍게 남기는 나만의 영화 기록 공간
+              MOVIEMEMO.
+            </FooterDesc>
+          </FooterLeft>
+
+          <FooterRight>
+            <FooterColumn>
+              <h4>Service</h4>
+              <Link to="/">홈 오버뷰</Link>
+              <Link to="/profile">마이 페이지</Link>
+            </FooterColumn>
+          </FooterRight>
+        </FooterContainer>
+
+        <FooterBottom>
+          <p>© 2026 MOMO. All rights reserved.</p>
+          <p>Designed for Movie Lovers with Warm Analog 감성</p>
+        </FooterBottom>
       </Footer>
     </Container>
   );
