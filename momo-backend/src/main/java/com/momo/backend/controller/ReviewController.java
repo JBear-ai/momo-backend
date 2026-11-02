@@ -66,6 +66,26 @@ public class ReviewController {
         );
     }
 
+    // 특정 영화의 리뷰 목록 조회
+    @GetMapping("/movie/{movieCode}")
+    public ResponseEntity<Page<ReviewResponse>> getMovieReviews(
+            @PathVariable String movieCode,
+            @RequestParam(defaultValue = "0") int page) {
+
+        return ResponseEntity.ok(
+                reviewService.getMovieReviews(movieCode, page)
+        );
+    }
+
+    // 특정 영화의 좋아요/싫어요 통계 조회
+    @GetMapping("/movie/{movieCode}/rating")
+    public ResponseEntity<Map<String, Object>> getMovieRating(
+            @PathVariable String movieCode) {
+
+        return ResponseEntity.ok(
+                reviewService.getMovieRating(movieCode)
+        );
+    }
 
     // 로그인한 사용자의 리뷰 수정 요청
     @PutMapping("/{reviewId}")

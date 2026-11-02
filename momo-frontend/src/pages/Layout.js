@@ -153,8 +153,9 @@ const Main = styled.main`
 `;
 
 /* ========================================
-   푸터 영역 (로고와 텍스트 가로 배치 구조)
+   푸터 영역
 ======================================== */
+
 const Footer = styled.footer`
   padding: 44px 8%;
   background-color: #efe8da;
@@ -167,7 +168,7 @@ const Footer = styled.footer`
 const FooterContainer = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center; /* 세로 중앙 정렬로 가로 배치에 최적화 */
+  align-items: center;
   gap: 40px;
   width: 100%;
   max-width: 1320px;
@@ -185,8 +186,8 @@ const FooterContainer = styled.div`
 
 const FooterLeft = styled.div`
   display: flex;
-  align-items: center; /* 로고와 설명 텍스트를 나란히 가로로 배치 */
-  gap: 28px; /* 로고와 텍스트 사이 간격 */
+  align-items: center;
+  gap: 28px;
 
   @media (max-width: 600px) {
     flex-direction: column;
@@ -210,7 +211,7 @@ const FooterDesc = styled.p`
   line-height: 1.5;
   max-width: 380px;
   word-break: keep-all;
-  border-left: 1px solid #e2dbd0; /* 감성적인 구분선 추가 */
+  border-left: 1px solid #e2dbd0;
   padding-left: 20px;
 
   @media (max-width: 600px) {
@@ -277,28 +278,42 @@ const FooterBottom = styled.div`
 function Layout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
 
   const [nickname, setNickname] = useState(
     localStorage.getItem("nickname") || "",
   );
 
+  // URL의 검색어가 변경되면 헤더 검색창에도 반영
+  useEffect(() => {
+    setKeyword(searchParams.get("keyword") || "");
+  }, [searchParams]);
+
+  // 로그인 사용자 닉네임 확인
   useEffect(() => {
     const savedNickname = localStorage.getItem("nickname") || "";
     setNickname(savedNickname);
   }, []);
 
+  // 헤더 검색 실행
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (!keyword.trim()) return;
 
-    navigate(`/search?keyword=${encodeURIComponent(keyword.trim())}`);
+    const trimmedKeyword = keyword.trim();
+
+    if (!trimmedKeyword) return;
+
+    navigate(`/search?keyword=${encodeURIComponent(trimmedKeyword)}`);
   };
 
+  // 로그아웃
   const handleLogout = () => {
     localStorage.removeItem("username");
     localStorage.removeItem("nickname");
+
     setNickname("");
+
     navigate("/login");
   };
 
@@ -316,6 +331,7 @@ function Layout() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
           />
+
           <SearchButton type="submit">검색</SearchButton>
         </SearchForm>
 
@@ -323,11 +339,13 @@ function Layout() {
           {nickname ? (
             <UserArea>
               <NavLink to="/profile">{nickname}님</NavLink>
+
               <ActionButton onClick={handleLogout}>로그아웃</ActionButton>
             </UserArea>
           ) : (
             <UserArea>
               <NavLink to="/login">로그인</NavLink>
+
               <NavLink to="/signup">회원가입</NavLink>
             </UserArea>
           )}
@@ -342,6 +360,7 @@ function Layout() {
         <FooterContainer>
           <FooterLeft>
             <FooterLogo src={textlogo} alt="MOMO" />
+
             <FooterDesc>
               영화를 메모하다, 메모지처럼 가볍게 남기는 나만의 영화 기록 공간
               MOVIEMEMO.

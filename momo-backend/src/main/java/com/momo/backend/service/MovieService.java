@@ -1,4 +1,3 @@
-
 package com.momo.backend.service;
 
 import com.momo.backend.client.KobisApiClient;
@@ -6,6 +5,7 @@ import com.momo.backend.dto.movie.BoxOfficeResponse;
 import com.momo.backend.dto.movie.MovieDetailResponse;
 import com.momo.backend.dto.movie.MoviePosterResponse;
 import com.momo.backend.dto.movie.MovieSearchResponse;
+import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.entity.Movie;
 import com.momo.backend.repository.MovieRepository;
 
@@ -33,40 +33,69 @@ public class MovieService {
     private final MovieRepository movieRepository;
 
     // =========================================================
-    // 1. 영화 검색
+    // 1. 영화 검색 (페이지네이션)
     // =========================================================
 
-    public List<MovieSearchResponse> searchMovies(String keyword) {
+    public MovieSearchPageResponse searchMovies(
+            String keyword,
+            int page,
+            int size) {
 
-        String json = kobisApiClient.searchMovies(keyword);
+        if (keyword == null || keyword.isBlank()) {
+            throw new IllegalArgumentException("검색어를 입력해주세요.");
+        }
+
+        if (page < 1 || size < 1) {
+            throw new IllegalArgumentException("페이지와 검색 개수는 1 이상이어야 합니다.");
+        }
+
+        String json = kobisApiClient.searchMovies(
+                keyword.trim(),
+                page,
+                size
+        );
 
         List<MovieSearchResponse> movies = new ArrayList<>();
 
+        int totalCount = 0;
+
         try {
 
-            JsonNode movieList = objectMapper.readTree(json)
-                    .path("movieListResult")
-                    .path("movieList");
+            JsonNode root = objectMapper.readTree(json);
 
-            for (JsonNode movie : movieList) {
+            JsonNode movieListResult = root.path("movieListResult");
 
-                String director = "";
+            // 전체 검색 결과 수
+            totalCount = movieListResult
+                    .path("totCnt")
+                    .asInt(0);
 
-                JsonNode directors = movie.path("directors");
+            // 현재 페이지의 영화 목록
+            JsonNode movieList = movieListResult.path("movieList");
 
-                if (directors.isArray() && !directors.isEmpty()) {
-                    director = directors.get(0)
-                            .path("peopleNm")
-                            .asText("");
+            if (movieList.isArray()) {
+
+                for (JsonNode movie : movieList) {
+
+                    // 감독 정보
+                    String director = "";
+
+                    JsonNode directors = movie.path("directors");
+
+                    if (directors.isArray() && !directors.isEmpty()) {
+                        director = directors.get(0)
+                                .path("peopleNm")
+                                .asText("");
+                    }
+
+                    movies.add(new MovieSearchResponse(
+                            movie.path("movieCd").asText(""),
+                            movie.path("movieNm").asText(""),
+                            movie.path("openDt").asText(""),
+                            movie.path("genreAlt").asText(""),
+                            director
+                    ));
                 }
-
-                movies.add(new MovieSearchResponse(
-                        movie.path("movieCd").asText(""),
-                        movie.path("movieNm").asText(""),
-                        movie.path("openDt").asText(""),
-                        movie.path("genreAlt").asText(""),
-                        director
-                ));
             }
 
         } catch (Exception e) {
@@ -77,7 +106,16 @@ public class MovieService {
             );
         }
 
-        return movies;
+        // 다음 페이지 존재 여부
+        boolean hasNext = (long) page * size < totalCount;
+
+        return new MovieSearchPageResponse(
+                movies,
+                page,
+                size,
+                totalCount,
+                hasNext
+        );
     }
 
     // =========================================================
@@ -232,6 +270,7 @@ public class MovieService {
 
                 // 공통 KMDb 서비스로 포스터 검색
                 String posterUrl = kmdbService.findPosterUrl(
+                        movieCode,
                         title,
                         releaseDate
                 );
@@ -265,18 +304,18 @@ public class MovieService {
     public MoviePosterResponse getMoviePoster(String movieCode) {
 
         // 영화 상세정보 조회
-        // DB에 없으면 KOBIS API에서 조회하고 저장
         MovieDetailResponse movie = getMovieDetail(movieCode);
 
-        // 박스오피스와 동일한 공통 검색 메서드 사용
+        // 영화 코드, 제목, 개봉일을 전달하여 포스터 검색
         String posterUrl = kmdbService.findPosterUrl(
+                movieCode,
                 movie.title(),
                 movie.releaseDate()
         );
 
         return new MoviePosterResponse(
                 movieCode,
-                posterUrl
+                posterUrl == null ? "" : posterUrl
         );
     }
 }

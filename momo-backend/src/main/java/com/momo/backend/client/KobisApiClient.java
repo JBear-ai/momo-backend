@@ -23,13 +23,14 @@ public class KobisApiClient {
     }
 
     // 영화 검색 API 호출
-    public String searchMovies(String keyword) {
-
+    public String searchMovies(String keyword, int page, int size) {
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/movie/searchMovieList.json")
                         .queryParam("key", apiKey)
                         .queryParam("movieNm", keyword)
+                        .queryParam("curPage", page)
+                        .queryParam("itemPerPage", size)
                         .build())
                 .retrieve()
                 .body(String.class);

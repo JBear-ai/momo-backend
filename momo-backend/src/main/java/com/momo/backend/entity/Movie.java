@@ -30,6 +30,12 @@ public class Movie {
 
     private String watchGrade;   // 관람 등급
 
+    @Column(length = 1000)
+    private String posterUrl;
+    public void updatePosterUrl(String posterUrl) {
+        this.posterUrl = posterUrl;
+    }
+
     // KOBIS에서 가져온 영화 정보로 Movie 객체 생성
     public Movie(String movieCode, String title, String titleEn,
                  String releaseDate, String showTime, String genre,

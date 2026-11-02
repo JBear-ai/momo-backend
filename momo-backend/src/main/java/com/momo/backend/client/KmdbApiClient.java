@@ -24,9 +24,6 @@ public class KmdbApiClient {
 
     /**
      * 영화 제목으로 KMDb 영화 정보 검색
-     *
-     * 검색 결과를 최대 100개까지 가져온다.
-     * 실제 영화 일치 여부는 KmdbService에서 검증한다.
      */
     public String searchMovie(String title) {
 

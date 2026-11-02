@@ -54,10 +54,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/logout").authenticated()
 
-                        // 영화 검색과 상세정보, 박스오피스 조회는 로그인 없이 접근 가능
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/movies/**",
-                                "/api/boxoffice/**").permitAll()
+                                // 영화 검색과 상세정보, 박스오피스 조회는 로그인 없이 접근 가능
+                                .requestMatchers(HttpMethod.GET,
+                                        "/api/movies/**",
+                                        "/api/boxoffice/**").permitAll()
+
+                                // 영화별 리뷰 목록과 좋아요/싫어요 통계는 로그인 없이 조회 가능
+                                .requestMatchers(HttpMethod.GET,
+                                        "/api/reviews/movie/*",
+                                        "/api/reviews/movie/*/rating").permitAll()
 
                         // 위에서 허용한 API를 제외한 나머지는 로그인 필요
                         .anyRequest().authenticated()

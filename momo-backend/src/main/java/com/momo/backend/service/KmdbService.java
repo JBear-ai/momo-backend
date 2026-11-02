@@ -17,13 +17,93 @@ import tools.jackson.databind.ObjectMapper;
 public class KmdbService {
 
     private final KmdbApiClient kmdbApiClient;
+    private final TmdbService tmdbService;
     private final ObjectMapper objectMapper;
 
-    // =========================================================
-    // 영화 제목과 개봉일로 공통 포스터 검색
-    // =========================================================
+    /**
+     * 영화 코드, 제목, 개봉일로 포스터 검색
+     *
+     * 1. KMDb 검색
+     * 2. TMDB 검색
+     * 3. 모두 실패하면 null 반환
+     */
+    public String findPosterUrl(
+            String movieCode,
+            String title,
+            String releaseDate) {
 
-    public String findPosterUrl(String title, String releaseDate) {
+        if (title == null || title.isBlank()) {
+
+            log.info("포스터 검색 실패 - 영화 제목이 비어 있습니다.");
+
+            return null;
+        }
+
+        // 1. KMDb 검색
+        String kmdbPosterUrl = findKmdbPosterUrl(
+                title,
+                releaseDate
+        );
+
+        if (kmdbPosterUrl != null) {
+            return kmdbPosterUrl;
+        }
+
+        // 2. TMDB 검색
+        String tmdbPosterUrl = tmdbService.findMoviePosterUrl(
+                title,
+                releaseDate
+        );
+
+        if (tmdbPosterUrl != null) {
+
+            log.info(
+                    "TMDB 포스터 사용 - 영화 코드: {}, 제목: {}",
+                    movieCode,
+                    title
+            );
+
+            return tmdbPosterUrl;
+        }
+
+        // 3. 포스터 검색 실패
+        log.info(
+                "포스터 검색 결과 없음 - 영화 코드: {}, 제목: {}",
+                movieCode,
+                title
+        );
+
+        return null;
+    }
+
+    /**
+     * 기존 메서드 호환용
+     */
+    public String findPosterUrl(
+            String title,
+            String releaseDate) {
+
+        String kmdbPosterUrl = findKmdbPosterUrl(
+                title,
+                releaseDate
+        );
+
+        if (kmdbPosterUrl != null) {
+            return kmdbPosterUrl;
+        }
+
+        return tmdbService.findMoviePosterUrl(
+                title,
+                releaseDate
+        );
+    }
+
+    /**
+     * KMDb 포스터 검색
+     */
+    private String findKmdbPosterUrl(
+            String title,
+            String releaseDate) {
 
         if (title == null || title.isBlank()) {
             return null;
@@ -34,14 +114,12 @@ public class KmdbService {
             String normalizedTitle = normalizeTitle(title);
             String normalizedDate = normalizeDate(releaseDate);
 
-            // 1. KMDb API 검색
             String json = kmdbApiClient.searchMovie(title);
 
             if (json == null || json.isBlank()) {
                 return null;
             }
 
-            // 2. JSON 응답 파싱
             JsonNode dataList = objectMapper.readTree(json)
                     .path("Data");
 
@@ -51,7 +129,6 @@ public class KmdbService {
 
             String fallbackPosterUrl = null;
 
-            // 3. 모든 Data 검색
             for (JsonNode data : dataList) {
 
                 JsonNode results = data.path("Result");
@@ -60,7 +137,6 @@ public class KmdbService {
                     continue;
                 }
 
-                // 4. 모든 영화 검색
                 for (JsonNode result : results) {
 
                     String kmdbTitle = normalizeTitle(
@@ -71,24 +147,21 @@ public class KmdbService {
                             getText(result, "repRlsDate")
                     );
 
-                    // 5. 영화 제목 비교
-                    if (!normalizedTitle.equalsIgnoreCase(kmdbTitle)) {
+                    if (!normalizedTitle.equals(kmdbTitle)) {
                         continue;
                     }
 
-                    // 6. 포스터 주소 추출
                     String posterUrl = extractPoster(result);
 
                     if (posterUrl == null) {
                         continue;
                     }
 
-                    // 7. 개봉일이 정확하게 일치하는 결과 우선 반환
                     if (!normalizedDate.isBlank()
                             && normalizedDate.equals(kmdbReleaseDate)) {
 
                         log.info(
-                                "KMDb 포스터 검색 성공 - 제목: {}, 개봉일: {}",
+                                "KMDb 포스터 정확 매칭 - 제목: {}, 개봉일: {}",
                                 title,
                                 releaseDate
                         );
@@ -96,21 +169,16 @@ public class KmdbService {
                         return posterUrl;
                     }
 
-                    // 8. 개봉일 정보가 없는 경우에만 보조 후보로 저장
-                    if (fallbackPosterUrl == null
-                            && (normalizedDate.isBlank()
-                            || kmdbReleaseDate.isBlank())) {
-
+                    if (fallbackPosterUrl == null) {
                         fallbackPosterUrl = posterUrl;
                     }
                 }
             }
 
-            // 9. 정확한 개봉일 일치 결과가 없으면 보조 후보 반환
             if (fallbackPosterUrl != null) {
 
                 log.info(
-                        "KMDb 포스터 보조 매칭 성공 - 제목: {}, 개봉일: {}",
+                        "KMDb 포스터 제목 매칭 - 개봉일 차이 - 제목: {}, 개봉일: {}",
                         title,
                         releaseDate
                 );
@@ -118,18 +186,12 @@ public class KmdbService {
                 return fallbackPosterUrl;
             }
 
-            log.info(
-                    "KMDb 포스터 검색 결과 없음 - 제목: {}, 개봉일: {}",
-                    title,
-                    releaseDate
-            );
-
             return null;
 
         } catch (Exception e) {
 
             log.warn(
-                    "KMDb 포스터 조회 실패 - 영화 제목: {}, 개봉일: {}",
+                    "KMDb 포스터 조회 실패 - 제목: {}, 개봉일: {}",
                     title,
                     releaseDate,
                     e
@@ -139,10 +201,9 @@ public class KmdbService {
         }
     }
 
-    // =========================================================
-    // 포스터 URL 추출
-    // =========================================================
-
+    /**
+     * 포스터 URL 추출
+     */
     private String extractPoster(JsonNode result) {
 
         String posters = getText(result, "posters");
@@ -157,7 +218,9 @@ public class KmdbService {
 
             String trimmedUrl = url.trim();
 
-            if (!trimmedUrl.isBlank()) {
+            if (trimmedUrl.startsWith("https://")
+                    || trimmedUrl.startsWith("http://")) {
+
                 return trimmedUrl;
             }
         }
@@ -165,10 +228,9 @@ public class KmdbService {
         return null;
     }
 
-    // =========================================================
-    // JSON 문자열 안전하게 가져오기
-    // =========================================================
-
+    /**
+     * JSON 문자열 안전하게 가져오기
+     */
     private String getText(JsonNode node, String fieldName) {
 
         JsonNode value = node.path(fieldName);
@@ -180,10 +242,9 @@ public class KmdbService {
         return value.asText("").trim();
     }
 
-    // =========================================================
-    // 개봉일 형식 정리
-    // =========================================================
-
+    /**
+     * 개봉일 정규화
+     */
     private String normalizeDate(String date) {
 
         if (date == null || date.isBlank()) {
@@ -193,10 +254,9 @@ public class KmdbService {
         return date.replaceAll("[^0-9]", "");
     }
 
-    // =========================================================
-    // 영화 제목 비교용 문자열 정리
-    // =========================================================
-
+    /**
+     * 영화 제목 정규화
+     */
     private String normalizeTitle(String title) {
 
         if (title == null) {
@@ -207,6 +267,7 @@ public class KmdbService {
                 .replace("!HS", "")
                 .replace("!HE", "")
                 .replaceAll("\\s+", "")
-                .trim();
+                .replaceAll("[^\\p{L}\\p{N}]", "")
+                .toLowerCase();
     }
 }

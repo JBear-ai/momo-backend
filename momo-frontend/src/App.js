@@ -9,6 +9,7 @@ import Layout from "./pages/Layout";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import ProfileDelete from "./pages/ProfileDelete";
+import Search from "./pages/Search";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/movie/:id" element={<MovieDetail />} />{" "}
+          <Route path="/search" element={<Search />} />
           {/* 동적 라우트 */}
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/edit" element={<ProfileEdit />} />

@@ -1,6 +1,7 @@
 package com.momo.backend.controller;
 
 import com.momo.backend.dto.movie.MovieDetailResponse;
+import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.service.MovieService;
@@ -29,11 +30,13 @@ public class MovieController {
     // =========================================================
 
     @GetMapping("/search")
-    public ResponseEntity<List<MovieSearchResponse>> searchMovies(
-            @RequestParam String keyword) {
+    public ResponseEntity<MovieSearchPageResponse> searchMovies(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
         return ResponseEntity.ok(
-                movieService.searchMovies(keyword)
+                movieService.searchMovies(keyword, page, size)
         );
     }
 
