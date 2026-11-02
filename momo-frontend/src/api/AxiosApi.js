@@ -75,12 +75,24 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 7. 영화 포스터 조회
+  // 7. 영화 포스터 조회 (단건)
   // =========================================================
 
   moviePoster: async (movieCode, signal) => {
     return await axios.get(
       `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}/poster`,
+      { signal },
+    );
+  },
+
+  // =========================================================
+  // 8. 영화 포스터 상태 일괄 조회
+  // =========================================================
+
+  moviePosterStatuses: async (movieCodes, signal) => {
+    return await axios.post(
+      `${HM_DOMAIN}/api/movies/posters/status`,
+      movieCodes,
       { signal },
     );
   },

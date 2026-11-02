@@ -110,6 +110,9 @@ public class MovieService {
             );
         }
 
+        // 검색 결과 전체의 포스터 수집 작업 등록
+        enqueuePosterSearches(movies);
+
         boolean hasNext = (long) page * size < totalCount;
 
         return new MovieSearchPageResponse(
@@ -122,11 +125,66 @@ public class MovieService {
     }
 
     // =========================================================
-    // 2. 영화 상세정보 조회
+    // 2. 검색 및 장르별 영화의 포스터 비동기 등록
+    // =========================================================
+
+    private void enqueuePosterSearches(
+            List<MovieSearchResponse> movies) {
+
+        for (MovieSearchResponse movie : movies) {
+
+            String movieCode = movie.movieCode();
+            String title = movie.title();
+            String releaseDate = movie.releaseDate();
+
+            // 영화 코드나 제목이 없는 데이터는 제외
+            if (movieCode == null || movieCode.isBlank()
+                    || title == null || title.isBlank()) {
+                continue;
+            }
+
+            try {
+
+                // 검색 결과에 포함된 정보로 포스터 캐시 생성
+                posterCacheService.createCache(
+                        movieCode,
+                        title,
+                        releaseDate
+                );
+
+                // PENDING 상태인 경우에만 검색 작업 시작
+                boolean started = posterCacheService
+                        .tryMarkAsProcessing(movieCode);
+
+                if (!started) {
+                    continue;
+                }
+
+                // 백그라운드 포스터 검색 실행
+                posterAsyncService.searchPosterAsync(
+                        movieCode,
+                        title,
+                        releaseDate
+                );
+
+            } catch (Exception e) {
+
+                log.error(
+                        "포스터 검색 작업 등록 실패. movieCode: {}",
+                        movieCode,
+                        e
+                );
+            }
+        }
+    }
+
+    // =========================================================
+    // 3. 영화 상세정보 조회
     // =========================================================
 
     public MovieDetailResponse getMovieDetail(String movieCode) {
 
+        // DB에 저장된 영화 정보가 있는지 먼저 확인
         Movie savedMovie = movieRepository.findById(movieCode)
                 .orElse(null);
 
@@ -155,6 +213,7 @@ public class MovieService {
             );
         }
 
+        // DB에 영화 정보가 없을 때만 KOBIS API 호출
         String json = kobisApiClient.getMovieDetail(movieCode);
 
         try {
@@ -163,6 +222,7 @@ public class MovieService {
                     .path("movieInfoResult")
                     .path("movieInfo");
 
+            // 감독 정보
             String director = "";
 
             JsonNode directors = movie.path("directors");
@@ -173,6 +233,7 @@ public class MovieService {
                         .asText("");
             }
 
+            // 장르 정보
             String genre = StreamSupport.stream(
                             movie.path("genres").spliterator(),
                             false
@@ -182,6 +243,7 @@ public class MovieService {
                     .reduce((a, b) -> a + "," + b)
                     .orElse("");
 
+            // 출연 배우 목록
             List<String> actors = new ArrayList<>();
 
             for (JsonNode actor : movie.path("actors")) {
@@ -197,6 +259,7 @@ public class MovieService {
                 }
             }
 
+            // 관람등급
             String watchGrade = "";
 
             JsonNode audits = movie.path("audits");
@@ -207,6 +270,7 @@ public class MovieService {
                         .asText("");
             }
 
+            // KOBIS 영화 정보 DB 저장
             Movie newMovie = new Movie(
                     movie.path("movieCd").asText(""),
                     movie.path("movieNm").asText(""),
@@ -243,7 +307,7 @@ public class MovieService {
     }
 
     // =========================================================
-    // 3. 일별 박스오피스 조회
+    // 4. 일별 박스오피스 조회
     // =========================================================
 
     public List<BoxOfficeResponse> getDailyBoxOffice(String targetDate) {
@@ -264,6 +328,7 @@ public class MovieService {
                 String title = movie.path("movieNm").asText("");
                 String releaseDate = movie.path("openDt").asText("");
 
+                // KMDb → TMDb 순서로 포스터 검색
                 String posterUrl = kmdbService.findPosterUrl(
                         movieCode,
                         title,
@@ -293,7 +358,106 @@ public class MovieService {
     }
 
     // =========================================================
-    // 4. 영화 코드로 포스터 조회 및 비동기 캐시 관리
+    // 5. 장르별 영화 목록 조회
+    // =========================================================
+
+    public List<MovieSearchResponse> getMoviesByGenre(
+            String genre,
+            int page) {
+
+        List<MovieSearchResponse> movies = new ArrayList<>();
+
+        // 페이지 번호와 장르 검증
+        if (page < 1 || genre == null || genre.isBlank()) {
+            throw new IllegalArgumentException(
+                    "장르와 페이지 번호를 확인해주세요."
+            );
+        }
+
+        // 페이지당 10개 영화
+        int skipCount = (page - 1) * 10;
+        int matchCount = 0;
+
+        // KOBIS 원본 영화 목록을 최대 10페이지까지 탐색
+        for (int currentPage = 1; currentPage <= 10; currentPage++) {
+
+            String json = kobisApiClient.searchMoviesByGenre(currentPage);
+
+            try {
+
+                JsonNode movieList = objectMapper.readTree(json)
+                        .path("movieListResult")
+                        .path("movieList");
+
+                if (!movieList.isArray() || movieList.isEmpty()) {
+                    break;
+                }
+
+                for (JsonNode movie : movieList) {
+
+                    String movieGenre = movie.path("genreAlt").asText("");
+
+                    boolean matchesGenre = Arrays.stream(
+                                    movieGenre.split(",")
+                            )
+                            .map(String::trim)
+                            .anyMatch(name -> name.equals(genre.trim()));
+
+                    if (!matchesGenre) {
+                        continue;
+                    }
+
+                    // 이전 페이지에 해당하는 영화는 건너뛰기
+                    if (matchCount < skipCount) {
+                        matchCount++;
+                        continue;
+                    }
+
+                    String director = "";
+
+                    JsonNode directors = movie.path("directors");
+
+                    if (directors.isArray() && !directors.isEmpty()) {
+                        director = directors.get(0)
+                                .path("peopleNm")
+                                .asText("");
+                    }
+
+                    movies.add(new MovieSearchResponse(
+                            movie.path("movieCd").asText(""),
+                            movie.path("movieNm").asText(""),
+                            movie.path("openDt").asText(""),
+                            movieGenre,
+                            director
+                    ));
+
+                    // 요청한 10개를 모두 찾으면 종료
+                    if (movies.size() >= 10) {
+
+                        // 장르별 영화도 비동기 포스터 검색 등록
+                        enqueuePosterSearches(movies);
+
+                        return movies;
+                    }
+                }
+
+            } catch (Exception e) {
+
+                throw new IllegalStateException(
+                        "장르별 영화 목록을 처리하지 못했습니다.",
+                        e
+                );
+            }
+        }
+
+        // 10개 미만이어도 조회된 영화의 포스터 등록
+        enqueuePosterSearches(movies);
+
+        return movies;
+    }
+
+    // =========================================================
+    // 6. 영화 코드로 포스터 조회 및 비동기 캐시 관리
     // =========================================================
 
     public MoviePosterResponse getMoviePoster(String movieCode) {
@@ -330,15 +494,19 @@ public class MovieService {
                 movie.releaseDate()
         );
 
-        // 5. 포스터 조회 상태 변경
-        posterCacheService.markAsProcessing(movieCode);
+        // 5. PENDING 상태인 경우에만 검색 작업 시작
+        boolean started = posterCacheService
+                .tryMarkAsProcessing(movieCode);
 
-        // 6. 백그라운드 포스터 검색 실행
-        posterAsyncService.searchPosterAsync(
-                movieCode,
-                movie.title(),
-                movie.releaseDate()
-        );
+        if (started) {
+
+            // 6. 백그라운드 포스터 검색 실행
+            posterAsyncService.searchPosterAsync(
+                    movieCode,
+                    movie.title(),
+                    movie.releaseDate()
+            );
+        }
 
         // 7. 포스터 검색 완료를 기다리지 않고 즉시 반환
         return new MoviePosterResponse(movieCode, "");

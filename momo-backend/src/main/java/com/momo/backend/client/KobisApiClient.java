@@ -1,3 +1,4 @@
+
 package com.momo.backend.client;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -22,8 +23,15 @@ public class KobisApiClient {
         this.apiKey = apiKey;
     }
 
-    // 영화 검색 API 호출
+    // 영화 검색 API 호출 (기본 검색)
+    public String searchMovies(String keyword) {
+
+        return searchMovies(keyword, 1, 20);
+    }
+
+    // 영화 검색 API 호출 (페이지네이션)
     public String searchMovies(String keyword, int page, int size) {
+
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/movie/searchMovieList.json")
@@ -57,6 +65,20 @@ public class KobisApiClient {
                         .path("/boxoffice/searchDailyBoxOfficeList.json")
                         .queryParam("key", apiKey)
                         .queryParam("targetDt", targetDate)
+                        .build())
+                .retrieve()
+                .body(String.class);
+    }
+
+    // 장르별 영화 목록 검색 API 호출
+    public String searchMoviesByGenre(int page) {
+
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/movie/searchMovieList.json")
+                        .queryParam("key", apiKey)
+                        .queryParam("curPage", page)
+                        .queryParam("itemPerPage", 100)
                         .build())
                 .retrieve()
                 .body(String.class);

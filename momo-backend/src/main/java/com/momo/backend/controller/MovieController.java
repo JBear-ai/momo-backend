@@ -1,3 +1,4 @@
+
 package com.momo.backend.controller;
 
 import com.momo.backend.dto.movie.MovieDetailResponse;
@@ -26,7 +27,7 @@ public class MovieController {
     private final MovieService movieService;
 
     // =========================================================
-    // 1. 영화 제목 검색
+    // 1. 영화 제목 검색 (페이지네이션)
     // =========================================================
 
     @GetMapping("/search")
@@ -64,6 +65,20 @@ public class MovieController {
 
         return ResponseEntity.ok(
                 movieService.getMovieDetail(movieCode)
+        );
+    }
+
+    // =========================================================
+    // 4. 장르별 영화 목록 조회
+    // =========================================================
+
+    @GetMapping("/genre")
+    public ResponseEntity<List<MovieSearchResponse>> getMoviesByGenre(
+            @RequestParam String genre,
+            @RequestParam(defaultValue = "1") int page) {
+
+        return ResponseEntity.ok(
+                movieService.getMoviesByGenre(genre, page)
         );
     }
 }
