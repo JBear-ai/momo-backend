@@ -1,3 +1,4 @@
+
 package com.momo.backend.service;
 
 import com.momo.backend.client.KobisApiClient;
@@ -7,6 +8,8 @@ import com.momo.backend.dto.movie.MoviePosterResponse;
 import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.entity.Movie;
+import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MovieRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,10 +30,12 @@ import java.util.stream.StreamSupport;
 @Slf4j
 public class MovieService {
 
+    private final MoviePosterAsyncService posterAsyncService;
     private final KobisApiClient kobisApiClient;
     private final KmdbService kmdbService;
     private final ObjectMapper objectMapper;
     private final MovieRepository movieRepository;
+    private final MoviePosterCacheService posterCacheService;
 
     // =========================================================
     // 1. 영화 검색 (페이지네이션)
@@ -46,7 +51,9 @@ public class MovieService {
         }
 
         if (page < 1 || size < 1) {
-            throw new IllegalArgumentException("페이지와 검색 개수는 1 이상이어야 합니다.");
+            throw new IllegalArgumentException(
+                    "페이지와 검색 개수는 1 이상이어야 합니다."
+            );
         }
 
         String json = kobisApiClient.searchMovies(
@@ -65,19 +72,16 @@ public class MovieService {
 
             JsonNode movieListResult = root.path("movieListResult");
 
-            // 전체 검색 결과 수
             totalCount = movieListResult
                     .path("totCnt")
                     .asInt(0);
 
-            // 현재 페이지의 영화 목록
             JsonNode movieList = movieListResult.path("movieList");
 
             if (movieList.isArray()) {
 
                 for (JsonNode movie : movieList) {
 
-                    // 감독 정보
                     String director = "";
 
                     JsonNode directors = movie.path("directors");
@@ -106,7 +110,6 @@ public class MovieService {
             );
         }
 
-        // 다음 페이지 존재 여부
         boolean hasNext = (long) page * size < totalCount;
 
         return new MovieSearchPageResponse(
@@ -124,7 +127,6 @@ public class MovieService {
 
     public MovieDetailResponse getMovieDetail(String movieCode) {
 
-        // DB에 저장된 영화 정보가 있는지 먼저 확인
         Movie savedMovie = movieRepository.findById(movieCode)
                 .orElse(null);
 
@@ -153,7 +155,6 @@ public class MovieService {
             );
         }
 
-        // DB에 영화 정보가 없을 때만 KOBIS API 호출
         String json = kobisApiClient.getMovieDetail(movieCode);
 
         try {
@@ -162,7 +163,6 @@ public class MovieService {
                     .path("movieInfoResult")
                     .path("movieInfo");
 
-            // 감독 정보
             String director = "";
 
             JsonNode directors = movie.path("directors");
@@ -173,7 +173,6 @@ public class MovieService {
                         .asText("");
             }
 
-            // 장르 정보
             String genre = StreamSupport.stream(
                             movie.path("genres").spliterator(),
                             false
@@ -183,7 +182,6 @@ public class MovieService {
                     .reduce((a, b) -> a + "," + b)
                     .orElse("");
 
-            // 출연 배우 목록
             List<String> actors = new ArrayList<>();
 
             for (JsonNode actor : movie.path("actors")) {
@@ -199,7 +197,6 @@ public class MovieService {
                 }
             }
 
-            // 관람등급
             String watchGrade = "";
 
             JsonNode audits = movie.path("audits");
@@ -210,7 +207,6 @@ public class MovieService {
                         .asText("");
             }
 
-            // KOBIS 영화 정보 DB 저장
             Movie newMovie = new Movie(
                     movie.path("movieCd").asText(""),
                     movie.path("movieNm").asText(""),
@@ -268,7 +264,6 @@ public class MovieService {
                 String title = movie.path("movieNm").asText("");
                 String releaseDate = movie.path("openDt").asText("");
 
-                // 공통 KMDb 서비스로 포스터 검색
                 String posterUrl = kmdbService.findPosterUrl(
                         movieCode,
                         title,
@@ -298,24 +293,54 @@ public class MovieService {
     }
 
     // =========================================================
-    // 4. 영화 코드로 포스터 조회
+    // 4. 영화 코드로 포스터 조회 및 비동기 캐시 관리
     // =========================================================
 
     public MoviePosterResponse getMoviePoster(String movieCode) {
 
-        // 영화 상세정보 조회
+        // 1. 기존 포스터 캐시 조회
+        MoviePosterCache savedCache = posterCacheService
+                .findCache(movieCode)
+                .orElse(null);
+
+        // 2. 이미 조회에 성공한 포스터라면 캐시 주소 반환
+        if (savedCache != null) {
+
+            if (savedCache.getStatus() == PosterStatus.SUCCESS) {
+
+                return new MoviePosterResponse(
+                        movieCode,
+                        savedCache.getPosterUrl() == null
+                                ? ""
+                                : savedCache.getPosterUrl()
+                );
+            }
+
+            // 이미 조회 중이거나 실패한 경우 빈 주소 반환
+            return new MoviePosterResponse(movieCode, "");
+        }
+
+        // 3. 캐시가 없다면 영화 상세정보 조회
         MovieDetailResponse movie = getMovieDetail(movieCode);
 
-        // 영화 코드, 제목, 개봉일을 전달하여 포스터 검색
-        String posterUrl = kmdbService.findPosterUrl(
+        // 4. 포스터 캐시 생성
+        posterCacheService.createCache(
                 movieCode,
                 movie.title(),
                 movie.releaseDate()
         );
 
-        return new MoviePosterResponse(
+        // 5. 포스터 조회 상태 변경
+        posterCacheService.markAsProcessing(movieCode);
+
+        // 6. 백그라운드 포스터 검색 실행
+        posterAsyncService.searchPosterAsync(
                 movieCode,
-                posterUrl == null ? "" : posterUrl
+                movie.title(),
+                movie.releaseDate()
         );
+
+        // 7. 포스터 검색 완료를 기다리지 않고 즉시 반환
+        return new MoviePosterResponse(movieCode, "");
     }
 }
