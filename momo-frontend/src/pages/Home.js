@@ -1,10 +1,31 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../App.css";
+import TodayRecommend from "../components/common/TodayRecommend";
 
-const API_URL = "http://localhost:8111/api/boxoffice/daily";
+import {
+  HomePage,
+  FeatureSection,
+  FeatureInfo,
+  Eyebrow,
+  FeatureTitle,
+  FeatureDescription,
+  FeatureVisual,
+  Section,
+  SectionHeading,
+  MoreText,
+  MovieGrid,
+  MovieCard,
+  PosterWrap,
+  Rank,
+  MovieInfo,
+  GenreList,
+  BrandLine,
+  EmptyPoster,
+} from "./Home.styles";
 
-function getYesterdayDate() {
+const h = React.createElement;
+
+const getYesterdayDate = () => {
   const date = new Date();
   date.setDate(date.getDate() - 1);
 
@@ -13,50 +34,20 @@ function getYesterdayDate() {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}${month}${day}`;
-}
+};
 
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString("ko-KR");
-}
-
-function getMovieCode(movie) {
-  return movie.movieCode || movie.movieCd || movie.id || "";
-}
-
-function normalizeMovie(movie, index) {
-  return {
-    id: getMovieCode(movie) || `movie-${index}`,
-    title: movie.title || movie.movieNm || "제목 없음",
-    rank: Number(
-      movie.rank || movie.rankNo || movie.boxOfficeRank || index + 1,
-    ),
-    audience: Number(
-      movie.audienceCount || movie.audience || movie.audiCnt || 0,
-    ),
-    totalAudience: Number(movie.totalAudience || movie.audiAcc || 0),
-    releaseDate: movie.releaseDate || movie.openDate || "",
-    posterUrl: movie.posterUrl || "",
-    directors: movie.directors || movie.director || [],
-    cast: movie.cast || movie.actors || movie.actorList || [],
-  };
-}
-
-function Home() {
+const Home = () => {
   const navigate = useNavigate();
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-
-  const [likes, setLikes] = useState({});
 
   useEffect(() => {
     const targetDate = getYesterdayDate();
 
-    fetch(`${API_URL}?targetDate=${targetDate}`)
+    fetch("http://localhost:8111/api/boxoffice/daily?targetDate=" + targetDate)
       .then((response) => {
         if (!response.ok) {
-          throw new Error("영화 정보를 불러오지 못했습니다.");
+          throw new Error("박스오피스 조회 실패");
         }
         return response.json();
       })
@@ -65,146 +56,162 @@ function Home() {
           ? data
           : data.movies || data.dailyBoxOfficeList || data.boxOfficeList || [];
 
-        const formattedMovies = list
-          .map(normalizeMovie)
-          .sort((a, b) => a.rank - b.rank)
-          .slice(0, 10);
+        const normalized = list.map((movie, index) => ({
+          movieCode: movie.movieCode || movie.movieCd || movie.id,
+          title: movie.title || movie.movieNm || movie.movieName,
+          releaseDate: movie.releaseDate || movie.openDt || "",
+          posterUrl:
+            movie.posterUrl ||
+            movie.posterPath ||
+            movie.poster ||
+            movie.imageUrl,
+          rank: movie.rank || index + 1,
+        }));
 
-        setMovies(formattedMovies);
-        setError("");
+        setMovies(normalized);
       })
-      .catch((err) => {
-        console.error("영화 데이터 오류:", err);
-        setError(
-          "영화 정보를 불러오지 못했습니다. 백엔드 서버를 확인해 주세요.",
-        );
+      .catch((error) => {
+        console.error(error);
+        setMovies([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const filteredMovies = useMemo(() => {
-    return movies.filter((movie) =>
-      movie.title.toLowerCase().includes(search.toLowerCase()),
-    );
-  }, [movies, search]);
+  const goToMovie = (movieCode) => {
+    if (!movieCode) return;
+    navigate("/movie/" + movieCode);
+  };
 
-  // 영화를 누르면 주소창을 /movie/:id 로 이동시킵니다.
-  function openMovie(movie) {
-    navigate(`/movie/${movie.id}`, { state: { movie } });
-  }
+  const genres = [
+    "드라마",
+    "액션",
+    "코미디",
+    "스릴러",
+    "로맨스",
+    "공포",
+    "애니메이션",
+    "다큐멘터리",
+  ];
 
-  function toggleLike(movieId) {
-    setLikes((prev) => ({
-      ...prev,
-      [movieId]: !prev[movieId],
-    }));
-  }
+  return h(
+    HomePage,
+    null,
 
-  return (
-    <main className="home-page">
-      <section className="hero-banner">
-        <div>
-          <span className="hero-label">MOMO MOVIE</span>
-          <h1>오늘의 영화, 오늘의 리뷰</h1>
-          <p>영화를 보고 느낀 생각을 자유롭게 나눠보세요.</p>
-        </div>
-      </section>
+    h(
+      FeatureSection,
+      null,
+      h(
+        FeatureInfo,
+        null,
+        h(Eyebrow, null, "MOMO · 오늘의 영화"),
+        h(FeatureTitle, null, "오늘은 어떤 영화를"),
+        h(FeatureTitle, null, "기억하고 싶나요?"),
+        h(
+          FeatureDescription,
+          null,
+          "영화를 보고 떠오른 생각을 기록하고,",
+          h("br"),
+          "다른 사람의 감상도 함께 살펴보세요.",
+        ),
+      ),
+      h(FeatureVisual, null, h(TodayRecommend)),
+    ),
 
-      <section className="section-block" id="movies">
-        <div className="section-heading">
-          <div>
-            <span className="section-subtitle">BOX OFFICE</span>
-            <h2>일일 박스오피스 TOP 10</h2>
-          </div>
-        </div>
+    h(
+      Section,
+      null,
+      h(
+        SectionHeading,
+        null,
+        h(
+          "div",
+          null,
+          h("h2", null, "오늘의 박스오피스"),
+          h("p", null, "가장 많은 관객이 선택한 영화"),
+        ),
+        h(MoreText, null, "일일 관객 순위"),
+      ),
 
-        <input
-          className="movie-search-input"
-          type="text"
-          placeholder="영화 제목 검색..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      loading
+        ? h("p", null, "영화 정보를 불러오는 중입니다.")
+        : movies.length === 0
+          ? h("p", null, "현재 표시할 영화가 없습니다.")
+          : h(
+              MovieGrid,
+              null,
+              movies.slice(0, 10).map((movie, index) =>
+                h(
+                  MovieCard,
+                  {
+                    key: movie.movieCode || index,
+                    onClick: () => goToMovie(movie.movieCode),
+                  },
+                  h(
+                    PosterWrap,
+                    null,
+                    movie.posterUrl
+                      ? h("img", {
+                          src: movie.posterUrl,
+                          alt: movie.title,
+                        })
+                      : h(EmptyPoster, null, "포스터 준비 중"),
+                    h(Rank, null, movie.rank),
+                  ),
+                  h(
+                    MovieInfo,
+                    null,
+                    h("h3", null, movie.title),
+                    h("p", null, movie.releaseDate || "개봉일 정보 없음"),
+                  ),
+                ),
+              ),
+            ),
+    ),
 
-        {loading ? (
-          <p className="movie-message">영화 정보를 불러오는 중입니다...</p>
-        ) : error ? (
-          <p className="movie-message error-message">{error}</p>
-        ) : filteredMovies.length === 0 ? (
-          <p className="movie-message">검색 결과가 없습니다.</p>
-        ) : (
-          <div className="movie-grid">
-            {filteredMovies.map((movie) => (
-              <article className="movie-card" key={movie.id}>
-                <div className="poster-frame">
-                  <span className="poster-rank">{movie.rank}</span>
+    h(
+      Section,
+      null,
+      h(
+        SectionHeading,
+        null,
+        h(
+          "div",
+          null,
+          h("h2", null, "장르로 영화 찾기"),
+          h("p", null, "지금 끌리는 분위기를 선택해 보세요."),
+        ),
+      ),
+      h(
+        GenreList,
+        null,
+        genres.map((genre) =>
+          h(
+            "button",
+            {
+              key: genre,
+              type: "button",
+              onClick: () =>
+                navigate("/movie?genre=" + encodeURIComponent(genre)),
+            },
+            genre,
+          ),
+        ),
+      ),
+    ),
 
-                  {movie.posterUrl ? (
-                    <img
-                      src={movie.posterUrl}
-                      alt={movie.title}
-                      className="movie-poster-image"
-                    />
-                  ) : (
-                    <div className="poster-placeholder">
-                      <span>🎬</span>
-                      <p>{movie.title}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="movie-card-content">
-                  <h3>{movie.title}</h3>
-
-                  <p className="movie-release-date">
-                    개봉일: {movie.releaseDate || "정보 없음"}
-                  </p>
-
-                  <div className="movie-audience-info">
-                    <p>
-                      오늘 관객수{" "}
-                      <strong>{formatNumber(movie.audience)}</strong>
-                    </p>
-                    <p>
-                      누적 관객수{" "}
-                      <strong>{formatNumber(movie.totalAudience)}</strong>
-                    </p>
-                  </div>
-
-                  <button
-                    className="movie-review-button"
-                    onClick={() => openMovie(movie)}
-                  >
-                    리뷰 작성 →
-                  </button>
-
-                  <button
-                    className="movie-like-button"
-                    onClick={() => toggleLike(movie.id)}
-                  >
-                    {likes[movie.id] ? "♥ 좋아요" : "♡ 좋아요"}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="section-block">
-        <div className="section-heading">
-          <div>
-            <span className="section-subtitle">COMMUNITY</span>
-            <h2>최근 작성된 리뷰</h2>
-          </div>
-        </div>
-
-        <p className="movie-message">
-          아직 작성된 리뷰가 없습니다. 첫 리뷰를 작성해 보세요!
-        </p>
-      </section>
-    </main>
+    h(
+      BrandLine,
+      null,
+      h(
+        "div",
+        null,
+        h("h2", null, "영화는 끝나도, 감상은 남습니다."),
+        h("p", null, "당신의 영화 기록을 MOMO에 남겨보세요."),
+      ),
+    ),
   );
-}
+};
 
 export default Home;
