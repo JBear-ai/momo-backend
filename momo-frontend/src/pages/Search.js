@@ -82,13 +82,14 @@ const MovieCard = styled.button`
   text-align: left;
   cursor: pointer;
 
-  animation: appear 0.35s ease both;
+  animation: appear 0.3s ease both;
 
   @keyframes appear {
     from {
       opacity: 0;
-      transform: translateY(12px);
+      transform: translateY(8px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -120,16 +121,6 @@ const Poster = styled.div`
     display: block;
     transition: transform 0.35s ease;
   }
-`;
-
-const EmptyPoster = styled.div`
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #948b7c;
-  font-size: 12px;
 `;
 
 const MovieInfo = styled.div`
@@ -190,38 +181,23 @@ const ScrollSentinel = styled.div`
 // 영화 카드
 // ==========================================
 
-function MovieItem({
-  movie,
-  index,
-  posterUrl,
-  posterStatus,
-  onClick,
-  onPosterStatusChange,
-}) {
-  // 이미지 로딩 실패
-  const handleImageError = () => {
-    onPosterStatusChange(movie.movieCode, "failed");
-  };
-
+function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
   return (
     <MovieCard
       type="button"
-      style={{ animationDelay: `${(index % 20) * 30}ms` }}
+      style={{
+        animationDelay: `${(index % 20) * 20}ms`,
+      }}
       onClick={() => onClick(movie.movieCode)}
       aria-label={`${movie.title} 상세 페이지`}
     >
       <Poster>
-        {posterUrl && posterStatus !== "failed" ? (
-          <img
-            src={posterUrl}
-            alt={`${movie.title} 포스터`}
-            onError={handleImageError}
-          />
-        ) : (
-          <EmptyPoster>
-            {posterStatus === "failed" ? "포스터 없음" : "포스터 준비 중"}
-          </EmptyPoster>
-        )}
+        <img
+          src={posterUrl}
+          alt={`${movie.title} 포스터`}
+          loading="lazy"
+          onError={() => onImageError(movie.movieCode)}
+        />
       </Poster>
 
       <MovieInfo>
@@ -243,162 +219,207 @@ function Search() {
 
   const keyword = searchParams.get("keyword") || "";
 
+  // KOBIS에서 받아온 전체 영화 후보
   const [movies, setMovies] = useState([]);
+
+  // 포스터가 확인된 영화만 저장하는 화면 목록
+  const [visibleMovies, setVisibleMovies] = useState([]);
+
+  // 영화별 포스터 상태
   const [posterStatuses, setPosterStatuses] = useState({});
+
+  // 영화별 포스터 주소
   const [posterUrls, setPosterUrls] = useState({});
+
   const [initialLoading, setInitialLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
   const [hasNext, setHasNext] = useState(false);
   const [error, setError] = useState("");
 
+  // ==========================================
+  // 중복 요청 및 검색 상태 관리
+  // ==========================================
+
   const keywordRef = useRef(keyword.trim());
+
   const pageRef = useRef(1);
   const hasNextRef = useRef(false);
+
   const activeControllerRef = useRef(null);
   const isFetchingRef = useRef(false);
+
+  const generationRef = useRef(0);
+
   const sentinelRef = useRef(null);
 
+  // React 상태의 최신 값을 비동기 작업에서 참조
+  const posterStatusesRef = useRef({});
+
   keywordRef.current = keyword.trim();
+  posterStatusesRef.current = posterStatuses;
 
   // ==========================================
-  // 포스터 상태 변경
+  // 포스터 이미지 로딩 실패 처리
   // ==========================================
 
-  const handlePosterStatusChange = useCallback((movieCode, status) => {
-    setPosterStatuses((prev) => {
-      if (prev[movieCode] === status) {
-        return prev;
-      }
+  const handlePosterImageError = useCallback((movieCode) => {
+    setPosterStatuses((prev) => ({
+      ...prev,
+      [movieCode]: "failed",
+    }));
 
-      return {
-        ...prev,
-        [movieCode]: status,
-      };
-    });
+    setPosterUrls((prev) => ({
+      ...prev,
+      [movieCode]: "",
+    }));
 
-    if (status === "failed") {
-      setPosterUrls((prev) => ({
-        ...prev,
-        [movieCode]: "",
-      }));
-    }
+    // 이미지가 실제로 로딩되지 않으면 화면에서도 제거
+    setVisibleMovies((prev) =>
+      prev.filter((movie) => movie.movieCode !== movieCode),
+    );
   }, []);
 
   // ==========================================
   // 영화 검색 API
   // ==========================================
 
-  const loadPage = useCallback(async (page) => {
-    const currentKeyword = keywordRef.current;
+  const loadPage = useCallback(
+    async (page, generation = generationRef.current) => {
+      const currentKeyword = keywordRef.current;
 
-    if (!currentKeyword || isFetchingRef.current) return;
+      if (!currentKeyword) return;
+      if (isFetchingRef.current) return;
+      if (generation !== generationRef.current) return;
 
-    isFetchingRef.current = true;
+      if (page > 1 && !hasNextRef.current) return;
 
-    const controller = new AbortController();
-    activeControllerRef.current = controller;
+      isFetchingRef.current = true;
 
-    if (page === 1) {
-      setInitialLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
+      const controller = new AbortController();
 
-    setError("");
+      activeControllerRef.current = controller;
 
-    try {
-      const response = await AxiosApi.movieSearch(
-        currentKeyword,
-        page,
-        20,
-        controller.signal,
-      );
-
-      if (controller.signal.aborted || keywordRef.current !== currentKeyword) {
-        return;
+      if (page === 1) {
+        setInitialLoading(true);
+      } else {
+        setLoadingMore(true);
       }
 
-      const data = response.data;
-      const newMovies = Array.isArray(data.content) ? data.content : [];
+      setError("");
 
-      setMovies((prevMovies) => {
-        if (page === 1) {
-          return newMovies;
+      try {
+        const response = await AxiosApi.movieSearch(
+          currentKeyword,
+          page,
+          20,
+          controller.signal,
+        );
+
+        if (
+          controller.signal.aborted ||
+          generation !== generationRef.current ||
+          keywordRef.current !== currentKeyword
+        ) {
+          return;
         }
 
-        const existingCodes = new Set(
-          prevMovies.map((movie) => movie.movieCode),
+        const data = response.data;
+
+        const newMovies = Array.isArray(data.content) ? data.content : [];
+
+        const validMovies = newMovies.filter(
+          (movie) => movie.movieCode && movie.title,
         );
 
-        const uniqueMovies = newMovies.filter(
-          (movie) => !existingCodes.has(movie.movieCode),
-        );
+        // 영화 후보 목록에 추가
+        setMovies((prevMovies) => {
+          const existingCodes = new Set(
+            prevMovies.map((movie) => movie.movieCode),
+          );
 
-        return [...prevMovies, ...uniqueMovies];
-      });
+          const uniqueMovies = validMovies.filter(
+            (movie) => !existingCodes.has(movie.movieCode),
+          );
 
-      // 새 영화의 포스터 상태 초기화
-      setPosterStatuses((prev) => {
-        const next = { ...prev };
-
-        newMovies.forEach((movie) => {
-          if (movie.movieCode && !next[movie.movieCode]) {
-            next[movie.movieCode] = "loading";
+          if (page === 1) {
+            return uniqueMovies;
           }
+
+          return [...prevMovies, ...uniqueMovies];
         });
 
-        return next;
-      });
+        // 새 영화의 포스터 상태 초기화
+        setPosterStatuses((prev) => {
+          const next = { ...prev };
 
-      setHasNext(data.hasNext === true);
-      hasNextRef.current = data.hasNext === true;
-      pageRef.current = page + 1;
-    } catch (err) {
-      if (
-        err.code !== "ERR_CANCELED" &&
-        err.name !== "CanceledError" &&
-        !controller.signal.aborted
-      ) {
-        console.error("영화 검색 실패:", err);
-        setError("영화 검색 중 오류가 발생했습니다.");
-      }
-    } finally {
-      if (activeControllerRef.current === controller) {
-        activeControllerRef.current = null;
-        isFetchingRef.current = false;
+          validMovies.forEach((movie) => {
+            if (!next[movie.movieCode]) {
+              next[movie.movieCode] = "loading";
+            }
+          });
 
-        setInitialLoading(false);
-        setLoadingMore(false);
+          return next;
+        });
+
+        setHasNext(data.hasNext === true);
+        hasNextRef.current = data.hasNext === true;
+
+        pageRef.current = page + 1;
+      } catch (err) {
+        if (
+          err.code !== "ERR_CANCELED" &&
+          err.name !== "CanceledError" &&
+          !controller.signal.aborted &&
+          generation === generationRef.current
+        ) {
+          console.error("영화 검색 실패:", err);
+          setError("영화 검색 중 오류가 발생했습니다.");
+        }
+      } finally {
+        if (activeControllerRef.current === controller) {
+          activeControllerRef.current = null;
+          isFetchingRef.current = false;
+
+          if (generation === generationRef.current) {
+            setInitialLoading(false);
+            setLoadingMore(false);
+          }
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
   // ==========================================
-  // 포스터 상태 일괄 조회 및 백그라운드 갱신
+  // 포스터 상태 조회
   // ==========================================
 
   useEffect(() => {
     if (movies.length === 0) return;
 
-    const movieCodes = movies
-      .map((movie) => movie.movieCode)
-      .filter((code) => code);
-
-    if (movieCodes.length === 0) return;
-
     let cancelled = false;
     let timerId = null;
-    let attempts = 0;
 
     const controller = new AbortController();
 
-    const MAX_ATTEMPTS = 24;
     const POLLING_INTERVAL = 2500;
 
     const checkPosterStatuses = async () => {
-      if (cancelled) return;
+      if (cancelled || controller.signal.aborted) return;
 
-      attempts += 1;
+      // 이미 성공 또는 실패한 영화는 다시 조회하지 않음
+      const pendingMovies = movies.filter((movie) => {
+        const status = posterStatusesRef.current[movie.movieCode];
+
+        return status !== "success" && status !== "failed";
+      });
+
+      const movieCodes = pendingMovies
+        .map((movie) => movie.movieCode)
+        .filter(Boolean);
+
+      if (movieCodes.length === 0) return;
 
       try {
         const response = await AxiosApi.moviePosterStatuses(
@@ -410,41 +431,51 @@ function Search() {
 
         const statuses = Array.isArray(response.data) ? response.data : [];
 
-        let hasPending = false;
+        const statusMap = new Map();
+
+        statuses.forEach((item) => {
+          if (item.movieCode) {
+            statusMap.set(item.movieCode, item);
+          }
+        });
 
         const nextStatuses = {};
         const nextUrls = {};
 
-        statuses.forEach((item) => {
-          const movieCode = item.movieCode;
+        const newlyVisibleMovies = [];
+
+        // 후보 영화 순서를 기준으로 처리
+        pendingMovies.forEach((movie) => {
+          const item = statusMap.get(movie.movieCode);
+
+          if (!item) {
+            nextStatuses[movie.movieCode] = "loading";
+            return;
+          }
+
           const status = item.status;
           const url = item.posterUrl?.trim() || "";
 
-          if (!movieCode) return;
-
-          // 포스터 URL 차단
           const blockedUrl = /cineq|cinestation/i.test(url);
 
           if (status === "SUCCESS" && url && !blockedUrl) {
-            nextStatuses[movieCode] = "success";
-            nextUrls[movieCode] = url;
-          } else if (status === "FAILED" || blockedUrl) {
-            nextStatuses[movieCode] = "failed";
-            nextUrls[movieCode] = "";
+            nextStatuses[movie.movieCode] = "success";
+            nextUrls[movie.movieCode] = url;
+
+            newlyVisibleMovies.push(movie);
+          } else if (
+            status === "FAILED" ||
+            blockedUrl ||
+            (status === "SUCCESS" && !url)
+          ) {
+            nextStatuses[movie.movieCode] = "failed";
+            nextUrls[movie.movieCode] = "";
           } else {
-            nextStatuses[movieCode] = "loading";
-            nextUrls[movieCode] = "";
-            hasPending = true;
+            nextStatuses[movie.movieCode] = "loading";
           }
         });
 
-        // 응답에 포함되지 않은 영화도 계속 대기
-        movieCodes.forEach((movieCode) => {
-          if (!nextStatuses[movieCode]) {
-            nextStatuses[movieCode] = "loading";
-            hasPending = true;
-          }
-        });
+        if (cancelled) return;
 
         setPosterStatuses((prev) => ({
           ...prev,
@@ -456,8 +487,30 @@ function Search() {
           ...nextUrls,
         }));
 
-        // 처리 중인 포스터가 있으면 일정 시간 후 재조회
-        if (hasPending && attempts < MAX_ATTEMPTS && !cancelled) {
+        // 성공한 영화만 기존 목록 뒤에 추가
+        // 이미 표시된 영화는 중복 추가하지 않음
+        if (newlyVisibleMovies.length > 0) {
+          setVisibleMovies((prev) => {
+            const existingCodes = new Set(prev.map((movie) => movie.movieCode));
+
+            const uniqueMovies = newlyVisibleMovies.filter(
+              (movie) => !existingCodes.has(movie.movieCode),
+            );
+
+            return [...prev, ...uniqueMovies];
+          });
+        }
+
+        // 아직 처리 중인 영화가 있으면 계속 조회
+        const hasPending = pendingMovies.some((movie) => {
+          const nextStatus =
+            nextStatuses[movie.movieCode] ||
+            posterStatusesRef.current[movie.movieCode];
+
+          return nextStatus !== "success" && nextStatus !== "failed";
+        });
+
+        if (hasPending && !cancelled) {
           timerId = setTimeout(checkPosterStatuses, POLLING_INTERVAL);
         }
       } catch (err) {
@@ -468,9 +521,8 @@ function Search() {
         ) {
           console.error("포스터 상태 조회 실패:", err);
 
-          if (attempts < MAX_ATTEMPTS) {
-            timerId = setTimeout(checkPosterStatuses, POLLING_INTERVAL);
-          }
+          // 일시적인 상태 조회 오류는 다음 주기에 다시 확인
+          timerId = setTimeout(checkPosterStatuses, POLLING_INTERVAL);
         }
       }
     };
@@ -494,18 +546,27 @@ function Search() {
   useEffect(() => {
     const trimmedKeyword = keyword.trim();
 
+    // 이전 검색 요청 무효화
+    generationRef.current += 1;
+
+    const currentGeneration = generationRef.current;
+
     if (activeControllerRef.current) {
       activeControllerRef.current.abort();
       activeControllerRef.current = null;
     }
 
     isFetchingRef.current = false;
+
     pageRef.current = 1;
     hasNextRef.current = false;
 
     setMovies([]);
+    setVisibleMovies([]);
+
     setPosterStatuses({});
     setPosterUrls({});
+
     setHasNext(false);
     setError("");
     setLoadingMore(false);
@@ -518,7 +579,7 @@ function Search() {
     setInitialLoading(true);
 
     const timer = setTimeout(() => {
-      loadPage(1);
+      loadPage(1, currentGeneration);
     }, 300);
 
     return () => {
@@ -534,34 +595,60 @@ function Search() {
   }, [keyword, loadPage]);
 
   // ==========================================
+  // 포스터 대기 영화 수
+  // ==========================================
+
+  const pendingCount = movies.filter((movie) => {
+    const status = posterStatuses[movie.movieCode];
+
+    return status !== "success" && status !== "failed";
+  }).length;
+
+  // ==========================================
   // 무한 스크롤
   // ==========================================
 
   useEffect(() => {
     const element = sentinelRef.current;
 
-    if (!element || !hasNext || initialLoading) return;
+    if (!element) return;
+    if (!hasNext || initialLoading) return;
     if (!("IntersectionObserver" in window)) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         const isVisible = entries.some((entry) => entry.isIntersecting);
 
-        if (isVisible && hasNextRef.current && !isFetchingRef.current) {
-          loadPage(pageRef.current);
-        }
+        if (!isVisible) return;
+        if (!hasNextRef.current) return;
+        if (isFetchingRef.current) return;
+
+        // 포스터 작업이 지나치게 쌓이지 않도록 대기 영화 수 제한
+        if (pendingCount > 8) return;
+
+        loadPage(pageRef.current);
       },
       {
         root: null,
-        rootMargin: "400px",
+        rootMargin: "700px 0px",
         threshold: 0,
       },
     );
 
     observer.observe(element);
 
-    return () => observer.disconnect();
-  }, [hasNext, initialLoading, loadingMore, movies.length, loadPage]);
+    return () => {
+      observer.disconnect();
+    };
+  }, [
+    hasNext,
+    initialLoading,
+    loadingMore,
+    pendingCount,
+    visibleMovies.length,
+    movies.length,
+    loadPage,
+  ]);
 
   // ==========================================
   // 검색어 입력
@@ -587,7 +674,9 @@ function Search() {
 
   const handleRetry = () => {
     if (!isFetchingRef.current) {
-      loadPage(pageRef.current);
+      const currentPage = movies.length === 0 ? 1 : pageRef.current;
+
+      loadPage(currentPage);
     }
   };
 
@@ -625,19 +714,24 @@ function Search() {
         <SearchMessage>검색 결과가 없습니다.</SearchMessage>
       ) : (
         <>
-          <MovieGrid>
-            {movies.map((movie, index) => (
-              <MovieItem
-                key={movie.movieCode}
-                movie={movie}
-                index={index}
-                posterUrl={posterUrls[movie.movieCode] || ""}
-                posterStatus={posterStatuses[movie.movieCode] || "loading"}
-                onClick={handleMovieClick}
-                onPosterStatusChange={handlePosterStatusChange}
-              />
-            ))}
-          </MovieGrid>
+          {visibleMovies.length > 0 ? (
+            <MovieGrid>
+              {visibleMovies.map((movie, index) => (
+                <MovieItem
+                  key={movie.movieCode}
+                  movie={movie}
+                  index={index}
+                  posterUrl={posterUrls[movie.movieCode] || ""}
+                  onClick={handleMovieClick}
+                  onImageError={handlePosterImageError}
+                />
+              ))}
+            </MovieGrid>
+          ) : (
+            <LoadingMessage>
+              포스터가 확인된 영화를 불러오고 있습니다.
+            </LoadingMessage>
+          )}
 
           <ScrollSentinel ref={sentinelRef} />
 
@@ -655,7 +749,16 @@ function Search() {
             </SearchMessage>
           )}
 
-          {!hasNext && !loadingMore && !error && (
+          {!hasNext &&
+            !loadingMore &&
+            pendingCount === 0 &&
+            visibleMovies.length === 0 && (
+              <SearchMessage>
+                표시할 수 있는 포스터가 있는 영화가 없습니다.
+              </SearchMessage>
+            )}
+
+          {!hasNext && !loadingMore && visibleMovies.length > 0 && (
             <LoadingMessage>모든 영화 목록을 불러왔습니다.</LoadingMessage>
           )}
         </>

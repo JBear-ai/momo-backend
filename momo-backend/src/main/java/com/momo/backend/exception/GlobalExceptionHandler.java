@@ -8,6 +8,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
 @RestControllerAdvice // 모든 Controller에서 발생하는 예외를 공통으로 처리
@@ -120,4 +121,15 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("VALIDATION_ERROR", message));
     }
 
+    // 7. 요청 파라미터 자료형 오류 처리
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException error) {
+
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse(
+                        "INVALID_PARAM_TYPE",
+                        error.getName() + " 파라미터의 자료형이 올바르지 않습니다."
+                ));
+    }
 }

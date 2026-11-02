@@ -56,8 +56,23 @@ public class MovieService {
             );
         }
 
+        // 검색어 앞뒤 공백 및 중복 공백 제거
+        String[] words = keyword.trim().split("\\s+");
+
+        List<String> keywords = new ArrayList<>();
+
+        // 중복 검색 단어 제거
+        for (String word : words) {
+            if (!keywords.contains(word)) {
+                keywords.add(word);
+            }
+        }
+
+        String searchKeyword = String.join(" ", keywords);
+
+        // 정리된 검색어로 KOBIS API 호출
         String json = kobisApiClient.searchMovies(
-                keyword.trim(),
+                searchKeyword,
                 page,
                 size
         );

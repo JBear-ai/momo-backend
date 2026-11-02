@@ -91,10 +91,29 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // 인증되지 않은 요청은 401 반환
+                // 인증 및 접근 권한 오류 처리
                 .exceptionHandling(exception -> exception
+
+                        // 401: 로그인하지 않은 사용자
                         .authenticationEntryPoint((request, response, authException) -> {
+
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                            response.setContentType("application/json;charset=UTF-8");
+
+                            response.getWriter().write(
+                                    "{\"code\":\"UNAUTHORIZED\",\"message\":\"로그인이 필요합니다.\"}"
+                            );
+                        })
+
+                        // 403: 로그인했지만 접근 권한이 없는 사용자
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+
+                            response.setStatus(HttpStatus.FORBIDDEN.value());
+                            response.setContentType("application/json;charset=UTF-8");
+
+                            response.getWriter().write(
+                                    "{\"code\":\"FORBIDDEN\",\"message\":\"접근 권한이 없습니다.\"}"
+                            );
                         })
                 );
 
@@ -108,9 +127,11 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(List.of("http://localhost:3000"));
+
         config.setAllowedMethods(
                 List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
         );
+
         config.setAllowedHeaders(List.of("*"));
 
         // 로그인 세션 쿠키를 포함한 요청 허용
