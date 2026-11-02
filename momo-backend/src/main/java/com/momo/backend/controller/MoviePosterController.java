@@ -2,8 +2,10 @@
 package com.momo.backend.controller;
 
 import com.momo.backend.dto.movie.MoviePosterResponse;
-import com.momo.backend.service.KmdbService;
+import com.momo.backend.service.MovieService;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class MoviePosterController {
 
-    private final KmdbService kmdbService;
+    private final MovieService movieService;
 
     // 영화 코드로 포스터 조회
     @GetMapping("/{movieCode}/poster")
@@ -20,7 +22,7 @@ public class MoviePosterController {
             @PathVariable String movieCode) {
 
         return ResponseEntity.ok(
-                kmdbService.getMoviePoster(movieCode)
+                movieService.getMoviePoster(movieCode)
         );
     }
 }

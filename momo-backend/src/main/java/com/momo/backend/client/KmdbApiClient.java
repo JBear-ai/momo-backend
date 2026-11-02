@@ -22,8 +22,17 @@ public class KmdbApiClient {
         this.apiKey = apiKey;
     }
 
-    // 영화 제목으로 KMDb 영화 정보 검색
+    /**
+     * 영화 제목으로 KMDb 영화 정보 검색
+     *
+     * 검색 결과를 최대 100개까지 가져온다.
+     * 실제 영화 일치 여부는 KmdbService에서 검증한다.
+     */
     public String searchMovie(String title) {
+
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
+        }
 
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -31,7 +40,8 @@ public class KmdbApiClient {
                         .queryParam("ServiceKey", apiKey)
                         .queryParam("collection", "kmdb_new2")
                         .queryParam("detail", "Y")
-                        .queryParam("query", title)
+                        .queryParam("listCount", 100)
+                        .queryParam("query", title.trim())
                         .build())
                 .retrieve()
                 .body(String.class);

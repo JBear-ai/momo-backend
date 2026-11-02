@@ -1,45 +1,49 @@
+
 package com.momo.backend.service;
 
 import com.momo.backend.client.KobisApiClient;
-import com.momo.backend.client.KmdbApiClient;
+import com.momo.backend.dto.movie.BoxOfficeResponse;
+import com.momo.backend.dto.movie.MovieDetailResponse;
+import com.momo.backend.dto.movie.MoviePosterResponse;
+import com.momo.backend.dto.movie.MovieSearchResponse;
+import com.momo.backend.entity.Movie;
+import com.momo.backend.repository.MovieRepository;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import com.momo.backend.dto.movie.MovieSearchResponse;
+
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Arrays;
-import com.momo.backend.dto.movie.MovieDetailResponse;
+import java.util.List;
 import java.util.stream.StreamSupport;
-import com.momo.backend.dto.movie.BoxOfficeResponse;
-import com.momo.backend.entity.Movie;
-import com.momo.backend.repository.MovieRepository;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MovieService {
 
     private final KobisApiClient kobisApiClient;
-    private final KmdbApiClient kmdbApiClient;
+    private final KmdbService kmdbService;
     private final ObjectMapper objectMapper;
-
-    // 영화 기본정보 DB 조회 및 저장
     private final MovieRepository movieRepository;
 
-    // 영화 제목으로 KOBIS 영화 목록 검색
-    // public String searchMovies(String keyword) {
-    // return kobisApiClient.searchMovies(keyword);
-    // }
+    // =========================================================
+    // 1. 영화 검색
+    // =========================================================
 
-    // 영화 검색 결과를 DTO 목록으로 변환
     public List<MovieSearchResponse> searchMovies(String keyword) {
 
         String json = kobisApiClient.searchMovies(keyword);
+
         List<MovieSearchResponse> movies = new ArrayList<>();
 
         try {
+
             JsonNode movieList = objectMapper.readTree(json)
                     .path("movieListResult")
                     .path("movieList");
@@ -49,8 +53,11 @@ public class MovieService {
                 String director = "";
 
                 JsonNode directors = movie.path("directors");
+
                 if (directors.isArray() && !directors.isEmpty()) {
-                    director = directors.get(0).path("peopleNm").asText("");
+                    director = directors.get(0)
+                            .path("peopleNm")
+                            .asText("");
                 }
 
                 movies.add(new MovieSearchResponse(
@@ -58,37 +65,43 @@ public class MovieService {
                         movie.path("movieNm").asText(""),
                         movie.path("openDt").asText(""),
                         movie.path("genreAlt").asText(""),
-                        director));
+                        director
+                ));
             }
 
         } catch (Exception e) {
-            throw new IllegalStateException("영화 검색 결과를 처리하지 못했습니다.", e);
+
+            throw new IllegalStateException(
+                    "영화 검색 결과를 처리하지 못했습니다.",
+                    e
+            );
         }
 
         return movies;
     }
 
-    // 영화 코드로 상세정보 조회
-    // public String getMovieDetail(String movieCode) {
-    // return kobisApiClient.getMovieDetail(movieCode);
-    // }
+    // =========================================================
+    // 2. 영화 상세정보 조회
+    // =========================================================
 
-    // 영화 상세정보를 DTO로 변환
     public MovieDetailResponse getMovieDetail(String movieCode) {
 
         // DB에 저장된 영화 정보가 있는지 먼저 확인
-        Movie savedMovie = movieRepository.findById(movieCode).orElse(null);
+        Movie savedMovie = movieRepository.findById(movieCode)
+                .orElse(null);
 
         if (savedMovie != null) {
 
-            // DB에 저장된 배우 문자열을 목록으로 변환
             List<String> actors = new ArrayList<>();
 
-            if (savedMovie.getActors() != null && !savedMovie.getActors().isBlank()) {
-                actors = Arrays.asList(savedMovie.getActors().split(","));
+            if (savedMovie.getActors() != null
+                    && !savedMovie.getActors().isBlank()) {
+
+                actors = Arrays.asList(
+                        savedMovie.getActors().split(",")
+                );
             }
 
-            // DB에 영화 정보가 있으면 외부 API를 호출하지 않고 반환
             return new MovieDetailResponse(
                     savedMovie.getMovieCode(),
                     savedMovie.getTitle(),
@@ -98,28 +111,35 @@ public class MovieService {
                     savedMovie.getGenre(),
                     savedMovie.getDirector(),
                     actors,
-                    savedMovie.getWatchGrade());
+                    savedMovie.getWatchGrade()
+            );
         }
 
         // DB에 영화 정보가 없을 때만 KOBIS API 호출
         String json = kobisApiClient.getMovieDetail(movieCode);
 
         try {
+
             JsonNode movie = objectMapper.readTree(json)
                     .path("movieInfoResult")
                     .path("movieInfo");
 
             // 감독 정보
             String director = "";
+
             JsonNode directors = movie.path("directors");
 
             if (directors.isArray() && !directors.isEmpty()) {
-                director = directors.get(0).path("peopleNm").asText("");
+                director = directors.get(0)
+                        .path("peopleNm")
+                        .asText("");
             }
 
             // 장르 정보
             String genre = StreamSupport.stream(
-                    movie.path("genres").spliterator(), false)
+                            movie.path("genres").spliterator(),
+                            false
+                    )
                     .map(node -> node.path("genreNm").asText(""))
                     .filter(name -> !name.isBlank())
                     .reduce((a, b) -> a + "," + b)
@@ -129,26 +149,30 @@ public class MovieService {
             List<String> actors = new ArrayList<>();
 
             for (JsonNode actor : movie.path("actors")) {
+
                 String name = actor.path("peopleNm").asText("");
 
                 if (!name.isBlank()) {
                     actors.add(name);
                 }
+
                 if (actors.size() >= 10) {
                     break;
-                    // 출연 배우는 최대 10명까지만 저장
                 }
             }
 
             // 관람등급
             String watchGrade = "";
+
             JsonNode audits = movie.path("audits");
 
             if (audits.isArray() && !audits.isEmpty()) {
-                watchGrade = audits.get(0).path("watchGradeNm").asText("");
+                watchGrade = audits.get(0)
+                        .path("watchGradeNm")
+                        .asText("");
             }
 
-            // KOBIS에서 가져온 영화 기본정보를 DB에 저장
+            // KOBIS 영화 정보 DB 저장
             Movie newMovie = new Movie(
                     movie.path("movieCd").asText(""),
                     movie.path("movieNm").asText(""),
@@ -158,7 +182,8 @@ public class MovieService {
                     genre,
                     director,
                     String.join(",", actors),
-                    watchGrade);
+                    watchGrade
+            );
 
             movieRepository.save(newMovie);
 
@@ -171,83 +196,87 @@ public class MovieService {
                     genre,
                     director,
                     actors,
-                    watchGrade);
+                    watchGrade
+            );
 
         } catch (Exception e) {
-            throw new IllegalStateException("영화 상세정보를 처리하지 못했습니다.", e);
+
+            throw new IllegalStateException(
+                    "영화 상세정보를 처리하지 못했습니다.",
+                    e
+            );
         }
     }
 
-    // 날짜별 박스오피스 조회
-    // public String getDailyBoxOffice(String targetDate) {
-    // return kobisApiClient.getDailyBoxOffice(targetDate);
-    // }
-    // 일별 박스오피스 결과를 DTO 목록으로 변환
+    // =========================================================
+    // 3. 일별 박스오피스 조회
+    // =========================================================
+
     public List<BoxOfficeResponse> getDailyBoxOffice(String targetDate) {
 
         String json = kobisApiClient.getDailyBoxOffice(targetDate);
+
         List<BoxOfficeResponse> movies = new ArrayList<>();
 
         try {
+
             JsonNode boxOfficeList = objectMapper.readTree(json)
                     .path("boxOfficeResult")
                     .path("dailyBoxOfficeList");
 
             for (JsonNode movie : boxOfficeList) {
 
+                String movieCode = movie.path("movieCd").asText("");
                 String title = movie.path("movieNm").asText("");
-                String posterUrl = getPosterUrl(title);
+                String releaseDate = movie.path("openDt").asText("");
+
+                // 공통 KMDb 서비스로 포스터 검색
+                String posterUrl = kmdbService.findPosterUrl(
+                        title,
+                        releaseDate
+                );
 
                 movies.add(new BoxOfficeResponse(
                         movie.path("rank").asInt(),
-                        movie.path("movieCd").asText(""),
+                        movieCode,
                         title,
-                        movie.path("openDt").asText(""),
+                        releaseDate,
                         movie.path("audiCnt").asText(""),
                         movie.path("audiAcc").asText(""),
-                        posterUrl));
+                        posterUrl == null ? "" : posterUrl
+                ));
             }
 
         } catch (Exception e) {
-            throw new IllegalStateException("박스오피스 결과를 처리하지 못했습니다.", e);
+
+            throw new IllegalStateException(
+                    "박스오피스 결과를 처리하지 못했습니다.",
+                    e
+            );
         }
 
         return movies;
     }
 
-    // KMDb에서 영화 포스터 주소 조회
-    private String getPosterUrl(String title) {
+    // =========================================================
+    // 4. 영화 코드로 포스터 조회
+    // =========================================================
 
-        String json = kmdbApiClient.searchMovie(title);
+    public MoviePosterResponse getMoviePoster(String movieCode) {
 
-        try {
-            JsonNode data = objectMapper.readTree(json)
-                    .path("Data");
+        // 영화 상세정보 조회
+        // DB에 없으면 KOBIS API에서 조회하고 저장
+        MovieDetailResponse movie = getMovieDetail(movieCode);
 
-            if (!data.isArray() || data.isEmpty()) {
-                return "";
-            }
+        // 박스오피스와 동일한 공통 검색 메서드 사용
+        String posterUrl = kmdbService.findPosterUrl(
+                movie.title(),
+                movie.releaseDate()
+        );
 
-            JsonNode results = data.get(0).path("Result");
-
-            if (!results.isArray() || results.isEmpty()) {
-                return "";
-            }
-
-            String posters = results.get(0)
-                    .path("posters")
-                    .asText("");
-
-            if (posters.isBlank()) {
-                return "";
-            }
-
-            // 포스터 주소가 여러 개면 첫 번째 주소 사용
-            return posters.split("\\|")[0];
-
-        } catch (Exception e) {
-            return "";
-        }
+        return new MoviePosterResponse(
+                movieCode,
+                posterUrl
+        );
     }
-
 }
