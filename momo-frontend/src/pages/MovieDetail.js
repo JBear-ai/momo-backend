@@ -69,10 +69,23 @@ function MovieDetail() {
     dislikeCount: 0,
     positiveRate: null,
   });
+
+  // 리뷰 제목
+  const [reviewTitle, setReviewTitle] = useState("");
+
+  // 리뷰 내용
   const [reviewText, setReviewText] = useState("");
+
+  // 좋아요 / 싫어요 선택
   const [reaction, setReaction] = useState("");
+
+  // 리뷰 작성 영역 열림 여부
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+
+  // 리뷰 등록 중 여부
   const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
+
+  // 리뷰 오류 메시지
   const [reviewError, setReviewError] = useState("");
 
   // 감독 및 배우 선택 상태
@@ -149,7 +162,7 @@ function MovieDetail() {
         setReviews(reviewsResponse.data.content || []);
         setRatingSummary(ratingResponse.data);
       } catch (error) {
-        if (error.name !== "CanceledError") {
+        if (error.name !== "CanceledError" && error.code !== "ERR_CANCELED") {
           console.error("리뷰 및 평점 조회 실패:", error);
           setReviewError("리뷰와 평점을 불러오지 못했습니다.");
         }
@@ -177,13 +190,33 @@ function MovieDetail() {
 
   // 리뷰 등록
   async function addReview() {
+    // 제목 검사
+    if (!reviewTitle.trim()) {
+      alert("리뷰 제목을 입력해 주세요.");
+      return;
+    }
+
+    // 제목 길이 검사
+    if (reviewTitle.trim().length > 100) {
+      alert("리뷰 제목은 100자 이하로 입력해 주세요.");
+      return;
+    }
+
+    // 좋아요 / 싫어요 검사
     if (!reaction) {
       alert("좋아요 또는 싫어요를 선택해 주세요.");
       return;
     }
 
+    // 리뷰 내용 검사
     if (!reviewText.trim()) {
       alert("리뷰 내용을 입력해 주세요.");
+      return;
+    }
+
+    // 리뷰 내용 길이 검사
+    if (reviewText.trim().length > 2000) {
+      alert("리뷰 내용은 2000자 이하로 입력해 주세요.");
       return;
     }
 
@@ -191,25 +224,41 @@ function MovieDetail() {
       setIsReviewSubmitting(true);
       setReviewError("");
 
+      // 백엔드 ReviewCreateRequest에 맞춰 요청
       const createResponse = await AxiosApi.reviewCreate(
         movie.movieCode,
-        `${movie.title} 리뷰`,
+        reviewTitle.trim(),
         reviewText.trim(),
         reaction === "like",
       );
 
+      // 등록 후 평점 갱신
       const ratingResponse = await AxiosApi.movieRating(movie.movieCode);
 
+      // 새 리뷰를 목록 맨 앞에 추가
       setReviews((prev) => [createResponse.data, ...prev]);
+
+      // 평점 갱신
       setRatingSummary(ratingResponse.data);
+
+      // 입력값 초기화
+      setReviewTitle("");
       setReviewText("");
       setReaction("");
+
+      // 작성 영역 닫기
       setIsReviewOpen(false);
     } catch (error) {
       console.error("리뷰 등록 실패:", error);
 
       if (error.response?.status === 401) {
         setReviewError("리뷰를 등록하려면 로그인이 필요합니다.");
+      } else if (error.response?.status === 400) {
+        setReviewError(
+          error.response?.data?.message || "입력한 리뷰 정보를 확인해 주세요.",
+        );
+      } else if (error.response?.status === 409) {
+        setReviewError("이미 해당 영화에 리뷰를 작성했습니다.");
       } else {
         setReviewError(
           error.response?.data?.message || "리뷰 등록에 실패했습니다.",
@@ -400,7 +449,7 @@ function MovieDetail() {
             className="review-write-toggle"
             onClick={() => setIsReviewOpen((prev) => !prev)}
           >
-            <span>{movie.title}</span>
+            <span>{movie.title} 리뷰 작성하기</span>
 
             <span className="review-toggle-arrow">
               {isReviewOpen ? "▲" : "▼"}
@@ -415,6 +464,7 @@ function MovieDetail() {
               {/* 좋아요 및 싫어요 */}
               <div className="reaction-buttons">
                 <button
+                  type="button"
                   className={`reaction-button ${
                     reaction === "like" ? "selected-like" : ""
                   }`}
@@ -424,6 +474,7 @@ function MovieDetail() {
                 </button>
 
                 <button
+                  type="button"
                   className={`reaction-button ${
                     reaction === "dislike" ? "selected-dislike" : ""
                   }`}
@@ -433,19 +484,44 @@ function MovieDetail() {
                 </button>
               </div>
 
+              {/* 리뷰 제목 */}
+              <div className="review-title-field">
+                <label htmlFor="reviewTitle">리뷰 제목</label>
+
+                <input
+                  id="reviewTitle"
+                  type="text"
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  placeholder="리뷰 제목을 입력해 주세요."
+                  maxLength={100}
+                />
+
+                <span>{reviewTitle.length}/100</span>
+              </div>
+
               {/* 리뷰 내용 */}
-              <textarea
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                placeholder="영화에 대한 리뷰를 작성해 주세요."
-                maxLength={1000}
-              />
+              <div className="review-content-field">
+                <label htmlFor="reviewContent">리뷰 내용</label>
+
+                <textarea
+                  id="reviewContent"
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="영화에 대한 리뷰를 작성해 주세요."
+                  maxLength={2000}
+                />
+
+                <span>{reviewText.length}/2000</span>
+              </div>
 
               {/* 리뷰 등록 */}
               <div className="review-form-actions">
-                <span>{reviewText.length}/1000</span>
-
-                <button onClick={addReview} disabled={isReviewSubmitting}>
+                <button
+                  type="button"
+                  onClick={addReview}
+                  disabled={isReviewSubmitting}
+                >
                   {isReviewSubmitting ? "등록 중..." : "리뷰 등록"}
                 </button>
               </div>
@@ -459,7 +535,9 @@ function MovieDetail() {
             {reviews.map((review) => (
               <article className="detail-review-card" key={review.reviewId}>
                 <div>
-                  {review.liked ? "👍 좋아요" : "👎 싫어요"}
+                  <strong>{review.title}</strong>
+
+                  <span>{review.liked ? "👍 좋아요" : "👎 싫어요"}</span>
 
                   <span>
                     {new Date(review.createdAt).toLocaleDateString("ko-KR")}

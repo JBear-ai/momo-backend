@@ -2,7 +2,7 @@ import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Home from "./pages/Home";
-import MovieDetail from "./pages/MovieDetail"; // 영화 상세 페이지 임포트
+import MovieDetail from "./pages/MovieDetail";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Layout from "./pages/Layout";
@@ -10,6 +10,8 @@ import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import ProfileDelete from "./pages/ProfileDelete";
 import Search from "./pages/Search";
+import AllReviews from "./pages/AllReviews";
+import ReviewDetail from "./pages/ReviewDetail";
 
 function App() {
   return (
@@ -17,9 +19,11 @@ function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/movie/:id" element={<MovieDetail />} />{" "}
+          <Route path="/movie/:id" element={<MovieDetail />} />
           <Route path="/search" element={<Search />} />
-          {/* 동적 라우트 */}
+          <Route path="/reviews" element={<AllReviews />} />
+          <Route path="/reviews/:reviewId" element={<ReviewDetail />} />
+
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/edit" element={<ProfileEdit />} />
           <Route path="/profile/delete" element={<ProfileDelete />} />

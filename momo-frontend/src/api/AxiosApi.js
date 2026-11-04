@@ -166,6 +166,32 @@ const AxiosApi = {
       { withCredentials: true },
     );
   },
+
+  // =========================================================
+  // 전체 리뷰 목록 조회
+  // =========================================================
+
+  allReviews: async (page = 0, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/reviews`, {
+      params: { page },
+      withCredentials: true,
+      signal,
+    });
+  },
+
+  // =========================================================
+  // 리뷰 상세 조회
+  // =========================================================
+
+  reviewDetail: async (reviewId, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/reviews/${encodeURIComponent(reviewId)}`,
+      {
+        withCredentials: true,
+        signal,
+      },
+    );
+  },
 };
 
 export default AxiosApi;

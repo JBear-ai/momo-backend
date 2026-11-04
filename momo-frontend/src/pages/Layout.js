@@ -397,7 +397,12 @@ function Layout() {
         <Navigation>
           {authLoading ? null : nickname ? (
             <UserArea>
-              <NavLink to="/profile">{nickname}님</NavLink>
+              <NavLink to="/">홈</NavLink>
+              <NavLink to="/reviews">전체 리뷰</NavLink>
+              <NavLink to="/profile">마이페이지</NavLink>
+              <p>
+                <strong>{nickname}님</strong>
+              </p>
 
               <ActionButton onClick={handleLogout}>로그아웃</ActionButton>
             </UserArea>
@@ -430,6 +435,7 @@ function Layout() {
             <FooterColumn>
               <h4>Service</h4>
               <Link to="/">홈 오버뷰</Link>
+              <Link to="/reviews">전체 리뷰</Link>
               <Link to="/profile">마이 페이지</Link>
             </FooterColumn>
           </FooterRight>
