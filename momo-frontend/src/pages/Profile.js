@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { getFavoriteMovies } from "../utils/favorites";
 import "../App.css";
 
 function Profile() {
   const [userId, setUserId] = useState("");
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
+
+  // 관심 영화 개수 관리
+  const [favoriteCount, setFavoriteCount] = useState(
+    () => getFavoriteMovies().length,
+  );
 
   // 브라우저에 저장된 회원 정보 불러오기
   useEffect(() => {
@@ -14,9 +20,24 @@ function Profile() {
     setEmail(localStorage.getItem("email") || "");
   }, []);
 
+  // 관심 영화 등록 및 해제 상태 감지
+  useEffect(() => {
+    const updateFavorites = (event) => {
+      const favorites = event.detail || getFavoriteMovies();
+      setFavoriteCount(favorites.length);
+    };
+
+    window.addEventListener("momo-favorites-changed", updateFavorites);
+
+    return () => {
+      window.removeEventListener("momo-favorites-changed", updateFavorites);
+    };
+  }, []);
+
   return (
     <main className="profile-page">
       <div className="profile-container">
+        {/* 마이페이지 제목 */}
         <header className="profile-heading">
           <h1>마이페이지</h1>
           <p>나의 계정 정보와 영화 활동을 확인해 보세요.</p>
@@ -31,7 +52,6 @@ function Profile() {
             </div>
 
             <div className="profile-card-actions">
-              {/* 프로필 수정 버튼을 누르면 /profile/edit 페이지로 이동 */}
               <Link to="/profile/edit" className="profile-button">
                 프로필 수정
               </Link>
@@ -64,7 +84,7 @@ function Profile() {
           </div>
         </section>
 
-        {/* 영화 활동 */}
+        {/* 나의 영화 활동 */}
         <section className="profile-card">
           <div className="profile-card-heading">
             <div>
@@ -74,32 +94,46 @@ function Profile() {
           </div>
 
           <div className="profile-activity">
+            {/* 작성한 리뷰 */}
             <article className="profile-activity-item">
               <span className="profile-activity-icon">✎</span>
+
               <div>
                 <h3>작성한 리뷰</h3>
                 <p>내가 작성한 영화 리뷰를 확인할 수 있어요.</p>
               </div>
+
               <span className="profile-coming">준비 중</span>
             </article>
 
+            {/* 좋아요한 리뷰 */}
             <article className="profile-activity-item">
               <span className="profile-activity-icon">♥</span>
+
               <div>
                 <h3>좋아요한 리뷰</h3>
                 <p>마음에 들었던 리뷰를 모아볼 수 있어요.</p>
               </div>
+
               <span className="profile-coming">준비 중</span>
             </article>
 
-            <article className="profile-activity-item">
+            {/* 관심 영화 */}
+            <Link
+              to="/profile/favorites"
+              className="profile-activity-item profile-favorites-link"
+            >
               <span className="profile-activity-icon">★</span>
+
               <div>
                 <h3>관심 영화</h3>
                 <p>관심 있는 영화를 관리할 수 있어요.</p>
               </div>
-              <span className="profile-coming">준비 중</span>
-            </article>
+
+              <span className="profile-favorites-count">
+                {favoriteCount}개 보기 →
+              </span>
+            </Link>
           </div>
         </section>
 

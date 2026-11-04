@@ -1,4 +1,4 @@
-package com.momo.backend.service;
+package com.momo.backend.entity;
 
 import java.util.List;
 

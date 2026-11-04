@@ -275,13 +275,8 @@ export const MovieGrid = styled.div`
 `;
 
 /* 영화 카드 */
-export const MovieCard = styled.button`
+export const MovieCard = styled.div`
   min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
   cursor: pointer;
 
   &:hover img {

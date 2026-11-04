@@ -12,6 +12,7 @@ import ProfileDelete from "./pages/ProfileDelete";
 import Search from "./pages/Search";
 import AllReviews from "./pages/AllReviews";
 import ReviewDetail from "./pages/ReviewDetail";
+import FavoriteMovies from "./pages/FavoriteMovies";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/edit" element={<ProfileEdit />} />
           <Route path="/profile/delete" element={<ProfileDelete />} />
+          <Route path="/profile/favorites" element={<FavoriteMovies />} />
         </Route>
 
         <Route path="/login" element={<Login />} />

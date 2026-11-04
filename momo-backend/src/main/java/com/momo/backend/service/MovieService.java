@@ -9,6 +9,7 @@ import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.entity.Movie;
 import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.MovieSupplement;
 import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MovieRepository;
 
@@ -16,10 +17,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,6 +36,7 @@ public class MovieService {
     private final MoviePosterAsyncService posterAsyncService;
     private final KobisApiClient kobisApiClient;
     private final KmdbService kmdbService;
+    private final TmdbService tmdbService;
     private final ObjectMapper objectMapper;
     private final MovieRepository movieRepository;
     private final MoviePosterCacheService posterCacheService;
@@ -197,6 +201,7 @@ public class MovieService {
     // 3. 영화 상세정보 조회
     // =========================================================
 
+    @Transactional
     public MovieDetailResponse getMovieDetail(String movieCode) {
 
         // DB에 저장된 영화 정보가 있는지 먼저 확인
@@ -205,27 +210,14 @@ public class MovieService {
 
         if (savedMovie != null) {
 
-            List<String> actors = new ArrayList<>();
+            // 기존 영화의 누락 정보를 KMDb → TMDb 순서로 보완
+            supplementMissingDetails(savedMovie);
 
-            if (savedMovie.getActors() != null
-                    && !savedMovie.getActors().isBlank()) {
+            // 보완된 정보와 마지막 시도 시각을 DB에 저장
+            movieRepository.save(savedMovie);
 
-                actors = Arrays.asList(
-                        savedMovie.getActors().split(",")
-                );
-            }
-
-            return new MovieDetailResponse(
-                    savedMovie.getMovieCode(),
-                    savedMovie.getTitle(),
-                    savedMovie.getTitleEn(),
-                    savedMovie.getReleaseDate(),
-                    savedMovie.getShowTime(),
-                    savedMovie.getGenre(),
-                    savedMovie.getDirector(),
-                    actors,
-                    savedMovie.getWatchGrade()
-            );
+            // 최종 영화 정보를 응답 DTO로 변환
+            return toDetailResponse(savedMovie);
         }
 
         // DB에 영화 정보가 없을 때만 KOBIS API 호출
@@ -298,19 +290,12 @@ public class MovieService {
                     watchGrade
             );
 
+            // KOBIS에 없는 상세정보를 KMDb → TMDb 순서로 보완
+            supplementMissingDetails(newMovie);
+
             movieRepository.save(newMovie);
 
-            return new MovieDetailResponse(
-                    movie.path("movieCd").asText(""),
-                    movie.path("movieNm").asText(""),
-                    movie.path("movieNmEn").asText(""),
-                    movie.path("openDt").asText(""),
-                    movie.path("showTm").asText(""),
-                    genre,
-                    director,
-                    actors,
-                    watchGrade
-            );
+            return toDetailResponse(newMovie);
 
         } catch (Exception e) {
 
@@ -322,7 +307,114 @@ public class MovieService {
     }
 
     // =========================================================
-    // 4. 일별 박스오피스 조회
+    // 4. 영화 상세정보 누락 항목 보완
+    // KMDb → TMDb 순서
+    // =========================================================
+
+    private void supplementMissingDetails(Movie movie) {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 누락 정보가 없거나 재시도 시간이 지나지 않았다면 보완 생략
+        if (!hasMissingDetails(movie)
+                || !movie.canAttemptSupplement(now)) {
+            return;
+        }
+
+        // 보완 성공 여부와 관계없이 마지막 시도 시각 기록
+        movie.markSupplementAttempted(now);
+
+        // 1차: KMDb에서 동일 영화의 누락 정보 조회
+        kmdbService.findMovieSupplement(
+                        movie.getTitle(),
+                        movie.getTitleEn(),
+                        movie.getReleaseDate(),
+                        movie.getDirector()
+                )
+                .ifPresent(candidate ->
+                        applySupplement(movie, candidate)
+                );
+
+        // 2차: KMDb 보완 후에도 누락 정보가 있다면 TMDb 조회
+        if (hasMissingDetails(movie)) {
+
+            tmdbService.findMovieSupplement(
+                            movie.getTitle(),
+                            movie.getTitleEn(),
+                            movie.getReleaseDate(),
+                            movie.getDirector()
+                    )
+                    .ifPresent(candidate ->
+                            applySupplement(movie, candidate)
+                    );
+        }
+    }
+
+    // =========================================================
+    // 5. 외부 API 보완 정보를 Movie 엔티티에 적용
+    // =========================================================
+
+    private void applySupplement(
+            Movie movie,
+            MovieSupplement candidate) {
+
+        movie.supplementMissingDetails(
+                candidate.titleEn(),
+                candidate.releaseDate(),
+                candidate.showTime(),
+                candidate.genre(),
+                candidate.director(),
+                String.join(",", candidate.actors()),
+                candidate.watchGrade(),
+                candidate.source()
+        );
+    }
+
+    // =========================================================
+    // 6. 영화 상세정보 누락 여부 확인
+    // =========================================================
+
+    private boolean hasMissingDetails(Movie movie) {
+
+        return isBlank(movie.getTitleEn())
+                || isBlank(movie.getReleaseDate())
+                || isBlank(movie.getShowTime())
+                || isBlank(movie.getGenre())
+                || isBlank(movie.getDirector())
+                || isBlank(movie.getActors())
+                || isBlank(movie.getWatchGrade());
+    }
+
+    // null 또는 빈 문자열인지 확인
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    // =========================================================
+    // 7. Movie 엔티티를 응답 DTO로 변환
+    // =========================================================
+
+    private MovieDetailResponse toDetailResponse(Movie movie) {
+
+        List<String> actors = isBlank(movie.getActors())
+                ? List.of()
+                : Arrays.asList(movie.getActors().split(","));
+
+        return new MovieDetailResponse(
+                movie.getMovieCode(),
+                movie.getTitle(),
+                movie.getTitleEn(),
+                movie.getReleaseDate(),
+                movie.getShowTime(),
+                movie.getGenre(),
+                movie.getDirector(),
+                actors,
+                movie.getWatchGrade()
+        );
+    }
+
+    // =========================================================
+    // 8. 일별 박스오피스 조회
     // =========================================================
 
     public List<BoxOfficeResponse> getDailyBoxOffice(String targetDate) {
@@ -373,7 +465,7 @@ public class MovieService {
     }
 
     // =========================================================
-    // 5. 장르별 영화 목록 조회
+    // 9. 장르별 영화 목록 조회
     // =========================================================
 
     public List<MovieSearchResponse> getMoviesByGenre(
@@ -478,7 +570,7 @@ public class MovieService {
     }
 
     // =========================================================
-    // 6. 영화 코드로 포스터 조회 및 비동기 캐시 관리
+    // 10. 영화 코드로 포스터 조회 및 비동기 캐시 관리
     // =========================================================
 
     public MoviePosterResponse getMoviePoster(String movieCode) {

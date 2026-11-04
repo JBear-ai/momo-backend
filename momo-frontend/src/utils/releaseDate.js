@@ -1,3 +1,4 @@
+// 개봉일을 검증하고 YYYY.MM.DD 형식으로 변환
 export function formatReleaseDate(releaseDate) {
   const value = String(releaseDate || "").trim();
 
@@ -21,13 +22,6 @@ export function formatReleaseDate(releaseDate) {
 
   if (!isValidDate) {
     return "개봉일 확인 필요";
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (date > today) {
-    return "개봉 예정";
   }
 
   return `${value.slice(0, 4)}.${value.slice(4, 6)}.${value.slice(6, 8)}`;

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 
 import AxiosApi from "../api/AxiosApi";
+import FavoriteStar from "../components/common/FavoriteStar";
 import { formatReleaseDate } from "../utils/releaseDate";
 
 // ==========================================
@@ -75,7 +76,7 @@ const MovieGrid = styled.div`
   }
 `;
 
-const MovieCard = styled.button`
+const MovieCard = styled.div`
   min-width: 0;
   padding: 0;
   border: none;
@@ -108,6 +109,7 @@ const MovieCard = styled.button`
 `;
 
 const Poster = styled.div`
+  position: relative;
   width: 100%;
   aspect-ratio: 2 / 2.85;
   overflow: hidden;
@@ -183,13 +185,25 @@ const ScrollSentinel = styled.div`
 // ==========================================
 
 function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
+  // 영화 카드 키보드 접근
+  const handleCardKeyDown = (event) => {
+    if (event.target !== event.currentTarget) return;
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick(movie.movieCode);
+    }
+  };
+
   return (
     <MovieCard
-      type="button"
+      role="button"
+      tabIndex={0}
       style={{
         animationDelay: `${(index % 20) * 20}ms`,
       }}
       onClick={() => onClick(movie.movieCode)}
+      onKeyDown={handleCardKeyDown}
       aria-label={`${movie.title} 상세 페이지`}
     >
       <Poster>
@@ -199,6 +213,8 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
           loading="lazy"
           onError={() => onImageError(movie.movieCode)}
         />
+
+        <FavoriteStar movie={movie} />
       </Poster>
 
       <MovieInfo>
@@ -268,6 +284,7 @@ function Search() {
     value: searchValue,
     isGenreMode,
   };
+
   posterStatusesRef.current = posterStatuses;
 
   // ==========================================
@@ -516,7 +533,6 @@ function Search() {
         }));
 
         // 성공한 영화만 기존 목록 뒤에 추가
-        // 이미 표시된 영화는 중복 추가하지 않음
         if (newlyVisibleMovies.length > 0) {
           setVisibleMovies((prev) => {
             const existingCodes = new Set(prev.map((movie) => movie.movieCode));
@@ -721,6 +737,7 @@ function Search() {
         <h1>
           {isGenreMode ? `${genre.trim()} 영화` : "어떤 영화를 찾으세요?"}
         </h1>
+
         <p>
           {isGenreMode
             ? "선택한 장르의 영화를 살펴보세요."

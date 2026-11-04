@@ -3,6 +3,7 @@ package com.momo.backend.service;
 
 import com.momo.backend.client.KmdbApiClient;
 
+import com.momo.backend.entity.MovieSupplement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -10,6 +11,9 @@ import org.springframework.stereotype.Service;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +23,111 @@ public class KmdbService {
     private final KmdbApiClient kmdbApiClient;
     private final TmdbService tmdbService;
     private final ObjectMapper objectMapper;
+
+    // KMDb에서 동일 영화를 찾아 KOBIS에 누락된 상세정보를 보완
+    public Optional<MovieSupplement> findMovieSupplement(
+            String title, String titleEn, String releaseDate, String director) {
+
+        if (title == null || title.isBlank()) {
+            return Optional.empty();
+        }
+
+        try {
+            String json = kmdbApiClient.searchMovie(title);
+            JsonNode dataList = objectMapper.readTree(json).path("Data");
+
+            for (JsonNode data : dataList) {
+                for (JsonNode result : data.path("Result")) {
+
+                    // KMDb 검색 결과에서 영화 제목, 개봉일, 감독 정보 추출
+                    String candidateTitle = getText(result, "title");
+
+                    String candidateTitleEn = firstNonBlank(
+                            getText(result, "titleEng"),
+                            getText(result, "titleOrg"));
+
+                    String candidateReleaseDate = validDate(
+                            getText(result, "repRlsDate"));
+
+                    String candidateYear = getText(result, "prodYear");
+
+                    String candidateDirector = String.join(",", nestedNames(
+                            result.path("directors").path("director"),
+                            "directorNm", 5));
+
+                    // KOBIS 영화와 동일한 작품인지 검증
+                    if (!MovieMatchVerifier.isSameMovie(
+                            title, titleEn, releaseDate, director,
+                            candidateTitle, candidateTitleEn,
+                            firstNonBlank(candidateReleaseDate, candidateYear),
+                            candidateDirector)) {
+                        continue;
+                    }
+
+                    List<String> actors = nestedNames(
+                            result.path("actors").path("actor"),
+                            "actorNm", 10);
+
+                    return Optional.of(new MovieSupplement(
+                            candidateTitleEn,
+                            candidateReleaseDate,
+                            getText(result, "runtime"),
+                            getText(result, "genre"),
+                            candidateDirector,
+                            actors,
+                            getText(result, "rating"),
+                            "KMDb"
+                    ));
+                }
+            }
+
+        } catch (Exception e) {
+            log.warn("KMDb 상세정보 보완 실패 - 제목: {}", title, e);
+        }
+
+        return Optional.empty();
+    }
+
+    // 숫자 8자리 형식의 개봉일만 허용
+    private String validDate(String value) {
+        String digits = value == null ? "" : value.replaceAll("[^0-9]", "");
+        return digits.length() == 8 ? digits : "";
+    }
+
+    // 감독·배우 목록에서 지정한 개수만큼 이름 추출
+    private List<String> nestedNames(JsonNode nodes, String fieldName, int limit) {
+        List<String> names = new ArrayList<>();
+
+        if (!nodes.isArray()) {
+            return names;
+        }
+
+        for (JsonNode node : nodes) {
+            String name = getText(node, fieldName);
+
+            if (!name.isBlank()) {
+                names.add(name);
+            }
+
+            if (names.size() >= limit) {
+                break;
+            }
+        }
+
+        return names;
+    }
+
+    // 여러 값 중 비어 있지 않은 첫 번째 값 반환
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+
+        return "";
+    }
+
 
     /**
      * 영화 코드, 제목, 개봉일로 포스터 검색
