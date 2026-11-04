@@ -201,6 +201,10 @@ function MovieDetail() {
   const totalCount = ratingSummary.totalCount || 0;
   const myRating = ratingSummary.myRating;
 
+  // 좋아요 비율을 5점 만점 평점으로 환산
+  const movieScore =
+    totalCount > 0 ? ((likeCount / totalCount) * 5).toFixed(2) : "0.00";
+
   // =========================================================
   // 7. 영화 평가 갱신
   // =========================================================
@@ -450,6 +454,15 @@ function MovieDetail() {
       {/* 관객 평점 */}
       <section className="movie-rating-panel">
         <h2 className="rating-label">관객 평점</h2>
+        {/* 5점 만점 영화 평점 */}
+        <div className="movie-score-display">
+          <div className="movie-score-value">
+            <strong>{movieScore}</strong>
+            <span>/ 5.00</span>
+          </div>
+
+          <p>총 {formatNumber(totalCount)}명이 평가했습니다.</p>
+        </div>
 
         <div className="detail-reaction-counts">
           <button

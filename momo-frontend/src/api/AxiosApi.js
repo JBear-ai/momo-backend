@@ -144,7 +144,12 @@ const AxiosApi = {
     return await axios.put(
       `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}/rating`,
       liked,
-      { withCredentials: true },
+      {
+        withCredentials: true,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
     );
   },
 
