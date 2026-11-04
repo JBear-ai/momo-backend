@@ -1,3 +1,4 @@
+
 package com.momo.backend.dto.review;
 
 import com.momo.backend.entity.Review;
@@ -15,13 +16,12 @@ public class ReviewResponse {
     private final Long userId;
     private final String nickname;
 
-    // 리뷰가 작성된 영화 코드
+    // 리뷰 대상 영화 코드
     private final String movieCode;
 
-    // 리뷰 제목, 내용, 영화 평가
+    // 리뷰 제목과 내용
     private final String title;
     private final String content;
-    private final Boolean liked;
 
     // 리뷰 작성 및 수정 시간
     private final LocalDateTime createdAt;
@@ -35,7 +35,6 @@ public class ReviewResponse {
         this.movieCode = review.getMovieCode();
         this.title = review.getTitle();
         this.content = review.getContent();
-        this.liked = review.getLiked();
         this.createdAt = review.getCreatedAt();
         this.updatedAt = review.getUpdatedAt();
     }

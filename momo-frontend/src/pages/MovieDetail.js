@@ -64,20 +64,25 @@ function MovieDetail() {
 
   // 리뷰 관련 상태
   const [reviews, setReviews] = useState([]);
+
+  // 영화 평가 요약
   const [ratingSummary, setRatingSummary] = useState({
     likeCount: 0,
     dislikeCount: 0,
+    totalCount: 0,
     positiveRate: null,
+    myRating: null,
   });
+
+  // 영화 평가 처리 상태
+  const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
+  const [ratingError, setRatingError] = useState("");
 
   // 리뷰 제목
   const [reviewTitle, setReviewTitle] = useState("");
 
   // 리뷰 내용
   const [reviewText, setReviewText] = useState("");
-
-  // 좋아요 / 싫어요 선택
-  const [reaction, setReaction] = useState("");
 
   // 리뷰 작성 영역 열림 여부
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -146,13 +151,14 @@ function MovieDetail() {
     }
   }, [id]);
 
-  // DB에 저장된 영화별 리뷰와 평점 조회
+  // 영화별 리뷰와 평가 조회
   useEffect(() => {
     const controller = new AbortController();
 
     async function fetchReviewsAndRating() {
       try {
         setReviewError("");
+        setRatingError("");
 
         const [reviewsResponse, ratingResponse] = await Promise.all([
           AxiosApi.movieReviews(id, 0, controller.signal),
@@ -164,7 +170,8 @@ function MovieDetail() {
       } catch (error) {
         if (error.name !== "CanceledError" && error.code !== "ERR_CANCELED") {
           console.error("리뷰 및 평점 조회 실패:", error);
-          setReviewError("리뷰와 평점을 불러오지 못했습니다.");
+          setReviewError("리뷰를 불러오지 못했습니다.");
+          setRatingError("영화 평가를 불러오지 못했습니다.");
         }
       }
     }
@@ -182,11 +189,53 @@ function MovieDetail() {
   // 싫어요 수
   const dislikeCount = ratingSummary.dislikeCount || 0;
 
+  // 내 영화 평가
+  const myRating = ratingSummary.myRating;
+
   // 관객 평점 계산
   const rating =
     ratingSummary.positiveRate != null
       ? (ratingSummary.positiveRate / 10).toFixed(1)
       : "평가 없음";
+
+  // 영화 평가 갱신
+  async function refreshMovieRating() {
+    const response = await AxiosApi.movieRating(movie.movieCode);
+    setRatingSummary(response.data);
+  }
+
+  // 영화 좋아요 / 싫어요 선택 및 취소
+  async function handleMovieRating(liked) {
+    if (isRatingSubmitting) return;
+
+    try {
+      setIsRatingSubmitting(true);
+      setRatingError("");
+
+      // 이미 선택한 평가를 다시 누르면 취소
+      if (myRating === liked) {
+        await AxiosApi.movieRatingDelete(movie.movieCode);
+      } else {
+        // 새로운 평가 또는 기존 평가 변경
+        await AxiosApi.movieRatingSave(movie.movieCode, liked);
+      }
+
+      // 서버에 저장된 최신 평가 정보 반영
+      await refreshMovieRating();
+    } catch (error) {
+      console.error("영화 평가 처리 실패:", error);
+
+      if (error.response?.status === 401) {
+        setRatingError("영화 평가를 하려면 로그인이 필요합니다.");
+      } else {
+        setRatingError(
+          error.response?.data?.message || "영화 평가 처리에 실패했습니다.",
+        );
+      }
+    } finally {
+      setIsRatingSubmitting(false);
+    }
+  }
 
   // 리뷰 등록
   async function addReview() {
@@ -199,12 +248,6 @@ function MovieDetail() {
     // 제목 길이 검사
     if (reviewTitle.trim().length > 100) {
       alert("리뷰 제목은 100자 이하로 입력해 주세요.");
-      return;
-    }
-
-    // 좋아요 / 싫어요 검사
-    if (!reaction) {
-      alert("좋아요 또는 싫어요를 선택해 주세요.");
       return;
     }
 
@@ -224,27 +267,19 @@ function MovieDetail() {
       setIsReviewSubmitting(true);
       setReviewError("");
 
-      // 백엔드 ReviewCreateRequest에 맞춰 요청
+      // 제목과 내용만 서버에 전달
       const createResponse = await AxiosApi.reviewCreate(
         movie.movieCode,
         reviewTitle.trim(),
         reviewText.trim(),
-        reaction === "like",
       );
-
-      // 등록 후 평점 갱신
-      const ratingResponse = await AxiosApi.movieRating(movie.movieCode);
 
       // 새 리뷰를 목록 맨 앞에 추가
       setReviews((prev) => [createResponse.data, ...prev]);
 
-      // 평점 갱신
-      setRatingSummary(ratingResponse.data);
-
       // 입력값 초기화
       setReviewTitle("");
       setReviewText("");
-      setReaction("");
 
       // 작성 영역 닫기
       setIsReviewOpen(false);
@@ -291,7 +326,7 @@ function MovieDetail() {
     );
   }
 
-  // 백엔드 DTO에 맞춰 감독과 배우 데이터 변환
+  // 감독과 배우 데이터 변환
   const directors = normalizePeople(movie.director);
   const actors = normalizePeople(movie.actors);
 
@@ -339,7 +374,7 @@ function MovieDetail() {
         </div>
       </section>
 
-      {/* 관객 평점 */}
+      {/* 관객 평점 및 영화 평가 */}
       <section className="movie-rating-panel">
         <h2>관객 평점</h2>
 
@@ -347,13 +382,50 @@ function MovieDetail() {
 
         <div className="detail-reaction-counts">
           <div className="detail-reaction-count">
-            👍 좋아요 <strong>{likeCount}</strong>
+            👍 좋아요 <strong>{formatNumber(likeCount)}</strong>
           </div>
 
           <div className="detail-reaction-count">
-            👎 싫어요 <strong>{dislikeCount}</strong>
+            👎 싫어요 <strong>{formatNumber(dislikeCount)}</strong>
           </div>
         </div>
+
+        <p>이 영화에 대한 평가를 선택해 주세요.</p>
+
+        <div className="reaction-buttons">
+          <button
+            type="button"
+            className={`reaction-button ${
+              myRating === true ? "selected-like" : ""
+            }`}
+            onClick={() => handleMovieRating(true)}
+            disabled={isRatingSubmitting}
+          >
+            👍 좋아요
+          </button>
+
+          <button
+            type="button"
+            className={`reaction-button ${
+              myRating === false ? "selected-dislike" : ""
+            }`}
+            onClick={() => handleMovieRating(false)}
+            disabled={isRatingSubmitting}
+          >
+            👎 싫어요
+          </button>
+        </div>
+
+        {myRating !== null && myRating !== undefined && (
+          <p>
+            내 평가: {myRating ? "좋아요" : "싫어요"} · 같은 버튼을 누르면
+            취소됩니다.
+          </p>
+        )}
+
+        {isRatingSubmitting && <p>평가를 저장하고 있습니다.</p>}
+
+        {ratingError && <p className="people-empty">{ratingError}</p>}
       </section>
 
       {/* 감독 */}
@@ -461,29 +533,6 @@ function MovieDetail() {
             <div className="review-write-content">
               <h3>이 영화는 어떠셨나요?</h3>
 
-              {/* 좋아요 및 싫어요 */}
-              <div className="reaction-buttons">
-                <button
-                  type="button"
-                  className={`reaction-button ${
-                    reaction === "like" ? "selected-like" : ""
-                  }`}
-                  onClick={() => setReaction("like")}
-                >
-                  👍 좋아요
-                </button>
-
-                <button
-                  type="button"
-                  className={`reaction-button ${
-                    reaction === "dislike" ? "selected-dislike" : ""
-                  }`}
-                  onClick={() => setReaction("dislike")}
-                >
-                  👎 싫어요
-                </button>
-              </div>
-
               {/* 리뷰 제목 */}
               <div className="review-title-field">
                 <label htmlFor="reviewTitle">리뷰 제목</label>
@@ -536,8 +585,6 @@ function MovieDetail() {
               <article className="detail-review-card" key={review.reviewId}>
                 <div>
                   <strong>{review.title}</strong>
-
-                  <span>{review.liked ? "👍 좋아요" : "👎 싫어요"}</span>
 
                   <span>
                     {new Date(review.createdAt).toLocaleDateString("ko-KR")}

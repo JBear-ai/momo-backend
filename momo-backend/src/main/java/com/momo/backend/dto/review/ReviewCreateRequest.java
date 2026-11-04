@@ -1,9 +1,7 @@
+
 package com.momo.backend.dto.review;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import lombok.Getter;
@@ -27,8 +25,4 @@ public class ReviewCreateRequest {
     @NotBlank(message = "리뷰 내용은 필수입니다.")
     @Size(max = 2000, message = "리뷰 내용은 2000자 이하여야 합니다.")
     private String content;
-
-    // 영화 평가 (true: 좋아요, false: 싫어요)
-    @NotNull(message = "영화 평가는 필수입니다.")
-    private Boolean liked;
 }

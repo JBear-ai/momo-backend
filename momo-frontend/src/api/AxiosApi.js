@@ -60,7 +60,7 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 6. 영화 검색 (무한 스크롤)
+  // 6. 영화 검색
   // =========================================================
 
   movieSearch: async (keyword, page, size = 20, signal) => {
@@ -89,7 +89,7 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 8. 영화 포스터 조회 (단건)
+  // 8. 영화 포스터 조회
   // =========================================================
 
   moviePoster: async (movieCode, signal) => {
@@ -112,7 +112,7 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 10. 영화별 리뷰 및 평점
+  // 10. 영화별 리뷰 조회
   // =========================================================
 
   movieReviews: async (movieCode, page = 0, signal) => {
@@ -125,6 +125,10 @@ const AxiosApi = {
     );
   },
 
+  // =========================================================
+  // 11. 영화 평가 조회
+  // =========================================================
+
   movieRating: async (movieCode, signal) => {
     return await axios.get(
       `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}/rating`,
@@ -132,33 +136,67 @@ const AxiosApi = {
     );
   },
 
-  reviewCreate: async (movieCode, title, content, liked) => {
-    return await axios.post(
-      `${HM_DOMAIN}/api/reviews`,
-      { movieCode, title, content, liked },
+  // =========================================================
+  // 12. 영화 좋아요 / 싫어요 저장 및 변경
+  // =========================================================
+
+  movieRatingSave: async (movieCode, liked) => {
+    return await axios.put(
+      `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}/rating`,
+      liked,
       { withCredentials: true },
     );
   },
 
-  // 현재 로그인한 사용자 정보 조회
-  // 서버 세션이 유효한지 확인할 때 사용
+  // =========================================================
+  // 13. 영화 평가 취소
+  // =========================================================
+
+  movieRatingDelete: async (movieCode) => {
+    return await axios.delete(
+      `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}/rating`,
+      { withCredentials: true },
+    );
+  },
+
+  // =========================================================
+  // 14. 리뷰 작성
+  // =========================================================
+
+  reviewCreate: async (movieCode, title, content) => {
+    return await axios.post(
+      `${HM_DOMAIN}/api/reviews`,
+      { movieCode, title, content },
+      { withCredentials: true },
+    );
+  },
+
+  // =========================================================
+  // 15. 로그인 사용자 정보 조회
+  // =========================================================
+
   memberMe: async () => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me`, {
-      withCredentials: true, // 로그인 세션 쿠키 전달
+      withCredentials: true,
     });
   },
 
-  // 로그아웃 요청
-  // 브라우저뿐 아니라 Spring Boot 서버의 세션도 종료
+  // =========================================================
+  // 16. 로그아웃
+  // =========================================================
+
   memberLogout: async () => {
     return await axios.post(
       `${HM_DOMAIN}/api/auth/logout`,
       {},
-      { withCredentials: true }, // 로그아웃할 세션 쿠키 전달
+      { withCredentials: true },
     );
   },
 
-  // 현재 비밀번호 일치 여부 확인
+  // =========================================================
+  // 17. 현재 비밀번호 확인
+  // =========================================================
+
   memberPasswordCheck: async (currentPassword) => {
     return await axios.post(
       `${HM_DOMAIN}/api/auth/me/password-check`,
@@ -168,7 +206,7 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 전체 리뷰 목록 조회
+  // 18. 전체 리뷰 목록 조회
   // =========================================================
 
   allReviews: async (page = 0, signal) => {
@@ -180,7 +218,7 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 리뷰 상세 조회
+  // 19. 리뷰 상세 조회
   // =========================================================
 
   reviewDetail: async (reviewId, signal) => {

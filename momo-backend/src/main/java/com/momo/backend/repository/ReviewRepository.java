@@ -1,3 +1,4 @@
+
 package com.momo.backend.repository;
 
 import com.momo.backend.entity.Review;
@@ -34,10 +35,4 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // 특정 회원이 작성한 리뷰 전체 조회
     List<Review> findAllByUser_UserId(Long userId);
-
-    // 특정 영화의 좋아요 또는 싫어요 개수 조회
-    long countByMovieCodeAndLiked(
-            String movieCode,
-            Boolean liked
-    );
 }

@@ -1,3 +1,4 @@
+
 package com.momo.backend.controller;
 
 import com.momo.backend.dto.review.ReviewCreateRequest;
@@ -19,17 +20,13 @@ import org.springframework.web.bind.annotation.*;
 
 import org.springframework.data.domain.Page;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
 @Slf4j
 public class ReviewController {
 
-    // 리뷰 관련 비즈니스 로직을 처리하는 Service
     private final ReviewService reviewService;
-
 
     // =========================================================
     // 1. 전체 리뷰 목록 조회
@@ -43,7 +40,6 @@ public class ReviewController {
                 reviewService.getAllReviews(page)
         );
     }
-
 
     // =========================================================
     // 2. 리뷰 작성
@@ -64,7 +60,6 @@ public class ReviewController {
                 .body(response);
     }
 
-
     // =========================================================
     // 3. 리뷰 상세 조회
     // =========================================================
@@ -77,7 +72,6 @@ public class ReviewController {
                 reviewService.getReview(reviewId)
         );
     }
-
 
     // =========================================================
     // 4. 내가 작성한 리뷰 목록 조회
@@ -96,7 +90,6 @@ public class ReviewController {
         );
     }
 
-
     // =========================================================
     // 5. 특정 영화의 리뷰 목록 조회
     // =========================================================
@@ -114,23 +107,8 @@ public class ReviewController {
         );
     }
 
-
     // =========================================================
-    // 6. 특정 영화의 좋아요 / 싫어요 통계
-    // =========================================================
-
-    @GetMapping("/movie/{movieCode}/rating")
-    public ResponseEntity<Map<String, Object>> getMovieRating(
-            @PathVariable String movieCode) {
-
-        return ResponseEntity.ok(
-                reviewService.getMovieRating(movieCode)
-        );
-    }
-
-
-    // =========================================================
-    // 7. 리뷰 수정
+    // 6. 리뷰 수정
     // =========================================================
 
     @PutMapping("/{reviewId}")
@@ -148,9 +126,8 @@ public class ReviewController {
         return ResponseEntity.ok(response);
     }
 
-
     // =========================================================
-    // 8. 리뷰 삭제
+    // 7. 리뷰 삭제
     // =========================================================
 
     @DeleteMapping("/{reviewId}")
@@ -165,5 +142,4 @@ public class ReviewController {
 
         return ResponseEntity.noContent().build();
     }
-
 }
