@@ -214,7 +214,12 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
           onError={() => onImageError(movie.movieCode)}
         />
 
-        <FavoriteStar movie={movie} />
+        <FavoriteStar
+          movie={{
+            ...movie,
+            posterUrl: posterUrl,
+          }}
+        />
       </Poster>
 
       <MovieInfo>

@@ -69,6 +69,9 @@ function FavoriteMovies() {
                       <img
                         src={movie.posterUrl}
                         alt={`${movie.title} 포스터`}
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="favorite-page-no-poster">포스터 없음</div>
