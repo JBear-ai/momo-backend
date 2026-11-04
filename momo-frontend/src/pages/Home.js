@@ -193,7 +193,7 @@ const Home = () => {
               key: genre,
               type: "button",
               onClick: () =>
-                navigate("/movie?genre=" + encodeURIComponent(genre)),
+                navigate("/search?genre=" + encodeURIComponent(genre)),
             },
             genre,
           ),

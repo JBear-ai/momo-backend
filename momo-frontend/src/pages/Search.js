@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 
 import AxiosApi from "../api/AxiosApi";
+import { formatReleaseDate } from "../utils/releaseDate";
 
 // ==========================================
 // 검색 페이지 디자인
@@ -202,7 +203,7 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
 
       <MovieInfo>
         <h3>{movie.title}</h3>
-        <p>{movie.releaseDate || "개봉일 정보 없음"}</p>
+        <p>{formatReleaseDate(movie.releaseDate)}</p>
         <p>{movie.genre || "장르 정보 없음"}</p>
       </MovieInfo>
     </MovieCard>
@@ -218,6 +219,10 @@ function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const keyword = searchParams.get("keyword") || "";
+  const genre = searchParams.get("genre") || "";
+  const isGenreMode = Boolean(genre.trim());
+  const searchValue = isGenreMode ? genre.trim() : keyword.trim();
+  const [keywordInput, setKeywordInput] = useState(keyword);
 
   // KOBIS에서 받아온 전체 영화 후보
   const [movies, setMovies] = useState([]);
@@ -241,7 +246,10 @@ function Search() {
   // 중복 요청 및 검색 상태 관리
   // ==========================================
 
-  const keywordRef = useRef(keyword.trim());
+  const searchRef = useRef({
+    value: searchValue,
+    isGenreMode,
+  });
 
   const pageRef = useRef(1);
   const hasNextRef = useRef(false);
@@ -256,7 +264,10 @@ function Search() {
   // React 상태의 최신 값을 비동기 작업에서 참조
   const posterStatusesRef = useRef({});
 
-  keywordRef.current = keyword.trim();
+  searchRef.current = {
+    value: searchValue,
+    isGenreMode,
+  };
   posterStatusesRef.current = posterStatuses;
 
   // ==========================================
@@ -286,9 +297,9 @@ function Search() {
 
   const loadPage = useCallback(
     async (page, generation = generationRef.current) => {
-      const currentKeyword = keywordRef.current;
+      const currentSearch = searchRef.current;
 
-      if (!currentKeyword) return;
+      if (!currentSearch.value) return;
       if (isFetchingRef.current) return;
       if (generation !== generationRef.current) return;
 
@@ -309,24 +320,37 @@ function Search() {
       setError("");
 
       try {
-        const response = await AxiosApi.movieSearch(
-          currentKeyword,
-          page,
-          20,
-          controller.signal,
-        );
+        const response = currentSearch.isGenreMode
+          ? await AxiosApi.moviesByGenre(
+              currentSearch.value,
+              page,
+              controller.signal,
+            )
+          : await AxiosApi.movieSearch(
+              currentSearch.value,
+              page,
+              20,
+              controller.signal,
+            );
 
         if (
           controller.signal.aborted ||
           generation !== generationRef.current ||
-          keywordRef.current !== currentKeyword
+          searchRef.current.value !== currentSearch.value ||
+          searchRef.current.isGenreMode !== currentSearch.isGenreMode
         ) {
           return;
         }
 
         const data = response.data;
 
-        const newMovies = Array.isArray(data.content) ? data.content : [];
+        const newMovies = currentSearch.isGenreMode
+          ? Array.isArray(data)
+            ? data
+            : []
+          : Array.isArray(data.content)
+            ? data.content
+            : [];
 
         const validMovies = newMovies.filter(
           (movie) => movie.movieCode && movie.title,
@@ -362,8 +386,12 @@ function Search() {
           return next;
         });
 
-        setHasNext(data.hasNext === true);
-        hasNextRef.current = data.hasNext === true;
+        const nextPageAvailable = currentSearch.isGenreMode
+          ? newMovies.length === 10
+          : data.hasNext === true;
+
+        setHasNext(nextPageAvailable);
+        hasNextRef.current = nextPageAvailable;
 
         pageRef.current = page + 1;
       } catch (err) {
@@ -374,7 +402,7 @@ function Search() {
           generation === generationRef.current
         ) {
           console.error("영화 검색 실패:", err);
-          setError("영화 검색 중 오류가 발생했습니다.");
+          setError("영화 목록을 불러오는 중 오류가 발생했습니다.");
         }
       } finally {
         if (activeControllerRef.current === controller) {
@@ -540,12 +568,10 @@ function Search() {
   }, [movies]);
 
   // ==========================================
-  // 검색어 변경
+  // 검색 조건 변경
   // ==========================================
 
   useEffect(() => {
-    const trimmedKeyword = keyword.trim();
-
     // 이전 검색 요청 무효화
     generationRef.current += 1;
 
@@ -571,7 +597,7 @@ function Search() {
     setError("");
     setLoadingMore(false);
 
-    if (!trimmedKeyword) {
+    if (!searchValue) {
       setInitialLoading(false);
       return;
     }
@@ -592,7 +618,7 @@ function Search() {
 
       isFetchingRef.current = false;
     };
-  }, [keyword, loadPage]);
+  }, [searchValue, isGenreMode, loadPage]);
 
   // ==========================================
   // 포스터 대기 영화 수
@@ -654,9 +680,14 @@ function Search() {
   // 검색어 입력
   // ==========================================
 
-  const handleKeywordChange = (e) => {
-    const value = e.target.value;
+  useEffect(() => {
+    setKeywordInput(isGenreMode ? "" : keyword);
+  }, [isGenreMode, keyword]);
 
+  const handleKeywordSubmit = (e) => {
+    e.preventDefault();
+
+    const value = keywordInput.trim();
     setSearchParams(value ? { keyword: value } : {}, { replace: true });
   };
 
@@ -687,21 +718,30 @@ function Search() {
   return (
     <SearchPage>
       <SearchHeading>
-        <h1>어떤 영화를 찾으세요?</h1>
-        <p>기억하고 싶은 영화를 검색하고 감상을 기록해 보세요.</p>
+        <h1>
+          {isGenreMode ? `${genre.trim()} 영화` : "어떤 영화를 찾으세요?"}
+        </h1>
+        <p>
+          {isGenreMode
+            ? "선택한 장르의 영화를 살펴보세요."
+            : "기억하고 싶은 영화를 검색하고 감상을 기록해 보세요."}
+        </p>
       </SearchHeading>
 
-      <SearchInput
-        type="text"
-        placeholder="영화 제목 또는 키워드를 입력하세요."
-        value={keyword}
-        onChange={handleKeywordChange}
-      />
+      <form role="search" onSubmit={handleKeywordSubmit}>
+        <SearchInput
+          type="search"
+          aria-label="영화 제목 검색"
+          placeholder="영화 제목을 입력한 뒤 Enter를 눌러 주세요."
+          value={keywordInput}
+          onChange={(e) => setKeywordInput(e.target.value)}
+        />
+      </form>
 
-      {!keyword.trim() ? (
+      {!searchValue ? (
         <SearchMessage>영화 제목을 입력해 주세요.</SearchMessage>
       ) : initialLoading && movies.length === 0 ? (
-        <SearchMessage>영화를 찾고 있습니다.</SearchMessage>
+        <SearchMessage>영화 목록을 불러오고 있습니다.</SearchMessage>
       ) : error && movies.length === 0 ? (
         <SearchMessage>
           {error}
@@ -711,7 +751,11 @@ function Search() {
           </RetryButton>
         </SearchMessage>
       ) : movies.length === 0 ? (
-        <SearchMessage>검색 결과가 없습니다.</SearchMessage>
+        <SearchMessage>
+          {isGenreMode
+            ? "선택한 장르의 영화가 없습니다."
+            : "검색 결과가 없습니다."}
+        </SearchMessage>
       ) : (
         <>
           {visibleMovies.length > 0 ? (

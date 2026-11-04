@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import AxiosApi from "../api/AxiosApi";
+import { formatReleaseDate } from "../utils/releaseDate";
 
 // 숫자에 천 단위 쉼표 추가
 function formatNumber(value) {
@@ -62,9 +64,16 @@ function MovieDetail() {
 
   // 리뷰 관련 상태
   const [reviews, setReviews] = useState([]);
+  const [ratingSummary, setRatingSummary] = useState({
+    likeCount: 0,
+    dislikeCount: 0,
+    positiveRate: null,
+  });
   const [reviewText, setReviewText] = useState("");
   const [reaction, setReaction] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   // 감독 및 배우 선택 상태
   const [selectedPerson, setSelectedPerson] = useState(null);
@@ -124,32 +133,50 @@ function MovieDetail() {
     }
   }, [id]);
 
-  // 영화별 리뷰 목록
-  const movieReviews = reviews.filter(
-    (review) => review.movieId === movie?.movieCode,
-  );
+  // DB에 저장된 영화별 리뷰와 평점 조회
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function fetchReviewsAndRating() {
+      try {
+        setReviewError("");
+
+        const [reviewsResponse, ratingResponse] = await Promise.all([
+          AxiosApi.movieReviews(id, 0, controller.signal),
+          AxiosApi.movieRating(id, controller.signal),
+        ]);
+
+        setReviews(reviewsResponse.data.content || []);
+        setRatingSummary(ratingResponse.data);
+      } catch (error) {
+        if (error.name !== "CanceledError") {
+          console.error("리뷰 및 평점 조회 실패:", error);
+          setReviewError("리뷰와 평점을 불러오지 못했습니다.");
+        }
+      }
+    }
+
+    if (id) {
+      fetchReviewsAndRating();
+    }
+
+    return () => controller.abort();
+  }, [id]);
 
   // 좋아요 수
-  const likeCount = movieReviews.filter(
-    (review) => review.reaction === "like",
-  ).length;
+  const likeCount = ratingSummary.likeCount || 0;
 
   // 싫어요 수
-  const dislikeCount = movieReviews.filter(
-    (review) => review.reaction === "dislike",
-  ).length;
-
-  // 전체 반응 수
-  const totalReactions = likeCount + dislikeCount;
+  const dislikeCount = ratingSummary.dislikeCount || 0;
 
   // 관객 평점 계산
   const rating =
-    totalReactions > 0
-      ? ((likeCount / totalReactions) * 10).toFixed(1)
+    ratingSummary.positiveRate != null
+      ? (ratingSummary.positiveRate / 10).toFixed(1)
       : "평가 없음";
 
   // 리뷰 등록
-  function addReview() {
+  async function addReview() {
     if (!reaction) {
       alert("좋아요 또는 싫어요를 선택해 주세요.");
       return;
@@ -160,19 +187,37 @@ function MovieDetail() {
       return;
     }
 
-    const newReview = {
-      id: Date.now(),
-      movieId: movie.movieCode,
-      text: reviewText.trim(),
-      reaction,
-      date: new Date().toLocaleDateString("ko-KR"),
-    };
+    try {
+      setIsReviewSubmitting(true);
+      setReviewError("");
 
-    setReviews((prev) => [newReview, ...prev]);
+      const createResponse = await AxiosApi.reviewCreate(
+        movie.movieCode,
+        `${movie.title} 리뷰`,
+        reviewText.trim(),
+        reaction === "like",
+      );
 
-    setReviewText("");
-    setReaction("");
-    setIsReviewOpen(false);
+      const ratingResponse = await AxiosApi.movieRating(movie.movieCode);
+
+      setReviews((prev) => [createResponse.data, ...prev]);
+      setRatingSummary(ratingResponse.data);
+      setReviewText("");
+      setReaction("");
+      setIsReviewOpen(false);
+    } catch (error) {
+      console.error("리뷰 등록 실패:", error);
+
+      if (error.response?.status === 401) {
+        setReviewError("리뷰를 등록하려면 로그인이 필요합니다.");
+      } else {
+        setReviewError(
+          error.response?.data?.message || "리뷰 등록에 실패했습니다.",
+        );
+      }
+    } finally {
+      setIsReviewSubmitting(false);
+    }
   }
 
   // 영화 정보 로딩 중
@@ -230,7 +275,7 @@ function MovieDetail() {
 
           <p>영문 제목: {movie.titleEn || "정보 없음"}</p>
 
-          <p>개봉일: {movie.releaseDate || "정보 없음"}</p>
+          <p>개봉일(KOBIS): {formatReleaseDate(movie.releaseDate)}</p>
 
           <p>
             상영시간:{" "}
@@ -347,6 +392,8 @@ function MovieDetail() {
       <section className="detail-content-section">
         <h2>리뷰</h2>
 
+        {reviewError && <p className="people-empty">{reviewError}</p>}
+
         <div className="review-write-section">
           {/* 리뷰 작성 열기 */}
           <button
@@ -398,24 +445,28 @@ function MovieDetail() {
               <div className="review-form-actions">
                 <span>{reviewText.length}/1000</span>
 
-                <button onClick={addReview}>리뷰 등록</button>
+                <button onClick={addReview} disabled={isReviewSubmitting}>
+                  {isReviewSubmitting ? "등록 중..." : "리뷰 등록"}
+                </button>
               </div>
             </div>
           )}
         </div>
 
         {/* 리뷰 목록 */}
-        {movieReviews.length > 0 ? (
+        {reviews.length > 0 ? (
           <div className="detail-review-list">
-            {movieReviews.map((review) => (
-              <article className="detail-review-card" key={review.id}>
+            {reviews.map((review) => (
+              <article className="detail-review-card" key={review.reviewId}>
                 <div>
-                  {review.reaction === "like" ? "👍 좋아요" : "👎 싫어요"}
+                  {review.liked ? "👍 좋아요" : "👎 싫어요"}
 
-                  <span>{review.date}</span>
+                  <span>
+                    {new Date(review.createdAt).toLocaleDateString("ko-KR")}
+                  </span>
                 </div>
 
-                <p>{review.text}</p>
+                <p>{review.content}</p>
               </article>
             ))}
           </div>

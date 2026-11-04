@@ -389,6 +389,12 @@ public class MovieService {
             );
         }
 
+        String kobisGenre = switch (genre.trim()) {
+            case "로맨스" -> "멜로/로맨스";
+            case "공포" -> "공포(호러)";
+            default -> genre.trim();
+        };
+
         // 페이지당 10개 영화
         int skipCount = (page - 1) * 10;
         int matchCount = 0;
@@ -416,7 +422,7 @@ public class MovieService {
                                     movieGenre.split(",")
                             )
                             .map(String::trim)
-                            .anyMatch(name -> name.equals(genre.trim()));
+                            .anyMatch(name -> name.equals(kobisGenre));
 
                     if (!matchesGenre) {
                         continue;

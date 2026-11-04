@@ -75,7 +75,21 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 7. 영화 포스터 조회 (단건)
+  // 7. 장르별 영화 목록 조회
+  // =========================================================
+
+  moviesByGenre: async (genre, page, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/movies/genre`, {
+      params: {
+        genre,
+        page,
+      },
+      signal,
+    });
+  },
+
+  // =========================================================
+  // 8. 영화 포스터 조회 (단건)
   // =========================================================
 
   moviePoster: async (movieCode, signal) => {
@@ -86,7 +100,7 @@ const AxiosApi = {
   },
 
   // =========================================================
-  // 8. 영화 포스터 상태 일괄 조회
+  // 9. 영화 포스터 상태 일괄 조회
   // =========================================================
 
   moviePosterStatuses: async (movieCodes, signal) => {
@@ -94,6 +108,53 @@ const AxiosApi = {
       `${HM_DOMAIN}/api/movies/posters/status`,
       movieCodes,
       { signal },
+    );
+  },
+
+  // =========================================================
+  // 10. 영화별 리뷰 및 평점
+  // =========================================================
+
+  movieReviews: async (movieCode, page = 0, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/reviews/movie/${encodeURIComponent(movieCode)}`,
+      {
+        params: { page },
+        signal,
+      },
+    );
+  },
+
+  movieRating: async (movieCode, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}/rating`,
+      { signal },
+    );
+  },
+
+  reviewCreate: async (movieCode, title, content, liked) => {
+    return await axios.post(
+      `${HM_DOMAIN}/api/reviews`,
+      { movieCode, title, content, liked },
+      { withCredentials: true },
+    );
+  },
+
+  // 현재 로그인한 사용자 정보 조회
+  // 서버 세션이 유효한지 확인할 때 사용
+  memberMe: async () => {
+    return await axios.get(`${HM_DOMAIN}/api/auth/me`, {
+      withCredentials: true, // 로그인 세션 쿠키 전달
+    });
+  },
+
+  // 로그아웃 요청
+  // 브라우저뿐 아니라 Spring Boot 서버의 세션도 종료
+  memberLogout: async () => {
+    return await axios.post(
+      `${HM_DOMAIN}/api/auth/logout`,
+      {},
+      { withCredentials: true }, // 로그아웃할 세션 쿠키 전달
     );
   },
 };

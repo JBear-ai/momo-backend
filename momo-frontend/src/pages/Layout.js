@@ -5,9 +5,11 @@ import {
   Outlet,
   useNavigate,
   useSearchParams,
+  useLocation,
 } from "react-router-dom";
 import styled from "styled-components";
 import textlogo from "../textlogo.png";
+import AxiosApi from "../api/AxiosApi";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -279,22 +281,68 @@ function Layout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  // 현재 페이지 경로를 확인
+  // 페이지가 이동하면 로그인 상태를 다시 확인하기 위해 사용
+  const location = useLocation();
+
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
 
-  const [nickname, setNickname] = useState(
-    localStorage.getItem("nickname") || "",
-  );
+  // 서버 확인 전에는 로그인 상태를 확정하지 않음
+  const [nickname, setNickname] = useState("");
+
+  // 서버 세션 확인이 끝났는지 구분
+  const [authLoading, setAuthLoading] = useState(true);
 
   // URL의 검색어가 변경되면 헤더 검색창에도 반영
   useEffect(() => {
     setKeyword(searchParams.get("keyword") || "");
   }, [searchParams]);
 
-  // 로그인 사용자 닉네임 확인
+  // 서버 세션을 확인하여 로그인 상태를 갱신
   useEffect(() => {
-    const savedNickname = localStorage.getItem("nickname") || "";
-    setNickname(savedNickname);
-  }, []);
+    let active = true;
+
+    const checkLogin = async () => {
+      try {
+        // 현재 서버에 로그인된 사용자 정보 요청
+        const response = await AxiosApi.memberMe();
+
+        if (!active) return;
+
+        // 세션이 유효하면 서버에서 받은 닉네임 표시
+        setNickname(response.data.nickname || "회원");
+      } catch (error) {
+        if (!active) return;
+
+        // 인증 실패(401)인 경우 로그인 상태 초기화
+        if (error.response?.status === 401) {
+          setNickname("");
+          localStorage.removeItem("username");
+          localStorage.removeItem("nickname");
+        } else {
+          // 서버 연결 문제는 인증 실패와 구분
+          console.error("로그인 상태 확인 실패:", error);
+          setNickname("");
+        }
+      } finally {
+        if (active) {
+          setAuthLoading(false);
+        }
+      }
+    };
+
+    // 사이트 최초 접속 및 페이지 이동 시 로그인 상태 확인
+    checkLogin();
+
+    // Login.js에서 로그인 성공 이벤트가 발생하면 다시 확인
+    window.addEventListener("momo-auth-changed", checkLogin);
+
+    return () => {
+      active = false;
+      window.removeEventListener("momo-auth-changed", checkLogin);
+    };
+    // 페이지 경로가 변경되면 서버 세션을 다시 확인
+  }, [location.pathname]);
 
   // 헤더 검색 실행
   const handleSearchSubmit = (e) => {
@@ -307,14 +355,25 @@ function Layout() {
     navigate(`/search?keyword=${encodeURIComponent(trimmedKeyword)}`);
   };
 
-  // 로그아웃
-  const handleLogout = () => {
-    localStorage.removeItem("username");
-    localStorage.removeItem("nickname");
+  // 로그아웃 시 서버 세션도 함께 종료
+  const handleLogout = async () => {
+    try {
+      // Spring Boot에 로그아웃 요청
+      await AxiosApi.memberLogout();
 
-    setNickname("");
+      // 로그아웃 성공 후 브라우저 사용자 정보 삭제
+      localStorage.removeItem("username");
+      localStorage.removeItem("nickname");
 
-    navigate("/login");
+      // 화면을 로그아웃 상태로 변경
+      setNickname("");
+
+      // 로그아웃 성공 후 메인 홈페이지로 이동
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("로그아웃 실패:", error);
+      alert("로그아웃에 실패했습니다. 다시 시도해 주세요.");
+    }
   };
 
   return (
@@ -336,7 +395,7 @@ function Layout() {
         </SearchForm>
 
         <Navigation>
-          {nickname ? (
+          {authLoading ? null : nickname ? (
             <UserArea>
               <NavLink to="/profile">{nickname}님</NavLink>
 

@@ -134,8 +134,6 @@ public class KmdbService {
                     dataList.size()
             );
 
-            String fallbackPosterUrl = null;
-
             for (JsonNode data : dataList) {
 
                 JsonNode results = data.path("Result");
@@ -200,19 +198,17 @@ public class KmdbService {
                         return posterUrl;
                     }
 
-                    // 개봉일이 달라도 제목이 일치하면 후보로 저장
-                    if (fallbackPosterUrl == null) {
-                        fallbackPosterUrl = posterUrl;
+                    // KOBIS 개봉일이 있으면 날짜가 다른 동명 영화의 포스터를
+                    // 임의로 사용하지 않는다. 개봉일이 없는 경우에만 제목 일치를
+                    // 근거로 포스터를 허용한다.
+                    if (normalizedDate.isBlank()) {
+                        log.info(
+                                "KMDb 포스터 제목 매칭 성공 - KOBIS 개봉일 없음 - 제목: {}",
+                                rawTitle
+                        );
+                        return posterUrl;
                     }
                 }
-            }
-
-            if (fallbackPosterUrl != null) {
-                log.info(
-                        "KMDb 제목 매칭 성공 - 개봉일 차이 - 제목: {}",
-                        title
-                );
-                return fallbackPosterUrl;
             }
 
             log.warn(

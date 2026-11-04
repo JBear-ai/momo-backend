@@ -26,8 +26,13 @@ function Login() {
         const nickname = response.data.nickname || "회원";
         const loginId = response.data.loginId || inputId.trim();
 
+        // 로그인 성공 후 기존 사용자 정보 저장
         localStorage.setItem("username", loginId);
         localStorage.setItem("nickname", nickname);
+
+        // 로그인 성공 후 Layout에 로그인 상태가 변경되었음을 알림
+        // Layout은 이벤트를 받으면 서버에 로그인 상태를 다시 확인
+        window.dispatchEvent(new Event("momo-auth-changed"));
 
         alert("로그인에 성공했습니다.");
         nav("/", { replace: true });
