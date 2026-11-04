@@ -1,44 +1,84 @@
-
 package com.momo.backend.config;
+
+import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
+
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
-
 @Configuration
 public class SecurityConfig {
 
-    // 회원 비밀번호를 BCrypt 방식으로 암호화
+    // =========================================================
+    // 1. 비밀번호 암호화 설정
+    // =========================================================
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+
+    // =========================================================
+    // 2. SecurityContextRepository 설정
+    // =========================================================
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+
+    // =========================================================
+    // 3. Spring Security 필터 설정
+    // =========================================================
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            SecurityContextRepository securityContextRepository
+    ) throws Exception {
 
         http
-                // 개발 단계에서 CSRF 보호 기능 비활성화
+
+                // -------------------------------------------------
+                // CSRF 비활성화
+                // -------------------------------------------------
                 .csrf(csrf -> csrf.disable())
 
-                // React에서 Spring Boot API 호출 허용
+
+                // -------------------------------------------------
+                // CORS 활성화
+                // -------------------------------------------------
                 .cors(cors -> {})
 
-                // 인증 정보를 Controller에서 직접 세션에 저장
-                .securityContext(context -> context.requireExplicitSave(true))
 
-                // API별 접근 권한 설정
+                // -------------------------------------------------
+                // SecurityContext 세션 저장 설정
+                // -------------------------------------------------
+                .securityContext(context -> context
+                        .requireExplicitSave(true)
+                        .securityContextRepository(securityContextRepository)
+                )
+
+
+                // -------------------------------------------------
+                // URL별 접근 권한 설정
+                // -------------------------------------------------
                 .authorizeHttpRequests(auth -> auth
 
                         // Swagger 접근 허용
@@ -48,39 +88,39 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
 
-                        // 회원가입과 로그인
+                        // 회원가입 및 로그인 허용
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/auth/signup",
                                 "/api/auth/login"
                         ).permitAll()
 
-                        // 아이디 중복 확인
+                        // 아이디 중복 확인 허용
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/auth/exists/id/**"
                         ).permitAll()
 
-                        // 로그아웃
+                        // 로그아웃은 로그인한 사용자만 허용
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/auth/logout"
                         ).authenticated()
 
-                        // 영화 검색, 상세정보, 박스오피스 조회
+                        // 영화 조회 API 허용
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/movies/**",
                                 "/api/boxoffice/**"
                         ).permitAll()
 
-                        // 포스터 상태 일괄 조회
+                        // 포스터 상태 조회 허용
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/movies/posters/status"
                         ).permitAll()
 
-                        // 영화별 리뷰 목록과 좋아요/싫어요 통계
+                        // 영화별 리뷰 및 평점 조회 허용
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/reviews/movie/*",
@@ -91,57 +131,91 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // 인증 및 접근 권한 오류 처리
+
+                // -------------------------------------------------
+                // 인증 실패 및 권한 거부 응답
+                // -------------------------------------------------
                 .exceptionHandling(exception -> exception
 
-                        // 401: 로그인하지 않은 사용자
-                        .authenticationEntryPoint((request, response, authException) -> {
+                        // 로그인하지 않은 사용자
+                        .authenticationEntryPoint(
+                                (request, response, authException) -> {
 
-                            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                            response.setContentType("application/json;charset=UTF-8");
+                                    response.setStatus(
+                                            HttpStatus.UNAUTHORIZED.value()
+                                    );
 
-                            response.getWriter().write(
-                                    "{\"code\":\"UNAUTHORIZED\",\"message\":\"로그인이 필요합니다.\"}"
-                            );
-                        })
+                                    response.setContentType(
+                                            "application/json;charset=UTF-8"
+                                    );
 
-                        // 403: 로그인했지만 접근 권한이 없는 사용자
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                                    response.getWriter().write(
+                                            "{\"code\":\"UNAUTHORIZED\","
+                                                    + "\"message\":\"로그인이 필요합니다.\"}"
+                                    );
+                                }
+                        )
 
-                            response.setStatus(HttpStatus.FORBIDDEN.value());
-                            response.setContentType("application/json;charset=UTF-8");
+                        // 접근 권한이 없는 사용자
+                        .accessDeniedHandler(
+                                (request, response, accessDeniedException) -> {
 
-                            response.getWriter().write(
-                                    "{\"code\":\"FORBIDDEN\",\"message\":\"접근 권한이 없습니다.\"}"
-                            );
-                        })
+                                    response.setStatus(
+                                            HttpStatus.FORBIDDEN.value()
+                                    );
+
+                                    response.setContentType(
+                                            "application/json;charset=UTF-8"
+                                    );
+
+                                    response.getWriter().write(
+                                            "{\"code\":\"FORBIDDEN\","
+                                                    + "\"message\":\"접근 권한이 없습니다.\"}"
+                                    );
+                                }
+                        )
                 );
 
         return http.build();
     }
 
-    // React 개발 서버 CORS 설정
+
+    // =========================================================
+    // 4. CORS 설정
+    // =========================================================
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of("http://localhost:3000"));
+        // React 개발 서버 주소
+        config.setAllowedOrigins(
+                List.of("http://localhost:3000")
+        );
 
+        // 허용할 HTTP 메서드
         config.setAllowedMethods(
                 List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
         );
 
-        config.setAllowedHeaders(List.of("*"));
+        // 모든 요청 헤더 허용
+        config.setAllowedHeaders(
+                List.of("*")
+        );
 
-        // 로그인 세션 쿠키를 포함한 요청 허용
+        // 세션 쿠키 전송 허용
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration(
+                "/api/**",
+                config
+        );
 
         return source;
     }
+
 }

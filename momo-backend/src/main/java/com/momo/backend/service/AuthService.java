@@ -231,4 +231,20 @@ public class AuthService {
         userRepository.delete(user);
     }
 
+
+    // 현재 로그인한 회원의 비밀번호 일치 여부 확인
+    @Transactional(readOnly = true)
+    public boolean checkCurrentPassword(String loginId, String currentPassword) {
+
+        // 로그인한 회원 조회
+        User user = getLoginUser(loginId);
+
+        // 입력한 비밀번호와 DB의 암호화된 비밀번호 비교
+        return passwordEncoder.matches(
+                currentPassword,
+                user.getPasswordHash()
+        );
+    }
+
+
 }

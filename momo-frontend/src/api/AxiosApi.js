@@ -157,6 +157,15 @@ const AxiosApi = {
       { withCredentials: true }, // 로그아웃할 세션 쿠키 전달
     );
   },
+
+  // 현재 비밀번호 일치 여부 확인
+  memberPasswordCheck: async (currentPassword) => {
+    return await axios.post(
+      `${HM_DOMAIN}/api/auth/me/password-check`,
+      { currentPassword },
+      { withCredentials: true },
+    );
+  },
 };
 
 export default AxiosApi;
