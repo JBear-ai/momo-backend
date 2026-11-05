@@ -1,4 +1,3 @@
-
 package com.momo.backend.service;
 
 import com.momo.backend.dto.movie.MoviePosterStatusResponse;
@@ -23,36 +22,29 @@ public class MoviePosterCacheService {
 
     private final MoviePosterCacheRepository posterCacheRepository;
 
-    // 포스터 캐시 단건 조회
+    private static final long FAILED_RETRY_HOURS = 24;
+    private static final long PROCESSING_TIMEOUT_MINUTES = 10;
+
     public Optional<MoviePosterCache> findCache(String movieCode) {
         return posterCacheRepository.findById(movieCode);
     }
 
-    // 포스터 캐시 생성
     @Transactional
     public synchronized MoviePosterCache createCache(
             String movieCode,
             String title,
             String releaseDate
     ) {
-
-        Optional<MoviePosterCache> existingCache =
-                posterCacheRepository.findById(movieCode);
-
-        if (existingCache.isPresent()) {
-            return existingCache.get();
-        }
-
-        MoviePosterCache newCache = new MoviePosterCache(
-                movieCode,
-                title,
-                releaseDate
-        );
-
-        return posterCacheRepository.save(newCache);
+        return posterCacheRepository.findById(movieCode)
+                .orElseGet(() -> posterCacheRepository.save(
+                        new MoviePosterCache(
+                                movieCode,
+                                title,
+                                releaseDate
+                        )
+                ));
     }
 
-    // 포스터 검색 작업 시작
     @Transactional
     public synchronized boolean tryMarkAsProcessing(String movieCode) {
 
@@ -65,43 +57,37 @@ public class MoviePosterCacheService {
         }
 
         PosterStatus status = cache.getStatus();
+        LocalDateTime updatedAt = cache.getUpdatedAt();
+        LocalDateTime now = LocalDateTime.now();
 
-        // 처음 검색하는 영화
-        boolean isPending = status == PosterStatus.PENDING;
+        boolean canStart = status == PosterStatus.PENDING;
 
-        // 이전 검색에 실패한 영화
-        boolean isFailed = status == PosterStatus.FAILED;
+        boolean canRetryFailed =
+                status == PosterStatus.FAILED
+                        && updatedAt != null
+                        && updatedAt.isBefore(
+                        now.minusHours(FAILED_RETRY_HOURS)
+                );
 
-        // 서버 종료 등으로 10분 이상 처리 중인 영화
-        boolean isStaleProcessing =
+        boolean canRecoverProcessing =
                 status == PosterStatus.PROCESSING
                         && (
-                        cache.getUpdatedAt() == null
-                                || cache.getUpdatedAt().isBefore(
-                                LocalDateTime.now().minusMinutes(10)
+                        updatedAt == null
+                                || updatedAt.isBefore(
+                                now.minusMinutes(
+                                        PROCESSING_TIMEOUT_MINUTES
+                                )
                         )
                 );
 
-        // 재검색 대상이 아니면 작업하지 않음
-        if (!isPending && !isFailed && !isStaleProcessing) {
+        if (!canStart && !canRetryFailed && !canRecoverProcessing) {
             return false;
         }
 
-        // 처리 상태로 변경
         cache.markAsProcessing();
-
         return true;
     }
 
-    // 포스터 조회 진행 상태 변경
-    @Transactional
-    public synchronized void markAsProcessing(String movieCode) {
-
-        posterCacheRepository.findById(movieCode)
-                .ifPresent(MoviePosterCache::markAsProcessing);
-    }
-
-    // 포스터 조회 성공 및 주소 저장
     @Transactional
     public void updatePoster(String movieCode, String posterUrl) {
 
@@ -109,7 +95,6 @@ public class MoviePosterCacheService {
                 .ifPresent(cache -> cache.updatePoster(posterUrl));
     }
 
-    // 포스터 조회 실패 처리
     @Transactional
     public void markAsFailed(String movieCode) {
 
@@ -117,11 +102,9 @@ public class MoviePosterCacheService {
                 .ifPresent(MoviePosterCache::markAsFailed);
     }
 
-    // 여러 영화의 포스터 상태 일괄 조회
     public List<MoviePosterStatusResponse> findPosterStatuses(
             Collection<String> movieCodes
     ) {
-
         if (movieCodes == null || movieCodes.isEmpty()) {
             return List.of();
         }
@@ -139,11 +122,9 @@ public class MoviePosterCacheService {
                 .toList();
     }
 
-    // 영화 포스터 상태 단건 조회
     public Optional<MoviePosterStatusResponse> findPosterStatus(
             String movieCode
     ) {
-
         return posterCacheRepository.findById(movieCode)
                 .map(cache -> new MoviePosterStatusResponse(
                         cache.getMovieCode(),
