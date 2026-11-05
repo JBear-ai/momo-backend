@@ -1,4 +1,3 @@
-
 package com.momo.backend.service;
 
 import com.momo.backend.client.KobisApiClient;
@@ -8,9 +7,11 @@ import com.momo.backend.dto.movie.MoviePosterResponse;
 import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.entity.Movie;
+import com.momo.backend.entity.MovieCache;
 import com.momo.backend.entity.MoviePosterCache;
 import com.momo.backend.entity.MovieSupplement;
 import com.momo.backend.entity.PosterStatus;
+import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -38,17 +39,135 @@ public class MovieService {
     private final KmdbService kmdbService;
     private final TmdbService tmdbService;
     private final ObjectMapper objectMapper;
+
     private final MovieRepository movieRepository;
+    private final MovieCacheRepository movieCacheRepository;
     private final MoviePosterCacheService posterCacheService;
 
     // =========================================================
-    // 1. 영화 검색 (페이지네이션)
+    // 통합 캐시 설정
+    // =========================================================
+
+    private static final String CACHE_SEARCH = "SEARCH";
+    private static final String CACHE_DAILY_BOX_OFFICE = "DAILY_BOX_OFFICE";
+    private static final String CACHE_GENRE = "GENRE";
+
+    private static final long SEARCH_CACHE_HOURS = 24;
+    private static final long DAILY_BOX_OFFICE_CACHE_HOURS = 1;
+    private static final long GENRE_CACHE_HOURS = 24;
+
+    // =========================================================
+    // 1. 통합 캐시 조회
+    // =========================================================
+
+    private MovieCache findValidCache(
+            String cacheType,
+            String cacheKey
+    ) {
+
+        MovieCache cache = movieCacheRepository
+                .findByCacheTypeAndCacheKey(cacheType, cacheKey)
+                .orElse(null);
+
+        if (cache == null) {
+            return null;
+        }
+
+        if (!cache.isValid(LocalDateTime.now())) {
+            return null;
+        }
+
+        return cache;
+    }
+
+    // =========================================================
+    // 2. 통합 캐시 저장 및 갱신
+    // =========================================================
+
+    private void saveCache(
+            String cacheType,
+            String cacheKey,
+            Object data,
+            long ttlHours
+    ) {
+
+        try {
+
+            String contentJson = objectMapper.writeValueAsString(data);
+
+            MovieCache cache = movieCacheRepository
+                    .findByCacheTypeAndCacheKey(cacheType, cacheKey)
+                    .orElse(null);
+
+            if (cache == null) {
+
+                cache = new MovieCache(
+                        cacheType,
+                        cacheKey,
+                        contentJson,
+                        ttlHours
+                );
+
+            } else {
+
+                cache.update(contentJson, ttlHours);
+            }
+
+            movieCacheRepository.save(cache);
+
+        } catch (Exception e) {
+
+            // 캐시 저장 실패가 API 응답 자체를 중단시키지 않도록 처리
+            log.warn(
+                    "영화 통합 캐시 저장 실패. type: {}, key: {}",
+                    cacheType,
+                    cacheKey,
+                    e
+            );
+        }
+    }
+
+    // =========================================================
+    // 3. 영화 검색 캐시 JSON 변환
+    // =========================================================
+
+    private MovieSearchPageResponse readCachedSearchPage(
+            String contentJson
+    ) throws Exception {
+
+        JsonNode root = objectMapper.readTree(contentJson);
+
+        List<MovieSearchResponse> movies = new ArrayList<>();
+
+        for (JsonNode movie : root.path("content")) {
+
+            movies.add(new MovieSearchResponse(
+                    movie.path("movieCode").asText(""),
+                    movie.path("title").asText(""),
+                    movie.path("releaseDate").asText(""),
+                    movie.path("genre").asText(""),
+                    movie.path("director").asText("")
+            ));
+        }
+
+        return new MovieSearchPageResponse(
+                movies,
+                root.path("page").asInt(),
+                root.path("size").asInt(),
+                root.path("totalCount").asInt(),
+                root.path("hasNext").asBoolean()
+        );
+    }
+
+    // =========================================================
+    // 4. 영화 검색 (통합 캐시 적용)
     // =========================================================
 
     public MovieSearchPageResponse searchMovies(
             String keyword,
             int page,
-            int size) {
+            int size
+    ) {
 
         if (keyword == null || keyword.isBlank()) {
             throw new IllegalArgumentException("검색어를 입력해주세요.");
@@ -65,7 +184,6 @@ public class MovieService {
 
         List<String> keywords = new ArrayList<>();
 
-        // 중복 검색 단어 제거
         for (String word : words) {
             if (!keywords.contains(word)) {
                 keywords.add(word);
@@ -74,7 +192,34 @@ public class MovieService {
 
         String searchKeyword = String.join(" ", keywords);
 
-        // 정리된 검색어로 KOBIS API 호출
+        // 검색어 + 페이지 + 개수를 캐시 식별값으로 사용
+        String cacheKey = searchKeyword + "|" + page + "|" + size;
+
+        // 1. 통합 캐시 조회
+        MovieCache cached = findValidCache(
+                CACHE_SEARCH,
+                cacheKey
+        );
+
+        if (cached != null) {
+
+            try {
+
+                MovieSearchPageResponse response =
+                        readCachedSearchPage(cached.getContentJson());
+
+                // 캐시 결과에서도 포스터 누락 작업 등록
+                enqueuePosterSearches(response.content());
+
+                return response;
+
+            } catch (Exception e) {
+
+                log.warn("영화 검색 캐시 변환 실패. KOBIS 재조회 진행", e);
+            }
+        }
+
+        // 2. 캐시가 없거나 만료되면 KOBIS 호출
         String json = kobisApiClient.searchMovies(
                 searchKeyword,
                 page,
@@ -106,6 +251,7 @@ public class MovieService {
                     JsonNode directors = movie.path("directors");
 
                     if (directors.isArray() && !directors.isEmpty()) {
+
                         director = directors.get(0)
                                 .path("peopleNm")
                                 .asText("");
@@ -129,26 +275,38 @@ public class MovieService {
             );
         }
 
-        // 검색 결과 전체의 포스터 수집 작업 등록
+        // 3. 포스터 비동기 검색 등록
         enqueuePosterSearches(movies);
 
         boolean hasNext = (long) page * size < totalCount;
 
-        return new MovieSearchPageResponse(
-                movies,
-                page,
-                size,
-                totalCount,
-                hasNext
+        MovieSearchPageResponse response =
+                new MovieSearchPageResponse(
+                        movies,
+                        page,
+                        size,
+                        totalCount,
+                        hasNext
+                );
+
+        // 4. 통합 캐시에 저장
+        saveCache(
+                CACHE_SEARCH,
+                cacheKey,
+                response,
+                SEARCH_CACHE_HOURS
         );
+
+        return response;
     }
 
     // =========================================================
-    // 2. 검색 및 장르별 영화의 포스터 비동기 등록
+    // 5. 검색 및 장르별 영화의 포스터 비동기 등록
     // =========================================================
 
     private void enqueuePosterSearches(
-            List<MovieSearchResponse> movies) {
+            List<MovieSearchResponse> movies
+    ) {
 
         for (MovieSearchResponse movie : movies) {
 
@@ -156,7 +314,6 @@ public class MovieService {
             String title = movie.title();
             String releaseDate = movie.releaseDate();
 
-            // 영화 코드나 제목이 없는 데이터는 제외
             if (movieCode == null || movieCode.isBlank()
                     || title == null || title.isBlank()) {
                 continue;
@@ -164,14 +321,12 @@ public class MovieService {
 
             try {
 
-                // 검색 결과에 포함된 정보로 포스터 캐시 생성
                 posterCacheService.createCache(
                         movieCode,
                         title,
                         releaseDate
                 );
 
-                // PENDING 상태인 경우에만 검색 작업 시작
                 boolean started = posterCacheService
                         .tryMarkAsProcessing(movieCode);
 
@@ -179,7 +334,6 @@ public class MovieService {
                     continue;
                 }
 
-                // 백그라운드 포스터 검색 실행
                 posterAsyncService.searchPosterAsync(
                         movieCode,
                         title,
@@ -198,29 +352,24 @@ public class MovieService {
     }
 
     // =========================================================
-    // 3. 영화 상세정보 조회
+    // 6. 영화 상세정보 조회
     // =========================================================
 
     @Transactional
     public MovieDetailResponse getMovieDetail(String movieCode) {
 
-        // DB에 저장된 영화 정보가 있는지 먼저 확인
         Movie savedMovie = movieRepository.findById(movieCode)
                 .orElse(null);
 
         if (savedMovie != null) {
 
-            // 기존 영화의 누락 정보를 KMDb → TMDb 순서로 보완
             supplementMissingDetails(savedMovie);
 
-            // 보완된 정보와 마지막 시도 시각을 DB에 저장
             movieRepository.save(savedMovie);
 
-            // 최종 영화 정보를 응답 DTO로 변환
             return toDetailResponse(savedMovie);
         }
 
-        // DB에 영화 정보가 없을 때만 KOBIS API 호출
         String json = kobisApiClient.getMovieDetail(movieCode);
 
         try {
@@ -229,18 +378,17 @@ public class MovieService {
                     .path("movieInfoResult")
                     .path("movieInfo");
 
-            // 감독 정보
             String director = "";
 
             JsonNode directors = movie.path("directors");
 
             if (directors.isArray() && !directors.isEmpty()) {
+
                 director = directors.get(0)
                         .path("peopleNm")
                         .asText("");
             }
 
-            // 장르 정보
             String genre = StreamSupport.stream(
                             movie.path("genres").spliterator(),
                             false
@@ -250,7 +398,6 @@ public class MovieService {
                     .reduce((a, b) -> a + "," + b)
                     .orElse("");
 
-            // 출연 배우 목록
             List<String> actors = new ArrayList<>();
 
             for (JsonNode actor : movie.path("actors")) {
@@ -266,18 +413,17 @@ public class MovieService {
                 }
             }
 
-            // 관람등급
             String watchGrade = "";
 
             JsonNode audits = movie.path("audits");
 
             if (audits.isArray() && !audits.isEmpty()) {
+
                 watchGrade = audits.get(0)
                         .path("watchGradeNm")
                         .asText("");
             }
 
-            // KOBIS 영화 정보 DB 저장
             Movie newMovie = new Movie(
                     movie.path("movieCd").asText(""),
                     movie.path("movieNm").asText(""),
@@ -290,7 +436,6 @@ public class MovieService {
                     watchGrade
             );
 
-            // KOBIS에 없는 상세정보를 KMDb → TMDb 순서로 보완
             supplementMissingDetails(newMovie);
 
             movieRepository.save(newMovie);
@@ -307,24 +452,20 @@ public class MovieService {
     }
 
     // =========================================================
-    // 4. 영화 상세정보 누락 항목 보완
-    // KMDb → TMDb 순서
+    // 7. 영화 상세정보 누락 항목 보완
     // =========================================================
 
     private void supplementMissingDetails(Movie movie) {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // 누락 정보가 없거나 재시도 시간이 지나지 않았다면 보완 생략
         if (!hasMissingDetails(movie)
                 || !movie.canAttemptSupplement(now)) {
             return;
         }
 
-        // 보완 성공 여부와 관계없이 마지막 시도 시각 기록
         movie.markSupplementAttempted(now);
 
-        // 1차: KMDb에서 동일 영화의 누락 정보 조회
         kmdbService.findMovieSupplement(
                         movie.getTitle(),
                         movie.getTitleEn(),
@@ -335,7 +476,6 @@ public class MovieService {
                         applySupplement(movie, candidate)
                 );
 
-        // 2차: KMDb 보완 후에도 누락 정보가 있다면 TMDb 조회
         if (hasMissingDetails(movie)) {
 
             tmdbService.findMovieSupplement(
@@ -351,12 +491,13 @@ public class MovieService {
     }
 
     // =========================================================
-    // 5. 외부 API 보완 정보를 Movie 엔티티에 적용
+    // 8. 외부 API 보완 정보를 Movie 엔티티에 적용
     // =========================================================
 
     private void applySupplement(
             Movie movie,
-            MovieSupplement candidate) {
+            MovieSupplement candidate
+    ) {
 
         movie.supplementMissingDetails(
                 candidate.titleEn(),
@@ -371,7 +512,7 @@ public class MovieService {
     }
 
     // =========================================================
-    // 6. 영화 상세정보 누락 여부 확인
+    // 9. 영화 상세정보 누락 여부 확인
     // =========================================================
 
     private boolean hasMissingDetails(Movie movie) {
@@ -385,13 +526,12 @@ public class MovieService {
                 || isBlank(movie.getWatchGrade());
     }
 
-    // null 또는 빈 문자열인지 확인
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
 
     // =========================================================
-    // 7. Movie 엔티티를 응답 DTO로 변환
+    // 10. Movie 엔티티를 응답 DTO로 변환
     // =========================================================
 
     private MovieDetailResponse toDetailResponse(Movie movie) {
@@ -414,11 +554,69 @@ public class MovieService {
     }
 
     // =========================================================
-    // 8. 일별 박스오피스 조회
+    // 11. 박스오피스 캐시 JSON 변환
     // =========================================================
 
-    public List<BoxOfficeResponse> getDailyBoxOffice(String targetDate) {
+    private List<BoxOfficeResponse> readCachedBoxOffice(
+            String contentJson
+    ) throws Exception {
 
+        List<BoxOfficeResponse> movies = new ArrayList<>();
+
+        JsonNode root = objectMapper.readTree(contentJson);
+
+        for (JsonNode movie : root) {
+
+            movies.add(new BoxOfficeResponse(
+                    movie.path("rank").asInt(),
+                    movie.path("movieCode").asText(""),
+                    movie.path("title").asText(""),
+                    movie.path("releaseDate").asText(""),
+                    movie.path("audienceCount").asText(""),
+                    movie.path("totalAudience").asText(""),
+                    movie.path("posterUrl").asText("")
+            ));
+        }
+
+        return movies;
+    }
+
+    // =========================================================
+    // 12. 일별 박스오피스 조회
+    // =========================================================
+
+    public List<BoxOfficeResponse> getDailyBoxOffice(
+            String targetDate
+    ) {
+
+        if (targetDate == null || !targetDate.matches("\\d{8}")) {
+            throw new IllegalArgumentException(
+                    "박스오피스 조회 날짜는 YYYYMMDD 형식이어야 합니다."
+            );
+        }
+
+        // 날짜를 캐시 식별값으로 사용
+        String cacheKey = targetDate;
+
+        // 1. 통합 캐시 조회
+        MovieCache cached = findValidCache(
+                CACHE_DAILY_BOX_OFFICE,
+                cacheKey
+        );
+
+        if (cached != null) {
+
+            try {
+
+                return readCachedBoxOffice(cached.getContentJson());
+
+            } catch (Exception e) {
+
+                log.warn("박스오피스 캐시 변환 실패. KOBIS 재조회 진행", e);
+            }
+        }
+
+        // 2. 캐시가 없거나 만료되면 KOBIS 호출
         String json = kobisApiClient.getDailyBoxOffice(targetDate);
 
         List<BoxOfficeResponse> movies = new ArrayList<>();
@@ -435,7 +633,6 @@ public class MovieService {
                 String title = movie.path("movieNm").asText("");
                 String releaseDate = movie.path("openDt").asText("");
 
-                // KMDb → TMDb 순서로 포스터 검색
                 String posterUrl = kmdbService.findPosterUrl(
                         movieCode,
                         title,
@@ -461,20 +658,52 @@ public class MovieService {
             );
         }
 
+        // 3. 포스터가 포함된 최종 결과 저장
+        saveCache(
+                CACHE_DAILY_BOX_OFFICE,
+                cacheKey,
+                movies,
+                DAILY_BOX_OFFICE_CACHE_HOURS
+        );
+
         return movies;
     }
 
     // =========================================================
-    // 9. 장르별 영화 목록 조회
+    // 13. 장르별 영화 캐시 JSON 변환
+    // =========================================================
+
+    private List<MovieSearchResponse> readCachedGenreMovies(
+            String contentJson
+    ) throws Exception {
+
+        List<MovieSearchResponse> movies = new ArrayList<>();
+
+        JsonNode root = objectMapper.readTree(contentJson);
+
+        for (JsonNode movie : root) {
+
+            movies.add(new MovieSearchResponse(
+                    movie.path("movieCode").asText(""),
+                    movie.path("title").asText(""),
+                    movie.path("releaseDate").asText(""),
+                    movie.path("genre").asText(""),
+                    movie.path("director").asText("")
+            ));
+        }
+
+        return movies;
+    }
+
+    // =========================================================
+    // 14. 장르별 영화 목록 조회
     // =========================================================
 
     public List<MovieSearchResponse> getMoviesByGenre(
             String genre,
-            int page) {
+            int page
+    ) {
 
-        List<MovieSearchResponse> movies = new ArrayList<>();
-
-        // 페이지 번호와 장르 검증
         if (page < 1 || genre == null || genre.isBlank()) {
             throw new IllegalArgumentException(
                     "장르와 페이지 번호를 확인해주세요."
@@ -487,11 +716,38 @@ public class MovieService {
             default -> genre.trim();
         };
 
-        // 페이지당 10개 영화
+        // 장르 + 페이지를 캐시 식별값으로 사용
+        String cacheKey = kobisGenre + "|" + page;
+
+        // 1. 통합 캐시 조회
+        MovieCache cached = findValidCache(
+                CACHE_GENRE,
+                cacheKey
+        );
+
+        if (cached != null) {
+
+            try {
+
+                List<MovieSearchResponse> cachedMovies =
+                        readCachedGenreMovies(cached.getContentJson());
+
+                enqueuePosterSearches(cachedMovies);
+
+                return cachedMovies;
+
+            } catch (Exception e) {
+
+                log.warn("장르별 영화 캐시 변환 실패. KOBIS 재조회 진행", e);
+            }
+        }
+
+        // 2. 캐시가 없거나 만료되면 KOBIS 조회
+        List<MovieSearchResponse> movies = new ArrayList<>();
+
         int skipCount = (page - 1) * 10;
         int matchCount = 0;
 
-        // KOBIS 원본 영화 목록을 최대 10페이지까지 탐색
         for (int currentPage = 1; currentPage <= 10; currentPage++) {
 
             String json = kobisApiClient.searchMoviesByGenre(currentPage);
@@ -520,7 +776,6 @@ public class MovieService {
                         continue;
                     }
 
-                    // 이전 페이지에 해당하는 영화는 건너뛰기
                     if (matchCount < skipCount) {
                         matchCount++;
                         continue;
@@ -531,6 +786,7 @@ public class MovieService {
                     JsonNode directors = movie.path("directors");
 
                     if (directors.isArray() && !directors.isEmpty()) {
+
                         director = directors.get(0)
                                 .path("peopleNm")
                                 .asText("");
@@ -540,7 +796,6 @@ public class MovieService {
                     String title = movie.path("movieNm").asText("");
                     String releaseDate = movie.path("openDt").asText("");
 
-                    // KOBIS 목록에 개봉일이 없는 경우에만 보완 시도
                     if (isBlank(releaseDate)) {
                         releaseDate = resolveReleaseDateForList(movieCode);
                     }
@@ -553,14 +808,13 @@ public class MovieService {
                             director
                     ));
 
-                    // 요청한 10개를 모두 찾으면 종료
                     if (movies.size() >= 10) {
-
-                        // 장르별 영화도 비동기 포스터 검색 등록
-                        enqueuePosterSearches(movies);
-
-                        return movies;
+                        break;
                     }
+                }
+
+                if (movies.size() >= 10) {
+                    break;
                 }
 
             } catch (Exception e) {
@@ -572,15 +826,24 @@ public class MovieService {
             }
         }
 
-        // 10개 미만이어도 조회된 영화의 포스터 등록
+        // 3. 포스터 비동기 검색 등록
         enqueuePosterSearches(movies);
+
+        // 4. 장르별 결과 통합 캐시 저장
+        saveCache(
+                CACHE_GENRE,
+                cacheKey,
+                movies,
+                GENRE_CACHE_HOURS
+        );
 
         return movies;
     }
 
     // =========================================================
-    // 장르별 목록의 누락된 개봉일 보완 (추가 11-05)
+    // 15. 장르별 목록의 누락된 개봉일 보완
     // =========================================================
+
     private String resolveReleaseDateForList(String movieCode) {
 
         if (movieCode == null || movieCode.isBlank()) {
@@ -589,7 +852,6 @@ public class MovieService {
 
         try {
 
-            // 1. DB에 이미 보완된 영화 정보가 있다면 우선 사용
             Movie savedMovie = movieRepository.findById(movieCode)
                     .orElse(null);
 
@@ -599,7 +861,6 @@ public class MovieService {
                 return savedMovie.getReleaseDate();
             }
 
-            // 2. DB에도 개봉일이 없다면 기존 상세정보 로직 재사용
             MovieDetailResponse detail = getMovieDetail(movieCode);
 
             if (detail != null
@@ -617,22 +878,19 @@ public class MovieService {
             );
         }
 
-        // KOBIS / KMDb / TMDb 모두 개봉일이 없는 경우
         return "";
     }
 
     // =========================================================
-    // 10. 영화 코드로 포스터 조회 및 비동기 캐시 관리
+    // 16. 영화 코드로 포스터 조회 및 비동기 캐시 관리
     // =========================================================
 
     public MoviePosterResponse getMoviePoster(String movieCode) {
 
-        // 1. 기존 포스터 캐시 조회
         MoviePosterCache savedCache = posterCacheService
                 .findCache(movieCode)
                 .orElse(null);
 
-        // 2. 이미 조회에 성공한 포스터라면 캐시 주소 반환
         if (savedCache != null) {
 
             if (savedCache.getStatus() == PosterStatus.SUCCESS) {
@@ -645,27 +903,22 @@ public class MovieService {
                 );
             }
 
-            // 이미 조회 중이거나 실패한 경우 빈 주소 반환
             return new MoviePosterResponse(movieCode, "");
         }
 
-        // 3. 캐시가 없다면 영화 상세정보 조회
         MovieDetailResponse movie = getMovieDetail(movieCode);
 
-        // 4. 포스터 캐시 생성
         posterCacheService.createCache(
                 movieCode,
                 movie.title(),
                 movie.releaseDate()
         );
 
-        // 5. PENDING 상태인 경우에만 검색 작업 시작
         boolean started = posterCacheService
                 .tryMarkAsProcessing(movieCode);
 
         if (started) {
 
-            // 6. 백그라운드 포스터 검색 실행
             posterAsyncService.searchPosterAsync(
                     movieCode,
                     movie.title(),
@@ -673,7 +926,6 @@ public class MovieService {
             );
         }
 
-        // 7. 포스터 검색 완료를 기다리지 않고 즉시 반환
         return new MoviePosterResponse(movieCode, "");
     }
 }
