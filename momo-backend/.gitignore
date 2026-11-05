@@ -36,3 +36,7 @@ out/
 ### VS Code ###
 .vscode/
 config/firebase-service-account.json
+
+# Firebase service account keys
+**/firebase-service-account.json
+**/firebase-adminsdk.json

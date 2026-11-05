@@ -1,4 +1,3 @@
-
 package com.momo.backend.dto.movie;
 
 import com.momo.backend.entity.PosterStatus;

@@ -1,4 +1,3 @@
-
 package com.momo.backend.entity;
 
 import jakarta.persistence.*;

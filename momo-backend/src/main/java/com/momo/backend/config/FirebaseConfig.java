@@ -3,9 +3,7 @@ package com.momo.backend.config;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-
 import jakarta.annotation.PostConstruct;
-
 import org.springframework.context.annotation.Configuration;
 
 import java.io.FileInputStream;
@@ -14,22 +12,28 @@ import java.io.IOException;
 @Configuration
 public class FirebaseConfig {
 
+    private static final String STORAGE_BUCKET = "momo-ca07b.firebasestorage.app";
+
     @PostConstruct
-    public void initializeFirebase() throws IOException {
+    public void initializeFirebase() {
+        try {
+            if (!FirebaseApp.getApps().isEmpty()) {
+                return;
+            }
 
-        // 로컬에 보관한 Firebase 서비스 계정 키를 읽어옵니다.
-        FileInputStream serviceAccount =
-                new FileInputStream("momo-backend/config/firebase-service-account.json");
+            // 프로젝트 내에 있는 서비스 계정 JSON 파일의 절대 경로를 직접 지정
+            String filePath = "D:\\dev\\MOMO\\momo-backend\\src\\main\\resources\\firebase-adminsdk.json";
 
-        // Firebase Admin SDK에서 사용할 인증 정보와 Storage 버킷을 설정합니다.
-        FirebaseOptions options = FirebaseOptions.builder()
-                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                .setStorageBucket("momo-ca07b.firebasestorage.app")
-                .build();
+            try (FileInputStream serviceAccount = new FileInputStream(filePath)) {
+                FirebaseOptions options = FirebaseOptions.builder()
+                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                        .setStorageBucket(STORAGE_BUCKET)
+                        .build();
 
-        // Firebase가 중복 초기화되지 않도록 최초 1회만 실행합니다.
-        if (FirebaseApp.getApps().isEmpty()) {
-            FirebaseApp.initializeApp(options);
+                FirebaseApp.initializeApp(options);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Firebase application initialization failed", e);
         }
     }
 }

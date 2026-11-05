@@ -1,14 +1,11 @@
 package com.momo.backend.service;
 
-import com.momo.backend.entity.Movie;
-import com.momo.backend.repository.MovieRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -17,7 +14,7 @@ public class MoviePosterAsyncService {
 
     private final KmdbService kmdbService;
     private final MoviePosterCacheService posterCacheService;
-    private final MovieRepository movieRepository;
+    private final MoviePosterPersistenceService posterPersistenceService;
 
     @Async("posterTaskExecutor")
     public void searchPosterAsync(
@@ -43,12 +40,7 @@ public class MoviePosterAsyncService {
                 return;
             }
 
-            posterCacheService.updatePoster(
-                    movieCode,
-                    posterUrl
-            );
-
-            updateMoviePoster(movieCode, posterUrl);
+            posterPersistenceService.saveSuccess(movieCode, posterUrl);
 
             log.info("포스터 저장 성공: {}", movieCode);
 
@@ -64,12 +56,4 @@ public class MoviePosterAsyncService {
         }
     }
 
-    @Transactional
-    public void updateMoviePoster(
-            String movieCode,
-            String posterUrl
-    ) {
-        movieRepository.findById(movieCode)
-                .ifPresent(movie -> movie.updatePosterUrl(posterUrl));
-    }
 }

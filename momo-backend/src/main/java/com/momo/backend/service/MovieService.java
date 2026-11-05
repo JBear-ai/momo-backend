@@ -13,6 +13,7 @@ import com.momo.backend.entity.MovieSupplement;
 import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieRepository;
+import com.momo.backend.repository.MoviePosterCacheRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,15 @@ public class MovieService {
     private final MovieRepository movieRepository;
     private final MovieCacheRepository movieCacheRepository;
     private final MoviePosterCacheService posterCacheService;
+    private final MoviePersistenceService moviePersistenceService;
+    private final MoviePosterCacheRepository moviePosterCacheRepository;
+
+    private static final Object[] CACHE_LOCKS = createCacheLocks();
+    private static Object[] createCacheLocks() {
+        Object[] locks = new Object[256];
+        Arrays.setAll(locks, index -> new Object());
+        return locks;
+    }
 
     private static final String CACHE_SEARCH = "SEARCH";
     private static final String CACHE_DAILY_BOX_OFFICE = "DAILY_BOX_OFFICE";
@@ -54,6 +64,8 @@ public class MovieService {
     private static final long DAILY_BOX_OFFICE_CACHE_HOURS = 1;
     private static final long GENRE_CACHE_HOURS = 24;
 
+    // 장르 수집 범위: KOBIS 목록 앞 10페이지 × 페이지당 100개, 최대 1,000개 후보.
+    // 전체 KOBIS 영화 카탈로그가 아니라 제한된 후보 집합이다.
     private static final int GENRE_SCAN_PAGES = 10;
     private static final int GENRE_SCAN_SIZE = 100;
     private static final int GENRE_PAGE_SIZE = 10;
@@ -69,9 +81,11 @@ public class MovieService {
                 .orElse(null);
 
         if (cache == null || !cache.isValid(LocalDateTime.now())) {
+            log.info("영화 API 캐시 MISS. type: {}, key: {}", cacheType, cacheKey);
             return null;
         }
 
+        log.info("영화 API 캐시 HIT. type: {}, key: {}", cacheType, cacheKey);
         return cache;
     }
 
@@ -90,25 +104,9 @@ public class MovieService {
 
             String contentJson = objectMapper.writeValueAsString(data);
 
-            MovieCache cache = movieCacheRepository
-                    .findByCacheTypeAndCacheKey(cacheType, cacheKey)
-                    .orElse(null);
-
-            if (cache == null) {
-
-                cache = new MovieCache(
-                        cacheType,
-                        cacheKey,
-                        contentJson,
-                        ttlHours
-                );
-
-            } else {
-
-                cache.update(contentJson, ttlHours);
-            }
-
-            movieCacheRepository.save(cache);
+            LocalDateTime now = LocalDateTime.now();
+            movieCacheRepository.upsert(cacheType, cacheKey, contentJson,
+                    now, now.plusHours(ttlHours));
 
         } catch (Exception e) {
 
@@ -155,6 +153,35 @@ public class MovieService {
         }
     }
 
+    private JsonNode readRequiredMovieDetail(String json, String requestedMovieCode) {
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode detail = root.path("movieInfoResult").path("movieInfo");
+            String responseCode = detail.path("movieCd").asText("");
+            String title = detail.path("movieNm").asText("");
+            if (!detail.isObject() || isBlank(responseCode) || isBlank(title)) {
+                throw new IllegalStateException("KOBIS 상세 응답에 영화 코드 또는 제목이 없습니다.");
+            }
+            if (!requestedMovieCode.equals(responseCode)) {
+                throw new IllegalStateException("KOBIS 상세 응답의 영화 코드가 요청한 영화 코드와 일치하지 않습니다.");
+            }
+            validateOptionalArray(detail, "directors");
+            validateOptionalArray(detail, "genres");
+            validateOptionalArray(detail, "actors");
+            validateOptionalArray(detail, "audits");
+            return detail;
+        } catch (Exception e) {
+            throw new IllegalStateException("KOBIS 상세 응답 구조가 올바르지 않습니다.", e);
+        }
+    }
+
+    private void validateOptionalArray(JsonNode parent, String fieldName) {
+        JsonNode value = parent.path(fieldName);
+        if (!value.isMissingNode() && !value.isNull() && !value.isArray()) {
+            throw new IllegalStateException("KOBIS 상세 응답 필드 " + fieldName + " 형식이 배열이 아닙니다.");
+        }
+    }
+
     // =========================================================
     // 영화 검색 캐시 변환
     // =========================================================
@@ -164,11 +191,21 @@ public class MovieService {
     ) throws Exception {
 
         JsonNode root = objectMapper.readTree(contentJson);
+        if (!root.path("content").isArray()
+                || !root.path("page").canConvertToInt()
+                || !root.path("size").canConvertToInt()
+                || !root.path("totalCount").canConvertToInt()
+                || !root.path("hasNext").isBoolean()) {
+            throw new IllegalStateException("검색 캐시 필수 필드가 올바르지 않습니다.");
+        }
 
         List<MovieSearchResponse> movies = new ArrayList<>();
 
         for (JsonNode movie : root.path("content")) {
-
+            if (isBlank(movie.path("movieCode").asText(""))
+                    || isBlank(movie.path("title").asText(""))) {
+                throw new IllegalStateException("검색 캐시에 영화 코드 또는 제목이 없습니다.");
+            }
             movies.add(new MovieSearchResponse(
                     movie.path("movieCode").asText(""),
                     movie.path("title").asText(""),
@@ -191,84 +228,8 @@ public class MovieService {
     // 검색 결과를 Movie DB에 저장
     // =========================================================
 
-    @Transactional
-    private void saveSearchMoviesToDatabase(
-            List<MovieSearchResponse> movies
-    ) {
-
-        if (movies == null || movies.isEmpty()) {
-            return;
-        }
-
-        List<String> movieCodes = movies.stream()
-                .map(MovieSearchResponse::movieCode)
-                .filter(code -> code != null && !code.isBlank())
-                .distinct()
-                .toList();
-
-        if (movieCodes.isEmpty()) {
-            return;
-        }
-
-        Map<String, Movie> savedMovies = new HashMap<>();
-
-        movieRepository.findAllById(movieCodes)
-                .forEach(movie ->
-                        savedMovies.put(movie.getMovieCode(), movie)
-                );
-
-        List<Movie> newMovies = new ArrayList<>();
-
-        for (MovieSearchResponse item : movies) {
-
-            String movieCode = item.movieCode();
-
-            if (movieCode == null || movieCode.isBlank()
-                    || item.title() == null || item.title().isBlank()) {
-                continue;
-            }
-
-            Movie savedMovie = savedMovies.get(movieCode);
-
-            if (savedMovie == null) {
-
-                newMovies.add(new Movie(
-                        movieCode,
-                        item.title(),
-                        "",
-                        item.releaseDate(),
-                        "",
-                        item.genre(),
-                        item.director(),
-                        "",
-                        ""
-                ));
-
-                continue;
-            }
-
-            // 기존 상세정보는 유지하고 비어 있는 항목만 채운다.
-            savedMovie.supplementMissingDetails(
-                    "",
-                    item.releaseDate(),
-                    "",
-                    item.genre(),
-                    item.director(),
-                    "",
-                    "",
-                    "KOBIS_SEARCH"
-            );
-        }
-
-        if (!newMovies.isEmpty()) {
-            movieRepository.saveAll(newMovies);
-        }
-
-        log.info(
-                "검색 영화 DB 저장 완료. 신규 저장: {}, 기존 영화: {}",
-                newMovies.size(),
-                savedMovies.size()
-        );
+    private void saveSearchMoviesToDatabase(List<MovieSearchResponse> movies) {
+        moviePersistenceService.saveSearchMovies(movies);
     }
 
     // =========================================================
@@ -280,6 +241,14 @@ public class MovieService {
             int page,
             int size
     ) {
+        String lockKey = "SEARCH|" + (keyword == null ? "" : keyword.trim()) + "|" + page + "|" + size;
+        Object lock = CACHE_LOCKS[Math.floorMod(lockKey.hashCode(), CACHE_LOCKS.length)];
+        synchronized (lock) {
+            return searchMoviesInternal(keyword, page, size);
+        }
+    }
+
+    private MovieSearchPageResponse searchMoviesInternal(String keyword, int page, int size) {
 
         if (keyword == null || keyword.isBlank()) {
             throw new IllegalArgumentException("검색어를 입력해주세요.");
@@ -323,11 +292,9 @@ public class MovieService {
         }
 
         // 2. 캐시가 없으면 KOBIS 검색
-        String json = kobisApiClient.searchMovies(
-                searchKeyword,
-                page,
-                size
-        );
+        log.info("KOBIS 영화 검색 API 요청. keyword: {}, page: {}, size: {}",
+                searchKeyword, page, size);
+        String json = kobisApiClient.searchMovies(searchKeyword, page, size);
 
         JsonNode movieList = readRequiredArray(
                 json,
@@ -344,14 +311,20 @@ public class MovieService {
             throw new IllegalStateException("KOBIS 검색 응답 변환 실패", e);
         }
 
-        int totalCount = root.path("movieListResult")
-                .path("totCnt")
-                .asInt(0);
+        JsonNode totalCountNode = root.path("movieListResult").path("totCnt");
+        if (!totalCountNode.canConvertToInt() || totalCountNode.asInt() < 0) {
+            throw new IllegalStateException("KOBIS 검색 총건수(totCnt)가 올바르지 않습니다.");
+        }
+        int totalCount = totalCountNode.asInt();
 
         List<MovieSearchResponse> movies = new ArrayList<>();
 
         for (JsonNode movie : movieList) {
 
+            if (isBlank(movie.path("movieCd").asText(""))
+                    || isBlank(movie.path("movieNm").asText(""))) {
+                throw new IllegalStateException("KOBIS 검색 결과에 영화 코드 또는 제목이 누락되었습니다.");
+            }
             String director = "";
 
             JsonNode directors = movie.path("directors");
@@ -485,9 +458,16 @@ public class MovieService {
             }
 
             // 검색 목록에서 생성된 부분 정보라면 KOBIS 상세정보로 보완
-            supplementFromKobis(savedMovie);
-
-            // KOBIS에서 누락된 정보만 KMDb/TMDb로 보완
+            if (savedMovie.canAttemptKobisDetail(LocalDateTime.now())) {
+                savedMovie.markKobisDetailAttempted(LocalDateTime.now());
+                try {
+                    log.info("KOBIS 상세정보 API 요청. movieCode: {}", movieCode);
+                    supplementFromKobis(savedMovie);
+                } catch (Exception e) {
+                    log.warn("KOBIS 상세정보 보완 실패. KMDb/TMDb 보완은 계속 진행합니다. movieCode: {}",
+                            movieCode, e);
+                }
+            }
             supplementMissingDetails(savedMovie);
 
             movieRepository.save(savedMovie);
@@ -496,8 +476,9 @@ public class MovieService {
         }
 
         // 2. DB에 영화가 없는 경우에만 KOBIS 호출
+        log.info("KOBIS 상세정보 API 요청. movieCode: {}", movieCode);
         Movie newMovie = fetchMovieDetailFromKobis(movieCode);
-
+        newMovie.markKobisDetailAttempted(LocalDateTime.now());
         supplementMissingDetails(newMovie);
 
         movieRepository.save(newMovie);
@@ -517,15 +498,7 @@ public class MovieService {
 
         try {
 
-            JsonNode detail = objectMapper.readTree(json)
-                    .path("movieInfoResult")
-                    .path("movieInfo");
-
-            if (detail.isMissingNode() || detail.isEmpty()) {
-                throw new IllegalStateException(
-                        "KOBIS 상세정보가 존재하지 않습니다."
-                );
-            }
+            JsonNode detail = readRequiredMovieDetail(json, movie.getMovieCode());
 
             String director = "";
 
@@ -597,15 +570,7 @@ public class MovieService {
 
         try {
 
-            JsonNode detail = objectMapper.readTree(json)
-                    .path("movieInfoResult")
-                    .path("movieInfo");
-
-            if (detail.isMissingNode() || detail.isEmpty()) {
-                throw new IllegalStateException(
-                        "KOBIS 영화 상세정보가 없습니다."
-                );
-            }
+            JsonNode detail = readRequiredMovieDetail(json, movieCode);
 
             String director = "";
 
@@ -773,9 +738,14 @@ public class MovieService {
         List<BoxOfficeResponse> movies = new ArrayList<>();
 
         JsonNode root = objectMapper.readTree(contentJson);
+        if (!root.isArray()) throw new IllegalStateException("박스오피스 캐시 구조가 배열이 아닙니다.");
 
         for (JsonNode movie : root) {
-
+            if (isBlank(movie.path("movieCode").asText(""))
+                    || isBlank(movie.path("title").asText(""))
+                    || movie.path("rank").asInt(0) < 1) {
+                throw new IllegalStateException("박스오피스 캐시 필수 필드가 누락되었습니다.");
+            }
             movies.add(new BoxOfficeResponse(
                     movie.path("rank").asInt(),
                     movie.path("movieCode").asText(""),
@@ -876,42 +846,49 @@ public class MovieService {
     // 박스오피스 포스터 캐시 보완
     // =========================================================
 
-    private List<BoxOfficeResponse> enrichBoxOfficePosters(
-            List<BoxOfficeResponse> movies
-    ) {
+    private List<BoxOfficeResponse> enrichBoxOfficePosters(List<BoxOfficeResponse> movies) {
+        if (movies == null || movies.isEmpty()) return List.of();
+
+        List<String> codes = movies.stream().map(BoxOfficeResponse::movieCode)
+                .filter(code -> !isBlank(code)).distinct().toList();
+
+        Map<String, Movie> savedMovies = new HashMap<>();
+        movieRepository.findAllById(codes)
+                .forEach(movie -> savedMovies.put(movie.getMovieCode(), movie));
+
+        Map<String, MoviePosterCache> posterCaches = new HashMap<>();
+        moviePosterCacheRepository.findAllByMovieCodeIn(codes)
+                .forEach(cache -> posterCaches.put(cache.getMovieCode(), cache));
 
         List<BoxOfficeResponse> result = new ArrayList<>();
-
         for (BoxOfficeResponse item : movies) {
+            String code = item.movieCode();
+            Movie savedMovie = savedMovies.get(code);
+            MoviePosterCache posterCache = posterCaches.get(code);
+            String posterUrl = savedMovie != null && !isBlank(savedMovie.getPosterUrl())
+                    ? savedMovie.getPosterUrl()
+                    : posterCache != null && posterCache.getStatus() == PosterStatus.SUCCESS
+                    && !isBlank(posterCache.getPosterUrl())
+                    ? posterCache.getPosterUrl()
+                    : item.posterUrl() == null ? "" : item.posterUrl();
 
-            String posterUrl = findSavedPosterUrl(item.movieCode());
-
-            if (posterUrl.isBlank()) {
-
-                enqueuePosterSearch(
-                        item.movieCode(),
-                        item.title(),
-                        item.releaseDate()
-                );
-
-                posterUrl = item.posterUrl() == null
-                        ? ""
-                        : item.posterUrl();
-
-            }
-
-            result.add(new BoxOfficeResponse(
-                    item.rank(),
-                    item.movieCode(),
-                    item.title(),
-                    item.releaseDate(),
-                    item.audienceCount(),
-                    item.totalAudience(),
-                    posterUrl
-            ));
+            if (posterUrl.isBlank()) enqueuePosterSearchWithoutLookup(code, item.title(), item.releaseDate());
+            result.add(new BoxOfficeResponse(item.rank(), code, item.title(), item.releaseDate(),
+                    item.audienceCount(), item.totalAudience(), posterUrl));
         }
-
         return result;
+    }
+
+    private void enqueuePosterSearchWithoutLookup(String movieCode, String title, String releaseDate) {
+        if (isBlank(movieCode) || isBlank(title)) return;
+        try {
+            posterCacheService.createCache(movieCode, title, releaseDate);
+            if (posterCacheService.tryMarkAsProcessing(movieCode)) {
+                posterAsyncService.searchPosterAsync(movieCode, title, releaseDate);
+            }
+        } catch (Exception e) {
+            log.error("박스오피스 포스터 검색 등록 실패. movieCode: {}", movieCode, e);
+        }
     }
 
     // =========================================================
@@ -921,6 +898,14 @@ public class MovieService {
     public List<BoxOfficeResponse> getDailyBoxOffice(
             String targetDate
     ) {
+        String lockKey = "DAILY_BOX_OFFICE|" + (targetDate == null ? "" : targetDate);
+        Object lock = CACHE_LOCKS[Math.floorMod(lockKey.hashCode(), CACHE_LOCKS.length)];
+        synchronized (lock) {
+            return getDailyBoxOfficeInternal(targetDate);
+        }
+    }
+
+    private List<BoxOfficeResponse> getDailyBoxOfficeInternal(String targetDate) {
 
         if (targetDate == null
                 || !targetDate.matches("\\d{8}")) {
@@ -950,6 +935,7 @@ public class MovieService {
         }
 
         // 2. 캐시가 없으면 KOBIS 호출
+        log.info("KOBIS 일별 박스오피스 API 요청. targetDate: {}", targetDate);
         String json = kobisApiClient.getDailyBoxOffice(targetDate);
 
         JsonNode boxOfficeList = readRequiredArray(
@@ -965,6 +951,11 @@ public class MovieService {
 
         for (JsonNode item : boxOfficeList) {
 
+            if (isBlank(item.path("movieCd").asText(""))
+                    || isBlank(item.path("movieNm").asText(""))
+                    || item.path("rank").asInt(0) < 1) {
+                throw new IllegalStateException("KOBIS 박스오피스 항목의 필수 필드가 누락되었습니다.");
+            }
             String movieCode = item.path("movieCd").asText("");
             String title = item.path("movieNm").asText("");
             String releaseDate = item.path("openDt").asText("");
@@ -984,7 +975,7 @@ public class MovieService {
                     releaseDate,
                     item.path("audiCnt").asText(""),
                     item.path("audiAcc").asText(""),
-                    findSavedPosterUrl(movieCode)
+                    ""
             ));
         }
 
@@ -1030,9 +1021,13 @@ public class MovieService {
         List<MovieSearchResponse> movies = new ArrayList<>();
 
         JsonNode root = objectMapper.readTree(contentJson);
+        if (!root.isArray()) throw new IllegalStateException("장르 캐시 구조가 배열이 아닙니다.");
 
         for (JsonNode movie : root) {
-
+            if (isBlank(movie.path("movieCode").asText(""))
+                    || isBlank(movie.path("title").asText(""))) {
+                throw new IllegalStateException("장르 캐시 필수 필드가 누락되었습니다.");
+            }
             movies.add(new MovieSearchResponse(
                     movie.path("movieCode").asText(""),
                     movie.path("title").asText(""),
@@ -1059,14 +1054,11 @@ public class MovieService {
              currentPage <= GENRE_SCAN_PAGES;
              currentPage++) {
 
+            log.info("KOBIS 장르 목록 API 요청. page: {}, pageSize: {}",
+                    currentPage, GENRE_SCAN_SIZE);
             String json = kobisApiClient.searchMoviesByGenre(currentPage);
-
-            JsonNode movieList = readRequiredArray(
-                    json,
-                    "movieListResult",
-                    "movieList",
-                    "KOBIS 장르 검색용 영화 목록 응답이 올바르지 않습니다."
-            );
+            JsonNode movieList = readRequiredArray(json, "movieListResult", "movieList",
+                    "KOBIS 장르 검색용 영화 목록 응답이 올바르지 않습니다.");
 
             if (movieList.isEmpty()) {
                 break;
@@ -1074,6 +1066,10 @@ public class MovieService {
 
             for (JsonNode movie : movieList) {
 
+                if (isBlank(movie.path("movieCd").asText(""))
+                        || isBlank(movie.path("movieNm").asText(""))) {
+                    throw new IllegalStateException("KOBIS 장르 목록에 영화 코드 또는 제목이 누락되었습니다.");
+                }
                 String movieGenre = movie.path("genreAlt").asText("");
 
                 boolean matchesGenre = Arrays.stream(
@@ -1121,6 +1117,14 @@ public class MovieService {
             String genre,
             int page
     ) {
+        String lockKey = "GENRE|" + (genre == null ? "" : genre.trim());
+        Object lock = CACHE_LOCKS[Math.floorMod(lockKey.hashCode(), CACHE_LOCKS.length)];
+        synchronized (lock) {
+            return getMoviesByGenreInternal(genre, page);
+        }
+    }
+
+    private List<MovieSearchResponse> getMoviesByGenreInternal(String genre, int page) {
 
         if (isBlank(genre) || page < 1) {
             throw new IllegalArgumentException(
