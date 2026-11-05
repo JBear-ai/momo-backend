@@ -33,6 +33,10 @@ public class User {
     @Column(name = "email", nullable = false, length = 254)
     private String email;
 
+    // 프로필 이미지
+    @Column(name = "profile_image", length = 500)
+    private String profileImage;
+
     // 회원 정보가 처음 저장된 날짜와 시간
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -63,5 +67,13 @@ public class User {
         this.passwordHash = passwordHash;
     }
 
+    // 프로필 이미지 URL을 저장하거나 변경합니다.
+    public void updateProfileImage(String profileImage) {
+        this.profileImage = profileImage;
+    }
 
+    // 프로필 이미지 삭제 시 기본 아바타로 돌아갈 수 있도록 null 처리합니다.
+    public void removeProfileImage() {
+        this.profileImage = null;
+    }
 }

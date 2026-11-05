@@ -235,6 +235,49 @@ const AxiosApi = {
       },
     );
   },
+
+  // =========================================================
+  // 20. 프로필 이미지 업로드 및 변경
+  // =========================================================
+
+  profileImageUpload: async (file) => {
+    const formData = new FormData();
+
+    // 선택한 이미지 파일을 multipart 형식으로 전달
+    formData.append("file", file);
+
+    return await axios.post(
+      `${HM_DOMAIN}/api/auth/me/profile-image`,
+      formData,
+      {
+        withCredentials: true,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+  },
+
+  // =========================================================
+  // 21. 프로필 이미지 삭제
+  // =========================================================
+
+  profileImageDelete: async () => {
+    return await axios.delete(`${HM_DOMAIN}/api/auth/me/profile-image`, {
+      withCredentials: true,
+    });
+  },
+
+  // =========================================================
+  // 22. 프로필 이미지 조회
+  // =========================================================
+
+  profileImageGet: async () => {
+    return await axios.get(`${HM_DOMAIN}/api/auth/me/profile-image`, {
+      withCredentials: true,
+      responseType: "blob",
+    });
+  },
 };
 
 export default AxiosApi;

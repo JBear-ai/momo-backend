@@ -32,6 +32,25 @@ function ProfileEdit() {
   const [email, setEmail] = useState("");
 
   /* =========================
+     프로필 이미지 상태
+  ========================= */
+
+  // 현재 저장된 프로필 이미지 경로
+  const [profileImage, setProfileImage] = useState("");
+
+  // 서버에서 불러온 프로필 이미지 표시 주소
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+
+  // 새로 선택한 이미지 파일
+  const [profileFile, setProfileFile] = useState(null);
+
+  // 선택한 이미지의 미리보기 주소
+  const [profilePreview, setProfilePreview] = useState("");
+
+  // 프로필 이미지 업로드 진행 상태
+  const [profileImageUploading, setProfileImageUploading] = useState(false);
+
+  /* =========================
      비밀번호 상태
   ========================= */
 
@@ -59,6 +78,39 @@ function ProfileEdit() {
     setUserId(localStorage.getItem("username") || "");
     setNickname(localStorage.getItem("nickname") || "");
     setEmail(localStorage.getItem("email") || "");
+  }, []);
+
+  // 서버에 저장된 프로필 이미지 정보를 불러옵니다.
+  useEffect(() => {
+    let imageUrl = "";
+
+    const loadProfileImage = async () => {
+      try {
+        const userResponse = await AxiosApi.memberMe();
+
+        const savedProfileImage = userResponse.data.profileImage || "";
+        setProfileImage(savedProfileImage);
+
+        // 저장된 이미지가 있을 때 실제 이미지 데이터를 불러옵니다.
+        if (savedProfileImage) {
+          const imageResponse = await AxiosApi.profileImageGet();
+
+          imageUrl = URL.createObjectURL(imageResponse.data);
+          setProfileImageUrl(imageUrl);
+        }
+      } catch (error) {
+        console.error("프로필 이미지 조회 실패:", error);
+      }
+    };
+
+    loadProfileImage();
+
+    // 화면을 벗어날 때 생성한 임시 이미지 주소를 정리합니다.
+    return () => {
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+    };
   }, []);
 
   /* =========================
@@ -166,6 +218,129 @@ function ProfileEdit() {
     setPasswordCheckResult(null);
     setPasswordCheckError("");
     setPasswordChecking(false);
+  };
+
+  /* =========================
+      프로필 이미지 변경
+    ========================= */
+
+  const handleProfileImageChange = (event) => {
+    const file = event.target.files?.[0];
+
+    // 파일을 선택하지 않은 경우에는 처리하지 않습니다.
+    if (!file) {
+      return;
+    }
+
+    // JPG, JPEG, PNG 이미지 파일만 허용합니다.
+    const allowedTypes = ["image/jpeg", "image/png"];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert("JPG, JPEG, PNG 이미지 파일만 선택할 수 있습니다.");
+      event.target.value = "";
+      return;
+    }
+
+    // 프로필 이미지의 최대 크기는 5MB로 제한합니다.
+    if (file.size > 5 * 1024 * 1024) {
+      alert("프로필 이미지는 5MB 이하만 선택할 수 있습니다.");
+      event.target.value = "";
+      return;
+    }
+
+    setProfileFile(file);
+
+    // 이전 미리보기 주소가 있으면 먼저 정리합니다.
+    if (profilePreview) {
+      URL.revokeObjectURL(profilePreview);
+    }
+
+    // 사용자가 선택한 이미지를 업로드 전에 미리 보여줍니다.
+    const previewUrl = URL.createObjectURL(file);
+    setProfilePreview(previewUrl);
+  };
+
+  // 선택한 프로필 이미지를 서버에 업로드합니다.
+  const handleProfileImageUpload = async () => {
+    if (!profileFile) {
+      alert("업로드할 프로필 이미지를 선택해 주세요.");
+      return;
+    }
+
+    try {
+      setProfileImageUploading(true);
+
+      const response = await AxiosApi.profileImageUpload(profileFile);
+
+      // 서버에 저장된 새 프로필 이미지 경로를 상태에 반영합니다.
+      setProfileImage(response.data.profileImage || "");
+
+      // 업로드된 실제 이미지를 다시 불러와 화면에 표시합니다.
+      const imageResponse = await AxiosApi.profileImageGet();
+      const newImageUrl = URL.createObjectURL(imageResponse.data);
+
+      // 기존 이미지 주소가 있으면 정리한 뒤 새 이미지 주소로 변경합니다.
+      if (profileImageUrl) {
+        URL.revokeObjectURL(profileImageUrl);
+      }
+
+      setProfileImageUrl(newImageUrl);
+
+      // 선택한 파일과 미리보기 상태를 초기화합니다.
+      if (profilePreview) {
+        URL.revokeObjectURL(profilePreview);
+      }
+
+      setProfileFile(null);
+      setProfilePreview("");
+
+      alert("프로필 이미지가 변경되었습니다.");
+    } catch (error) {
+      console.error("프로필 이미지 업로드 실패:", error);
+
+      const errorMessage =
+        error.response?.data?.message ||
+        "프로필 이미지 업로드 중 오류가 발생했습니다.";
+
+      alert(errorMessage);
+    } finally {
+      setProfileImageUploading(false);
+    }
+  };
+
+  // 저장된 프로필 이미지를 삭제하고 기본 아바타로 되돌립니다.
+  const handleProfileImageDelete = async () => {
+    try {
+      setProfileImageUploading(true);
+
+      await AxiosApi.profileImageDelete();
+
+      // 기존에 생성한 이미지 주소를 정리합니다.
+      if (profileImageUrl) {
+        URL.revokeObjectURL(profileImageUrl);
+      }
+
+      if (profilePreview) {
+        URL.revokeObjectURL(profilePreview);
+      }
+
+      setProfileImage("");
+      setProfileImageUrl("");
+      setProfileFile(null);
+      setProfilePreview("");
+
+      alert("프로필 이미지가 삭제되었습니다.");
+    } catch (error) {
+      console.error("프로필 이미지 삭제 실패:", error);
+
+      const errorMessage =
+        error.response?.data?.message ||
+        "프로필 이미지 삭제 중 오류가 발생했습니다.";
+
+      alert(errorMessage);
+    } finally {
+      setProfileImageUploading(false);
+    }
   };
 
   /* =========================
@@ -329,6 +504,48 @@ function ProfileEdit() {
 
         <section className="profile-card">
           <form className="profile-form" onSubmit={handleSave}>
+            {/* 프로필 이미지 */}
+            <div className="profile-image-edit">
+              <div className="profile-image-preview">
+                {profilePreview || profileImageUrl ? (
+                  <img src={profilePreview || profileImageUrl} alt="프로필" />
+                ) : (
+                  <span>
+                    {(nickname || userId || "M").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              <input
+                id="profile-image-input"
+                type="file"
+                accept="image/jpeg,image/png"
+                onChange={handleProfileImageChange}
+                disabled={profileImageUploading}
+              />
+
+              <div className="profile-image-buttons">
+                <button
+                  type="button"
+                  className="profile-button"
+                  onClick={handleProfileImageUpload}
+                  disabled={!profileFile || profileImageUploading}
+                >
+                  {profileImageUploading ? "처리 중..." : "이미지 변경"}
+                </button>
+
+                {(profileImage || profileImageUrl) && (
+                  <button
+                    type="button"
+                    className="profile-button profile-button-secondary"
+                    onClick={handleProfileImageDelete}
+                    disabled={profileImageUploading}
+                  >
+                    이미지 삭제
+                  </button>
+                )}
+              </div>
+            </div>
             {/* 아이디 */}
             <label htmlFor="edit-userId">아이디</label>
 

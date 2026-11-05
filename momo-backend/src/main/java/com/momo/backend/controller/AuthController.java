@@ -27,7 +27,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
-
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 import java.util.Collections;
 
 @RestController
@@ -240,4 +241,63 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
+    // =========================================================
+    // 10. 프로필 이미지 업로드 및 변경
+    // =========================================================
+    @PostMapping("/me/profile-image")
+    public ResponseEntity<UserResponse> updateProfileImage(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) throws Exception {
+
+        // 로그인한 회원의 프로필 이미지를 Firebase Storage에 업로드
+        UserResponse response = authService.updateProfileImage(
+                authentication.getName(),
+                file
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    // =========================================================
+    // 11. 프로필 이미지 삭제
+    // =========================================================
+    @DeleteMapping("/me/profile-image")
+    public ResponseEntity<UserResponse> removeProfileImage(
+            Authentication authentication) {
+
+        // 로그인한 회원의 프로필 이미지 정보를 제거
+        UserResponse response = authService.removeProfileImage(
+                authentication.getName()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    // =========================================================
+    // 12. 프로필 이미지 조회
+    // =========================================================
+
+    @GetMapping("/me/profile-image")
+    public ResponseEntity<byte[]> getProfileImage(
+            Authentication authentication) {
+
+        // 로그인한 회원의 프로필 이미지 데이터를 조회
+        byte[] image = authService.getProfileImage(
+                authentication.getName()
+        );
+
+        // 저장된 프로필 이미지가 없는 경우 404 응답
+        if (image == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // 저장된 이미지가 JPG인지 PNG인지 확인합니다.
+        String contentType = authService.getProfileImageContentType(
+                authentication.getName()
+        );
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(image);
+    }
 }

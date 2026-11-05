@@ -15,10 +15,16 @@ public class UserResponse {
     // 화면에 표시할 닉네임
     private final String nickname;
 
+    // Firebase Storage에 저장된 프로필 이미지 URL
+    private final String profileImage;
+
     // User Entity에서 응답에 필요한 정보만 가져옴
     public UserResponse(User user) {
         this.userId = user.getUserId();
         this.loginId = user.getLoginId();
         this.nickname = user.getNickname();
+
+        // 저장된 프로필 이미지 URL을 프론트에 전달
+        this.profileImage = user.getProfileImage();
     }
 }

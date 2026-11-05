@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
 import "../App.css";
+import AxiosApi from "../api/AxiosApi";
 
 function Profile() {
   const [userId, setUserId] = useState("");
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
+
+  // 서버에서 불러온 프로필 이미지 표시 주소
+  const [profileImageUrl, setProfileImageUrl] = useState("");
 
   // 관심 영화 개수 관리
   const [favoriteCount, setFavoriteCount] = useState(
@@ -31,6 +35,36 @@ function Profile() {
 
     return () => {
       window.removeEventListener("momo-favorites-changed", updateFavorites);
+    };
+  }, []);
+
+  // 서버에 저장된 프로필 이미지를 불러옵니다.
+  useEffect(() => {
+    let imageUrl = "";
+
+    const loadProfileImage = async () => {
+      try {
+        const userResponse = await AxiosApi.memberMe();
+
+        // 저장된 프로필 이미지가 있을 때 실제 이미지 데이터를 조회합니다.
+        if (userResponse.data.profileImage) {
+          const imageResponse = await AxiosApi.profileImageGet();
+
+          imageUrl = URL.createObjectURL(imageResponse.data);
+          setProfileImageUrl(imageUrl);
+        }
+      } catch (error) {
+        console.error("프로필 이미지 조회 실패:", error);
+      }
+    };
+
+    loadProfileImage();
+
+    // 화면을 벗어날 때 생성한 임시 이미지 주소를 정리합니다.
+    return () => {
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
     };
   }, []);
 
@@ -60,7 +94,11 @@ function Profile() {
 
           <div className="profile-user">
             <div className="profile-avatar">
-              {(nickname || userId || "M").charAt(0).toUpperCase()}
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt="프로필" />
+              ) : (
+                (nickname || userId || "M").charAt(0).toUpperCase()
+              )}
             </div>
 
             <div className="profile-user-info">

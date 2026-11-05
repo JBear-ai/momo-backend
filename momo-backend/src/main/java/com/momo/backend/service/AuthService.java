@@ -11,14 +11,14 @@ import com.momo.backend.entity.Review;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.CommentReactionRepository;
 import java.util.List;
-
-
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -37,6 +37,9 @@ public class AuthService {
     // 회원 탈퇴시 리뷰와 댓글 좋아요/싫어요 데이터 접근
     private final ReviewReactionRepository reviewReactionRepository;
     private final CommentReactionRepository commentReactionRepository;
+
+    // FireBase 연결하기
+    private final FirebaseStorageService firebaseStorageService;
 
     // 로그인 아이디가 이미 사용 중인지 확인
     public boolean isMember(String loginId) {
@@ -246,5 +249,66 @@ public class AuthService {
         );
     }
 
+    // 프로필 이미지를 Firebase Storage에 업로드하고 사용자 정보에 저장합니다.
+    @Transactional
+    public UserResponse updateProfileImage(
+            String loginId,
+            MultipartFile file
+    ) throws IOException {
 
+        User user = getLoginUser(loginId);
+
+        // 기존 프로필 이미지 경로를 새 이미지 변경 전에 보관합니다.
+        String oldProfileImage = user.getProfileImage();
+
+        // 새로운 이미지를 먼저 Firebase Storage에 업로드합니다.
+        String newProfileImage =
+                firebaseStorageService.uploadProfileImage(file);
+
+        // 새로 업로드된 이미지 경로를 회원 정보에 저장합니다.
+        user.updateProfileImage(newProfileImage);
+
+        // 새 이미지 업로드가 성공한 뒤 기존 이미지를 삭제합니다.
+        firebaseStorageService.deleteProfileImage(oldProfileImage);
+
+        return new UserResponse(user);
+    }
+
+    // 프로필 이미지 정보를 제거하고 기본 아바타로 되돌립니다.
+    @Transactional
+    public UserResponse removeProfileImage(String loginId) {
+
+        User user = getLoginUser(loginId);
+
+        // Firebase Storage에 저장된 실제 이미지도 함께 삭제합니다.
+        firebaseStorageService.deleteProfileImage(
+                user.getProfileImage()
+        );
+
+        user.removeProfileImage();
+
+        return new UserResponse(user);
+    }
+
+    // 로그인한 회원의 프로필 이미지 데이터를 조회합니다.
+    @Transactional(readOnly = true)
+    public byte[] getProfileImage(String loginId) {
+
+        User user = getLoginUser(loginId);
+
+        return firebaseStorageService.getProfileImage(
+                user.getProfileImage()
+        );
+    }
+
+    // 로그인한 회원의 프로필 이미지 형식을 조회합니다.
+    @Transactional(readOnly = true)
+    public String getProfileImageContentType(String loginId) {
+
+        User user = getLoginUser(loginId);
+
+        return firebaseStorageService.getProfileImageContentType(
+                user.getProfileImage()
+        );
+    }
 }
