@@ -553,9 +553,9 @@ function MovieDetail() {
         )}
       </section>
 
-      {/* 리뷰 */}
+      {/* 영화 메모 */}
       <section className="detail-content-section">
-        <h2>리뷰</h2>
+        <h2>영화 메모</h2>
 
         {reviewError && <p className="people-empty">{reviewError}</p>}
 
@@ -565,7 +565,7 @@ function MovieDetail() {
             className="review-write-toggle"
             onClick={() => setIsReviewOpen((prev) => !prev)}
           >
-            <span>{movie.title} 리뷰 작성하기</span>
+            <span>✏️ {movie.title} 영화 메모 작성하기</span>
 
             <span className="review-toggle-arrow">
               {isReviewOpen ? "▲" : "▼"}
@@ -574,35 +574,37 @@ function MovieDetail() {
 
           {isReviewOpen && (
             <div className="review-write-content">
-              <h3>이 영화는 어떠셨나요?</h3>
+              <h3>✏️ 이 영화, 어떻게 기억하시나요?</h3>
 
               <div className="review-title-field">
-                <label htmlFor="reviewTitle">리뷰 제목</label>
+                <div className="review-field-heading">
+                  <label htmlFor="reviewTitle">메모 제목</label>
+                  <span>{reviewTitle.length}/100</span>
+                </div>
 
                 <input
                   id="reviewTitle"
                   type="text"
                   value={reviewTitle}
                   onChange={(e) => setReviewTitle(e.target.value)}
-                  placeholder="리뷰 제목을 입력해 주세요."
+                  placeholder="영화 메모의 제목을 입력해 주세요."
                   maxLength={100}
                 />
-
-                <span>{reviewTitle.length}/100</span>
               </div>
 
               <div className="review-content-field">
-                <label htmlFor="reviewContent">리뷰 내용</label>
+                <div className="review-field-heading">
+                  <label htmlFor="reviewContent">영화 메모</label>
+                  <span>{reviewText.length}/2000</span>
+                </div>
 
                 <textarea
                   id="reviewContent"
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
-                  placeholder="영화에 대한 리뷰를 작성해 주세요."
+                  placeholder="영화를 보고 느낀 생각을 자유롭게 기록해 보세요."
                   maxLength={2000}
                 />
-
-                <span>{reviewText.length}/2000</span>
               </div>
 
               <div className="review-form-actions">
@@ -611,14 +613,14 @@ function MovieDetail() {
                   onClick={addReview}
                   disabled={isReviewSubmitting}
                 >
-                  {isReviewSubmitting ? "등록 중..." : "리뷰 등록"}
+                  {isReviewSubmitting ? "저장 중..." : "✏️ 메모 저장"}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* 리뷰 목록 */}
+        {/* 영화 메모 목록 */}
         {reviews.length > 0 ? (
           <div className="detail-review-list">
             {reviews.map((review) => (
@@ -638,7 +640,7 @@ function MovieDetail() {
             ))}
           </div>
         ) : (
-          <p className="people-empty">아직 작성된 리뷰가 없습니다.</p>
+          <p className="people-empty">아직 작성된 영화 메모가 없습니다.</p>
         )}
       </section>
     </main>

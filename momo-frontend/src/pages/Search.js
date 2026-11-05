@@ -181,6 +181,36 @@ const ScrollSentinel = styled.div`
 `;
 
 // ==========================================
+// 검색 목록 임시 저장 (추가 11-05)
+// 상세 페이지에서 뒤로 왔을 때 API 재호출 방지
+// ==========================================
+
+const getSearchCacheKey = (value, isGenreMode) => {
+  return `momo-search-${isGenreMode ? "genre" : "keyword"}-${value}`;
+};
+
+const getSearchCache = (value, isGenreMode) => {
+  if (!value) return null;
+
+  try {
+    const saved = sessionStorage.getItem(getSearchCacheKey(value, isGenreMode));
+
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveSearchCache = (value, isGenreMode, data) => {
+  if (!value) return;
+
+  sessionStorage.setItem(
+    getSearchCacheKey(value, isGenreMode),
+    JSON.stringify(data),
+  );
+};
+
+// ==========================================
 // 영화 카드
 // ==========================================
 
@@ -610,7 +640,6 @@ function Search() {
 
     setMovies([]);
     setVisibleMovies([]);
-
     setPosterStatuses({});
     setPosterUrls({});
 
@@ -623,6 +652,25 @@ function Search() {
       return;
     }
 
+    // 이전에 조회했던 목록이 있으면 API를 다시 호출하지 않고 복원 (추가 11-05)
+    const cached = getSearchCache(searchValue, isGenreMode);
+
+    if (cached) {
+      setMovies(cached.movies || []);
+      setVisibleMovies(cached.visibleMovies || []);
+      setPosterStatuses(cached.posterStatuses || {});
+      setPosterUrls(cached.posterUrls || {});
+
+      hasNextRef.current = cached.hasNext === true;
+      pageRef.current = cached.nextPage || 1;
+
+      setHasNext(cached.hasNext === true);
+      setInitialLoading(false);
+
+      return;
+    }
+
+    // 저장된 목록이 없을 때만 API 호출
     setInitialLoading(true);
 
     const timer = setTimeout(() => {
@@ -640,6 +688,34 @@ function Search() {
       isFetchingRef.current = false;
     };
   }, [searchValue, isGenreMode, loadPage]);
+
+  // ==========================================
+  // 현재 검색 목록 임시 저장 (수정 11-05)
+  // ==========================================
+
+  useEffect(() => {
+    if (!searchValue || initialLoading || movies.length === 0) {
+      return;
+    }
+
+    saveSearchCache(searchValue, isGenreMode, {
+      movies,
+      visibleMovies,
+      posterStatuses,
+      posterUrls,
+      hasNext,
+      nextPage: pageRef.current,
+    });
+  }, [
+    searchValue,
+    isGenreMode,
+    movies,
+    visibleMovies,
+    posterStatuses,
+    posterUrls,
+    hasNext,
+    initialLoading,
+  ]);
 
   // ==========================================
   // 포스터 대기 영화 수

@@ -536,10 +536,19 @@ public class MovieService {
                                 .asText("");
                     }
 
+                    String movieCode = movie.path("movieCd").asText("");
+                    String title = movie.path("movieNm").asText("");
+                    String releaseDate = movie.path("openDt").asText("");
+
+                    // KOBIS 목록에 개봉일이 없는 경우에만 보완 시도
+                    if (isBlank(releaseDate)) {
+                        releaseDate = resolveReleaseDateForList(movieCode);
+                    }
+
                     movies.add(new MovieSearchResponse(
-                            movie.path("movieCd").asText(""),
-                            movie.path("movieNm").asText(""),
-                            movie.path("openDt").asText(""),
+                            movieCode,
+                            title,
+                            releaseDate,
                             movieGenre,
                             director
                     ));
@@ -567,6 +576,49 @@ public class MovieService {
         enqueuePosterSearches(movies);
 
         return movies;
+    }
+
+    // =========================================================
+    // 장르별 목록의 누락된 개봉일 보완 (추가 11-05)
+    // =========================================================
+    private String resolveReleaseDateForList(String movieCode) {
+
+        if (movieCode == null || movieCode.isBlank()) {
+            return "";
+        }
+
+        try {
+
+            // 1. DB에 이미 보완된 영화 정보가 있다면 우선 사용
+            Movie savedMovie = movieRepository.findById(movieCode)
+                    .orElse(null);
+
+            if (savedMovie != null
+                    && !isBlank(savedMovie.getReleaseDate())) {
+
+                return savedMovie.getReleaseDate();
+            }
+
+            // 2. DB에도 개봉일이 없다면 기존 상세정보 로직 재사용
+            MovieDetailResponse detail = getMovieDetail(movieCode);
+
+            if (detail != null
+                    && !isBlank(detail.releaseDate())) {
+
+                return detail.releaseDate();
+            }
+
+        } catch (Exception e) {
+
+            log.warn(
+                    "영화 목록 개봉일 보완 실패. movieCode: {}",
+                    movieCode,
+                    e
+            );
+        }
+
+        // KOBIS / KMDb / TMDb 모두 개봉일이 없는 경우
+        return "";
     }
 
     // =========================================================
