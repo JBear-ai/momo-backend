@@ -7,6 +7,21 @@ import { getFavoriteMovies } from "../../utils/favorites";
 const isValidMovieCode = (movieCode) => /^\d{8}$/.test(String(movieCode || ""));
 const isValidReleaseDate = (releaseDate) => /^\d{8}$/.test(String(releaseDate || ""));
 
+const getBoxOfficeHistoryLabel = (candidate) => {
+  const rank = Number(candidate?.lastBoxOfficeRank);
+  const date = String(candidate?.lastBoxOfficeDate || "");
+
+  if (Number.isInteger(rank) && rank > 0 && /^\d{8}$/.test(date)) {
+    return `${date.slice(0, 4)}.${date.slice(4, 6)}.${date.slice(6, 8)} 박스오피스 ${rank}위 진입`;
+  }
+
+  if (Number.isInteger(rank) && rank > 0) {
+    return `박스오피스 ${rank}위 진입 이력`;
+  }
+
+  return "박스오피스 진입 이력";
+};
+
 function TodayRecommend() {
   const [movie, setMovie] = useState(null);
   const [recommendationType, setRecommendationType] = useState("");
@@ -120,7 +135,7 @@ function TodayRecommend() {
               if (active) {
                 setMovie(selected);
                 setRecommendationType(
-                  `${seedLabel}의 ${genre} 장르 및 박스오피스 진입 이력 기반`,
+                  `${seedLabel}의 ${genre} 장르 · ${getBoxOfficeHistoryLabel(selected)}`,
                 );
               }
               return;
@@ -146,8 +161,8 @@ function TodayRecommend() {
           setMovie(fallback);
           setRecommendationType(
             genre
-              ? `${seedLabel}의 장르 후보 부족 · 박스오피스 인기 이력 기반`
-              : "박스오피스 진입 이력 기반",
+              ? `${seedLabel}의 장르 후보 부족 · ${getBoxOfficeHistoryLabel(fallback)}`
+              : getBoxOfficeHistoryLabel(fallback),
           );
         }
       } catch (requestError) {
