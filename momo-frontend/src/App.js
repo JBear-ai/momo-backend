@@ -13,6 +13,7 @@ import Search from "./pages/Search";
 import AllReviews from "./pages/AllReviews";
 import ReviewDetail from "./pages/ReviewDetail";
 import FavoriteMovies from "./pages/FavoriteMovies";
+import PersonDetail from "./pages/PersonDetail"; // 1. PersonDetail 컴포넌트 임포트 추가
 
 function App() {
   return (
@@ -24,6 +25,9 @@ function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/reviews" element={<AllReviews />} />
           <Route path="/reviews/:reviewId" element={<ReviewDetail />} />
+
+          {/* 2. 인물 상세 페이지 라우트 추가 */}
+          <Route path="/person/:type/:identifier" element={<PersonDetail />} />
 
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/edit" element={<ProfileEdit />} />
