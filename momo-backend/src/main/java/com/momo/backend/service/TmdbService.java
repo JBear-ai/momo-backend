@@ -28,10 +28,8 @@ public class TmdbService {
     private static final String IMAGE_BASE_URL =
             "https://image.tmdb.org/t/p/w500";
 
-    // =========================================================
     // 1. 영화 상세정보 보완
     // KMDb 보완 후에도 누락된 영화 정보를 TMDb에서 조회
-    // =========================================================
 
     public Optional<MovieSupplement> findMovieSupplement(
             String title, String titleEn, String releaseDate, String kobisDirector) {
@@ -172,9 +170,7 @@ public class TmdbService {
         return Optional.empty();
     }
 
-    // =========================================================
     // 2. 한국 극장 개봉일 추출
-    // =========================================================
 
     // 한국(KR)의 일반 극장 개봉을 우선하고, 없으면 제한 개봉일 사용
     static String selectKoreanTheatricalReleaseDate(JsonNode releaseDates) {
@@ -235,9 +231,7 @@ public class TmdbService {
                 : value.asText("").trim();
     }
 
-    // =========================================================
     // 3. 영화 포스터 검색
-    // =========================================================
 
     public String findMoviePosterUrl(
             String title,
@@ -372,9 +366,7 @@ public class TmdbService {
         }
     }
 
-    // =========================================================
     // 4. 영화 줄거리 조회
-    // =========================================================
 
     public Optional<String> findMovieOverview(String title, String releaseDate) {
         if (title == null || title.isBlank()) {
@@ -435,9 +427,7 @@ public class TmdbService {
         return Optional.empty();
     }
 
-    // =========================================================
     // 5. TV 프로그램 포스터 검색
-    // =========================================================
 
     public String findTvPosterUrl(String title) {
 
@@ -506,9 +496,7 @@ public class TmdbService {
         }
     }
 
-    // =========================================================
     // 6. 공통 보조 메서드
-    // =========================================================
 
     // TMDb 포스터 주소 생성
     private String extractPoster(JsonNode result) {
