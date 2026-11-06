@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "../App.css";
 import AxiosApi from "../api/AxiosApi";
@@ -520,267 +520,250 @@ function ProfileEdit() {
   ========================= */
 
   return (
-    <main className="profile-page">
-      <section className="profile-container">
-        {/* 페이지 제목 */}
-        <header className="profile-heading">
-          <h1>프로필 수정</h1>
-          <p>회원 정보를 수정할 수 있습니다.</p>
-        </header>
-
-        <section className="profile-card">
-          <form className="profile-form" onSubmit={handleSave}>
-            {/* 프로필 이미지 */}
-            <div className="profile-image-edit">
-              <div className="profile-image-preview">
-                {profilePreview || profileImageUrl ? (
-                  <img src={profilePreview || profileImageUrl} alt="프로필" />
-                ) : (
-                  <span>
-                    {(nickname || userId || "M").charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
-
-              <div className="profile-image-input-wrapper">
-                <input
-                  id="profile-image-input"
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  onChange={handleProfileImageChange}
-                  disabled={profileImageUploading || isSubmitting}
-                />
-              </div>
-
-              <div className="profile-image-buttons">
-                <button
-                  type="button"
-                  className="profile-button"
-                  onClick={handleProfileImageUpload}
-                  disabled={
-                    !profileFile || profileImageUploading || isSubmitting
-                  }
-                >
-                  {profileImageUploading ? "처리 중..." : "이미지 변경"}
-                </button>
-
-                {(profileImage || profileImageUrl) && (
-                  <button
-                    type="button"
-                    className="profile-button profile-button-secondary"
-                    onClick={handleProfileImageDelete}
-                    disabled={profileImageUploading || isSubmitting}
-                  >
-                    이미지 삭제
-                  </button>
-                )}
-              </div>
-            </div>
-            {/* 아이디 */}
-            <label htmlFor="edit-userId">아이디</label>
-
-            <input id="edit-userId" type="text" value={userId} readOnly />
-
-            {/* 닉네임 */}
-            <label htmlFor="edit-nickname">닉네임</label>
-
-            <input
-              id="edit-nickname"
-              type="text"
-              value={nickname}
-              onChange={(event) => setNickname(event.target.value)}
-              required
-            />
-
-            <p
-              className="signup-message"
-              style={{
-                color: !nickname ? "#888" : isNickname ? "#2e9e4f" : "#e5484d",
-              }}
-            >
-              {!nickname
-                ? ""
-                : isNickname
-                  ? "사용 가능한 닉네임 형식입니다."
-                  : "한글, 영문, 숫자로 2~10자 입력하세요."}
-            </p>
-
-            {/* 이메일 */}
-            <label htmlFor="edit-email">이메일</label>
-
-            <input
-              id="edit-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="이메일을 입력해 주세요."
-              required
-            />
-
-            <p
-              className="signup-message"
-              style={{
-                color: !email ? "#888" : isEmail ? "#2e9e4f" : "#e5484d",
-              }}
-            >
-              {!email
-                ? ""
-                : isEmail
-                  ? "올바른 이메일 형식입니다."
-                  : "이메일 형식이 올바르지 않습니다."}
-            </p>
-
-            {/* 구분선 */}
-            <hr
-              style={{
-                margin: "24px 0",
-                border: "0",
-                borderTop: "1px solid #eee",
-              }}
-            />
-
-            {/* 비밀번호 변경 제목 */}
-            <h3
-              style={{
-                marginBottom: "16px",
-                fontSize: "1.1rem",
-              }}
-            >
-              비밀번호 변경
-            </h3>
-
-            <p
-              style={{
-                fontSize: "13px",
-                color: "#888",
-                marginBottom: "16px",
-              }}
-            >
-              비밀번호를 변경하지 않으려면 아래 항목을 비워 두세요.
-            </p>
-
-            {/* 현재 비밀번호 */}
-            <label htmlFor="current-password">현재 비밀번호</label>
-
-            <input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={handleCurrentPasswordChange}
-              onBlur={handleCurrentPasswordCheck}
-              placeholder="현재 비밀번호를 입력해 주세요."
-              autoComplete="current-password"
-            />
-
-            {/* 현재 비밀번호 검증 결과 */}
-            <p
-              className="signup-message"
-              style={{
-                color: passwordCheckError
-                  ? "#e5484d"
-                  : passwordCheckResult === true
-                    ? "#2e9e4f"
-                    : passwordCheckResult === false
-                      ? "#e5484d"
-                      : "#888",
-              }}
-            >
-              {passwordChecking
-                ? "현재 비밀번호 확인 중입니다."
-                : passwordCheckError
-                  ? passwordCheckError
-                  : passwordCheckResult === true
-                    ? "현재 비밀번호가 일치합니다."
-                    : passwordCheckResult === false
-                      ? "현재 비밀번호가 일치하지 않습니다."
-                      : ""}
-            </p>
-
-            {/* 새 비밀번호 */}
-            <label htmlFor="new-password">새 비밀번호</label>
-
-            <input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="새 비밀번호를 입력해 주세요."
-              autoComplete="new-password"
-            />
-
-            <p
-              className="signup-message"
-              style={{
-                color: !newPassword
-                  ? "#888"
-                  : isSamePassword
-                    ? "#e5484d"
-                    : isPwd
-                      ? "#2e9e4f"
-                      : "#e5484d",
-              }}
-            >
-              {!newPassword
-                ? ""
-                : isSamePassword
-                  ? "기존 비밀번호와 다른 비밀번호를 입력해 주세요."
-                  : isPwd
-                    ? "사용 가능한 비밀번호입니다."
-                    : "영문, 숫자, 특수문자를 포함해 8~20자로 입력하세요."}
-            </p>
-
-            {/* 새 비밀번호 확인 */}
-            <label htmlFor="confirm-password">새 비밀번호 확인</label>
-
-            <input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="새 비밀번호를 다시 입력해 주세요."
-              autoComplete="new-password"
-            />
-
-            <p
-              className="signup-message"
-              style={{
-                color: !confirmPassword
-                  ? "#888"
-                  : isPwdCheck
-                    ? "#2e9e4f"
-                    : "#e5484d",
-              }}
-            >
-              {!confirmPassword
-                ? ""
-                : isPwdCheck
-                  ? "비밀번호가 일치합니다."
-                  : "비밀번호가 일치하지 않습니다."}
-            </p>
-
-            {/* 버튼 */}
-            <div className="profile-form-buttons" style={{ marginTop: "24px" }}>
-              <button
-                type="submit"
-                className="profile-button"
-                disabled={!isAllValid || profileImageUploading}
-              >
-                {isSubmitting ? "저장 중..." : "저장"}
-              </button>
-
-              <button
-                type="button"
-                className="profile-button profile-button-secondary"
-                onClick={() => navigate("/profile")}
-                disabled={isSubmitting}
-              >
-                취소
-              </button>
-            </div>
-          </form>
-        </section>
-      </section>
-    </main>
+    React.createElement(
+  "main",
+  {"className":"profile-page"},
+  React.createElement(
+      "section",
+      {"className":"profile-container"},
+      React.createElement(
+            "header",
+            {"className":"profile-heading"},
+            React.createElement(
+                    "h1",
+                    null,
+                    "프로필 수정"
+                  ),
+            React.createElement(
+                    "p",
+                    null,
+                    "회원 정보를 수정할 수 있습니다."
+                  )
+          ),
+      React.createElement(
+            "section",
+            {"className":"profile-card"},
+            React.createElement(
+                    "form",
+                    {"className":"profile-form","onSubmit":handleSave},
+                    React.createElement(
+                              "div",
+                              {"className":"profile-image-edit"},
+                              React.createElement(
+                                          "div",
+                                          {"className":"profile-image-preview"},
+                                          (profilePreview || profileImageUrl ? (
+                                                            React.createElement(
+                                                        "img",
+                                                        {"src":profilePreview || profileImageUrl,"alt":"프로필"}
+                                                      )
+                                                          ) : (
+                                                            React.createElement(
+                                                        "span",
+                                                        null,
+                                                        ((nickname || userId || "M").charAt(0).toUpperCase())
+                                                      )
+                                                          ))
+                                        ),
+                              React.createElement(
+                                          "div",
+                                          {"className":"profile-image-input-wrapper"},
+                                          React.createElement(
+                                                        "input",
+                                                        {"id":"profile-image-input","type":"file","accept":"image/jpeg,image/png","onChange":handleProfileImageChange,"disabled":profileImageUploading || isSubmitting}
+                                                      )
+                                        ),
+                              React.createElement(
+                                          "div",
+                                          {"className":"profile-image-buttons"},
+                                          React.createElement(
+                                                        "button",
+                                                        {"type":"button","className":"profile-button","onClick":handleProfileImageUpload,"disabled":!profileFile || profileImageUploading || isSubmitting},
+                                                        (profileImageUploading ? "처리 중..." : "이미지 변경")
+                                                      ),
+                                          ((profileImage || profileImageUrl) && (
+                                                            React.createElement(
+                                                        "button",
+                                                        {"type":"button","className":"profile-button profile-button-secondary","onClick":handleProfileImageDelete,"disabled":profileImageUploading || isSubmitting},
+                                                        "이미지 삭제"
+                                                      )
+                                                          ))
+                                        )
+                            ),
+                    React.createElement(
+                              "label",
+                              {"htmlFor":"edit-userId"},
+                              "아이디"
+                            ),
+                    React.createElement(
+                              "input",
+                              {"id":"edit-userId","type":"text","value":userId,"readOnly":true}
+                            ),
+                    React.createElement(
+                              "label",
+                              {"htmlFor":"edit-nickname"},
+                              "닉네임"
+                            ),
+                    React.createElement(
+                              "input",
+                              {"id":"edit-nickname","type":"text","value":nickname,"onChange":(event) => setNickname(event.target.value),"required":true}
+                            ),
+                    React.createElement(
+                              "p",
+                              {"className":"signup-message","style":{
+                                              color: !nickname ? "#888" : isNickname ? "#2e9e4f" : "#e5484d",
+                                            }},
+                              (!nickname
+                                              ? ""
+                                              : isNickname
+                                                ? "사용 가능한 닉네임 형식입니다."
+                                                : "한글, 영문, 숫자로 2~10자 입력하세요.")
+                            ),
+                    React.createElement(
+                              "label",
+                              {"htmlFor":"edit-email"},
+                              "이메일"
+                            ),
+                    React.createElement(
+                              "input",
+                              {"id":"edit-email","type":"email","value":email,"onChange":(event) => setEmail(event.target.value),"placeholder":"이메일을 입력해 주세요.","required":true}
+                            ),
+                    React.createElement(
+                              "p",
+                              {"className":"signup-message","style":{
+                                              color: !email ? "#888" : isEmail ? "#2e9e4f" : "#e5484d",
+                                            }},
+                              (!email
+                                              ? ""
+                                              : isEmail
+                                                ? "올바른 이메일 형식입니다."
+                                                : "이메일 형식이 올바르지 않습니다.")
+                            ),
+                    React.createElement(
+                              "hr",
+                              {"style":{
+                                              margin: "24px 0",
+                                              border: "0",
+                                              borderTop: "1px solid #eee",
+                                            }}
+                            ),
+                    React.createElement(
+                              "h3",
+                              {"style":{
+                                              marginBottom: "16px",
+                                              fontSize: "1.1rem",
+                                            }},
+                              "비밀번호 변경"
+                            ),
+                    React.createElement(
+                              "p",
+                              {"style":{
+                                              fontSize: "13px",
+                                              color: "#888",
+                                              marginBottom: "16px",
+                                            }},
+                              "비밀번호를 변경하지 않으려면 아래 항목을 비워 두세요."
+                            ),
+                    React.createElement(
+                              "label",
+                              {"htmlFor":"current-password"},
+                              "현재 비밀번호"
+                            ),
+                    React.createElement(
+                              "input",
+                              {"id":"current-password","type":"password","value":currentPassword,"onChange":handleCurrentPasswordChange,"onBlur":handleCurrentPasswordCheck,"placeholder":"현재 비밀번호를 입력해 주세요.","autoComplete":"current-password"}
+                            ),
+                    React.createElement(
+                              "p",
+                              {"className":"signup-message","style":{
+                                              color: passwordCheckError
+                                                ? "#e5484d"
+                                                : passwordCheckResult === true
+                                                  ? "#2e9e4f"
+                                                  : passwordCheckResult === false
+                                                    ? "#e5484d"
+                                                    : "#888",
+                                            }},
+                              (passwordChecking
+                                              ? "현재 비밀번호 확인 중입니다."
+                                              : passwordCheckError
+                                                ? passwordCheckError
+                                                : passwordCheckResult === true
+                                                  ? "현재 비밀번호가 일치합니다."
+                                                  : passwordCheckResult === false
+                                                    ? "현재 비밀번호가 일치하지 않습니다."
+                                                    : "")
+                            ),
+                    React.createElement(
+                              "label",
+                              {"htmlFor":"new-password"},
+                              "새 비밀번호"
+                            ),
+                    React.createElement(
+                              "input",
+                              {"id":"new-password","type":"password","value":newPassword,"onChange":(event) => setNewPassword(event.target.value),"placeholder":"새 비밀번호를 입력해 주세요.","autoComplete":"new-password"}
+                            ),
+                    React.createElement(
+                              "p",
+                              {"className":"signup-message","style":{
+                                              color: !newPassword
+                                                ? "#888"
+                                                : isSamePassword
+                                                  ? "#e5484d"
+                                                  : isPwd
+                                                    ? "#2e9e4f"
+                                                    : "#e5484d",
+                                            }},
+                              (!newPassword
+                                              ? ""
+                                              : isSamePassword
+                                                ? "기존 비밀번호와 다른 비밀번호를 입력해 주세요."
+                                                : isPwd
+                                                  ? "사용 가능한 비밀번호입니다."
+                                                  : "영문, 숫자, 특수문자를 포함해 8~20자로 입력하세요.")
+                            ),
+                    React.createElement(
+                              "label",
+                              {"htmlFor":"confirm-password"},
+                              "새 비밀번호 확인"
+                            ),
+                    React.createElement(
+                              "input",
+                              {"id":"confirm-password","type":"password","value":confirmPassword,"onChange":(event) => setConfirmPassword(event.target.value),"placeholder":"새 비밀번호를 다시 입력해 주세요.","autoComplete":"new-password"}
+                            ),
+                    React.createElement(
+                              "p",
+                              {"className":"signup-message","style":{
+                                              color: !confirmPassword
+                                                ? "#888"
+                                                : isPwdCheck
+                                                  ? "#2e9e4f"
+                                                  : "#e5484d",
+                                            }},
+                              (!confirmPassword
+                                              ? ""
+                                              : isPwdCheck
+                                                ? "비밀번호가 일치합니다."
+                                                : "비밀번호가 일치하지 않습니다.")
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"profile-form-buttons","style":{ marginTop: "24px" }},
+                              React.createElement(
+                                          "button",
+                                          {"type":"submit","className":"profile-button","disabled":!isAllValid || profileImageUploading},
+                                          (isSubmitting ? "저장 중..." : "저장")
+                                        ),
+                              React.createElement(
+                                          "button",
+                                          {"type":"button","className":"profile-button profile-button-secondary","onClick":() => navigate("/profile"),"disabled":isSubmitting},
+                                          "취소"
+                                        )
+                            )
+                  )
+          )
+    )
+)
   );
 }
 
