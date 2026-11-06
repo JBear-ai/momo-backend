@@ -6,9 +6,7 @@ import AxiosApi from "../api/AxiosApi";
 import FavoriteStar from "../components/common/FavoriteStar";
 import { formatReleaseDate } from "../utils/releaseDate";
 
-// ==========================================
 // 검색 페이지 디자인
-// ==========================================
 
 const SearchPage = styled.div`
   width: 100%;
@@ -180,10 +178,8 @@ const ScrollSentinel = styled.div`
   height: 1px;
 `;
 
-// ==========================================
 // 검색 목록 임시 저장 (추가 11-05)
 // 상세 페이지에서 뒤로 왔을 때 API 재호출 방지
-// ==========================================
 
 const getSearchCacheKey = (value, isGenreMode) => {
   return `momo-search-${isGenreMode ? "genre" : "keyword"}-${value}`;
@@ -210,9 +206,7 @@ const saveSearchCache = (value, isGenreMode, data) => {
   );
 };
 
-// ==========================================
 // 영화 카드
-// ==========================================
 
 function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
   // 영화 카드 키보드 접근
@@ -261,9 +255,7 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
   );
 }
 
-// ==========================================
 // 검색 페이지
-// ==========================================
 
 function Search() {
   const navigate = useNavigate();
@@ -293,9 +285,7 @@ function Search() {
   const [hasNext, setHasNext] = useState(false);
   const [error, setError] = useState("");
 
-  // ==========================================
   // 중복 요청 및 검색 상태 관리
-  // ==========================================
 
   const searchRef = useRef({
     value: searchValue,
@@ -322,9 +312,7 @@ function Search() {
 
   posterStatusesRef.current = posterStatuses;
 
-  // ==========================================
   // 포스터 이미지 로딩 실패 처리
-  // ==========================================
 
   const handlePosterImageError = useCallback((movieCode) => {
     setPosterStatuses((prev) => ({
@@ -343,9 +331,7 @@ function Search() {
     );
   }, []);
 
-  // ==========================================
   // 영화 검색 API
-  // ==========================================
 
   const loadPage = useCallback(
     async (page, generation = generationRef.current) => {
@@ -471,9 +457,7 @@ function Search() {
     [],
   );
 
-  // ==========================================
   // 포스터 상태 조회
-  // ==========================================
 
   useEffect(() => {
     if (movies.length === 0) return;
@@ -618,9 +602,7 @@ function Search() {
     };
   }, [movies]);
 
-  // ==========================================
   // 검색 조건 변경
-  // ==========================================
 
   useEffect(() => {
     // 이전 검색 요청 무효화
@@ -689,9 +671,7 @@ function Search() {
     };
   }, [searchValue, isGenreMode, loadPage]);
 
-  // ==========================================
   // 현재 검색 목록 임시 저장 (수정 11-05)
-  // ==========================================
 
   useEffect(() => {
     if (!searchValue || initialLoading || movies.length === 0) {
@@ -717,9 +697,7 @@ function Search() {
     initialLoading,
   ]);
 
-  // ==========================================
   // 포스터 대기 영화 수
-  // ==========================================
 
   const pendingCount = movies.filter((movie) => {
     const status = posterStatuses[movie.movieCode];
@@ -727,9 +705,7 @@ function Search() {
     return status !== "success" && status !== "failed";
   }).length;
 
-  // ==========================================
   // 무한 스크롤
-  // ==========================================
 
   useEffect(() => {
     const element = sentinelRef.current;
@@ -773,9 +749,7 @@ function Search() {
     loadPage,
   ]);
 
-  // ==========================================
   // 검색어 입력
-  // ==========================================
 
   useEffect(() => {
     setKeywordInput(isGenreMode ? "" : keyword);
@@ -788,17 +762,13 @@ function Search() {
     setSearchParams(value ? { keyword: value } : {}, { replace: true });
   };
 
-  // ==========================================
   // 영화 상세 페이지 이동
-  // ==========================================
 
   const handleMovieClick = (movieCode) => {
     navigate(`/movie/${movieCode}`);
   };
 
-  // ==========================================
   // 검색 재시도
-  // ==========================================
 
   const handleRetry = () => {
     if (!isFetchingRef.current) {
@@ -808,9 +778,7 @@ function Search() {
     }
   };
 
-  // ==========================================
   // 화면 렌더링
-  // ==========================================
 
   return (
     <SearchPage>
