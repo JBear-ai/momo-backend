@@ -220,38 +220,46 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
   };
 
   return (
-    <MovieCard
-      role="button"
-      tabIndex={0}
-      style={{
-        animationDelay: `${(index % 20) * 20}ms`,
-      }}
-      onClick={() => onClick(movie.movieCode)}
-      onKeyDown={handleCardKeyDown}
-      aria-label={`${movie.title} 상세 페이지`}
-    >
-      <Poster>
-        <img
-          src={posterUrl}
-          alt={`${movie.title} 포스터`}
-          loading="lazy"
-          onError={() => onImageError(movie.movieCode)}
-        />
-
-        <FavoriteStar
-          movie={{
-            ...movie,
-            posterUrl: posterUrl,
-          }}
-        />
-      </Poster>
-
-      <MovieInfo>
-        <h3>{movie.title}</h3>
-        <p>{formatReleaseDate(movie.releaseDate)}</p>
-        <p>{movie.genre || "장르 정보 없음"}</p>
-      </MovieInfo>
-    </MovieCard>
+    React.createElement(
+  MovieCard,
+  {"role":"button","tabIndex":0,"style":{
+          animationDelay: `${(index % 20) * 20}ms`,
+        },"onClick":() => onClick(movie.movieCode),"onKeyDown":handleCardKeyDown,"aria-label":`${movie.title} 상세 페이지`},
+  React.createElement(
+      Poster,
+      null,
+      React.createElement(
+            "img",
+            {"src":posterUrl,"alt":`${movie.title} 포스터`,"loading":"lazy","onError":() => onImageError(movie.movieCode)}
+          ),
+      React.createElement(
+            FavoriteStar,
+            {"movie":{
+                        ...movie,
+                        posterUrl: posterUrl,
+                      }}
+          )
+    ),
+  React.createElement(
+      MovieInfo,
+      null,
+      React.createElement(
+            "h3",
+            null,
+            (movie.title)
+          ),
+      React.createElement(
+            "p",
+            null,
+            (formatReleaseDate(movie.releaseDate))
+          ),
+      React.createElement(
+            "p",
+            null,
+            (movie.genre || "장르 정보 없음")
+          )
+    )
+)
   );
 }
 
@@ -781,99 +789,137 @@ function Search() {
   // 화면 렌더링
 
   return (
-    <SearchPage>
-      <SearchHeading>
-        <h1>
-          {isGenreMode ? `${genre.trim()} 영화` : "어떤 영화를 찾으세요?"}
-        </h1>
-
-        <p>
-          {isGenreMode
-            ? "선택한 장르의 영화를 살펴보세요."
-            : "기억하고 싶은 영화를 검색하고 감상을 기록해 보세요."}
-        </p>
-      </SearchHeading>
-
-      <form role="search" onSubmit={handleKeywordSubmit}>
-        <SearchInput
-          type="search"
-          aria-label="영화 제목 검색"
-          placeholder="영화 제목을 입력한 뒤 Enter를 눌러 주세요."
-          value={keywordInput}
-          onChange={(e) => setKeywordInput(e.target.value)}
-        />
-      </form>
-
-      {!searchValue ? (
-        <SearchMessage>영화 제목을 입력해 주세요.</SearchMessage>
-      ) : initialLoading && movies.length === 0 ? (
-        <SearchMessage>영화 목록을 불러오고 있습니다.</SearchMessage>
-      ) : error && movies.length === 0 ? (
-        <SearchMessage>
-          {error}
-          <br />
-          <RetryButton type="button" onClick={() => loadPage(1)}>
-            다시 시도
-          </RetryButton>
-        </SearchMessage>
-      ) : movies.length === 0 ? (
-        <SearchMessage>
-          {isGenreMode
-            ? "선택한 장르의 영화가 없습니다."
-            : "검색 결과가 없습니다."}
-        </SearchMessage>
-      ) : (
-        <>
-          {visibleMovies.length > 0 ? (
-            <MovieGrid>
-              {visibleMovies.map((movie, index) => (
-                <MovieItem
-                  key={movie.movieCode}
-                  movie={movie}
-                  index={index}
-                  posterUrl={posterUrls[movie.movieCode] || ""}
-                  onClick={handleMovieClick}
-                  onImageError={handlePosterImageError}
-                />
-              ))}
-            </MovieGrid>
-          ) : (
-            <LoadingMessage>
-              포스터가 확인된 영화를 불러오고 있습니다.
-            </LoadingMessage>
-          )}
-
-          <ScrollSentinel ref={sentinelRef} />
-
-          {loadingMore && (
-            <LoadingMessage>다음 영화 목록을 불러오고 있습니다.</LoadingMessage>
-          )}
-
-          {error && (
-            <SearchMessage>
-              {error}
-              <br />
-              <RetryButton type="button" onClick={handleRetry}>
-                다시 시도
-              </RetryButton>
-            </SearchMessage>
-          )}
-
-          {!hasNext &&
-            !loadingMore &&
-            pendingCount === 0 &&
-            visibleMovies.length === 0 && (
-              <SearchMessage>
-                표시할 수 있는 포스터가 있는 영화가 없습니다.
-              </SearchMessage>
-            )}
-
-          {!hasNext && !loadingMore && visibleMovies.length > 0 && (
-            <LoadingMessage>모든 영화 목록을 불러왔습니다.</LoadingMessage>
-          )}
-        </>
-      )}
-    </SearchPage>
+    React.createElement(
+  SearchPage,
+  null,
+  React.createElement(
+      SearchHeading,
+      null,
+      React.createElement(
+            "h1",
+            null,
+            (isGenreMode ? `${genre.trim()} 영화` : "어떤 영화를 찾으세요?")
+          ),
+      React.createElement(
+            "p",
+            null,
+            (isGenreMode
+                        ? "선택한 장르의 영화를 살펴보세요."
+                        : "기억하고 싶은 영화를 검색하고 감상을 기록해 보세요.")
+          )
+    ),
+  React.createElement(
+      "form",
+      {"role":"search","onSubmit":handleKeywordSubmit},
+      React.createElement(
+            SearchInput,
+            {"type":"search","aria-label":"영화 제목 검색","placeholder":"영화 제목을 입력한 뒤 Enter를 눌러 주세요.","value":keywordInput,"onChange":(e) => setKeywordInput(e.target.value)}
+          )
+    ),
+  (!searchValue ? (
+          React.createElement(
+      SearchMessage,
+      null,
+      "영화 제목을 입력해 주세요."
+    )
+        ) : initialLoading && movies.length === 0 ? (
+          React.createElement(
+      SearchMessage,
+      null,
+      "영화 목록을 불러오고 있습니다."
+    )
+        ) : error && movies.length === 0 ? (
+          React.createElement(
+      SearchMessage,
+      null,
+      (error),
+      React.createElement(
+            "br",
+            null
+          ),
+      React.createElement(
+            RetryButton,
+            {"type":"button","onClick":() => loadPage(1)},
+            "다시 시도"
+          )
+    )
+        ) : movies.length === 0 ? (
+          React.createElement(
+      SearchMessage,
+      null,
+      (isGenreMode
+                  ? "선택한 장르의 영화가 없습니다."
+                  : "검색 결과가 없습니다.")
+    )
+        ) : (
+          React.createElement(
+      React.Fragment,
+      null,
+      (visibleMovies.length > 0 ? (
+                  React.createElement(
+            MovieGrid,
+            null,
+            (visibleMovies.map((movie, index) => (
+                            React.createElement(
+                    MovieItem,
+                    {"key":movie.movieCode,"movie":movie,"index":index,"posterUrl":posterUrls[movie.movieCode] || "","onClick":handleMovieClick,"onImageError":handlePosterImageError}
+                  )
+                          )))
+          )
+                ) : (
+                  React.createElement(
+            LoadingMessage,
+            null,
+            "포스터가 확인된 영화를 불러오고 있습니다."
+          )
+                )),
+      React.createElement(
+            ScrollSentinel,
+            {"ref":sentinelRef}
+          ),
+      (loadingMore && (
+                  React.createElement(
+            LoadingMessage,
+            null,
+            "다음 영화 목록을 불러오고 있습니다."
+          )
+                )),
+      (error && (
+                  React.createElement(
+            SearchMessage,
+            null,
+            (error),
+            React.createElement(
+                    "br",
+                    null
+                  ),
+            React.createElement(
+                    RetryButton,
+                    {"type":"button","onClick":handleRetry},
+                    "다시 시도"
+                  )
+          )
+                )),
+      (!hasNext &&
+                  !loadingMore &&
+                  pendingCount === 0 &&
+                  visibleMovies.length === 0 && (
+                    React.createElement(
+            SearchMessage,
+            null,
+            "표시할 수 있는 포스터가 있는 영화가 없습니다."
+          )
+                  )),
+      (!hasNext && !loadingMore && visibleMovies.length > 0 && (
+                  React.createElement(
+            LoadingMessage,
+            null,
+            "모든 영화 목록을 불러왔습니다."
+          )
+                ))
+    )
+        ))
+)
   );
 }
 
