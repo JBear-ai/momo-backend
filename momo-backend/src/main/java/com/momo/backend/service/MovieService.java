@@ -1118,6 +1118,7 @@ public class MovieService {
                     result.put("posterUrl", findSavedPosterUrl(movie.getMovieCode()));
                     result.put("bestBoxOfficeRank", movie.getBestBoxOfficeRank());
                     result.put("lastBoxOfficeDate", movie.getLastBoxOfficeDate());
+                    result.put("lastBoxOfficeRank", movie.getLastBoxOfficeRank());
                     return result;
                 })
                 .toList();
