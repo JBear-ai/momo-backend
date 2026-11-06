@@ -153,12 +153,8 @@ public class PersonService {
             List<FilmographyItem> filmography =
                     extractFilmography(detail, type);
 
-            if (filmography.isEmpty()) {
-                throw new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "요청한 역할의 영화 필모그래피를 찾을 수 없습니다."
-                );
-            }
+            // 인물 상세정보가 존재하면 필모그래피가 비어 있어도 인물 페이지를 정상 반환한다.
+            // 역할별 작품이 없다는 이유로 인물 전체를 404 처리하지 않는다.
 
             PersonInfo personInfo = new PersonInfo(
                     detail.path("id").asLong(personId),
