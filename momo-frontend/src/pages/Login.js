@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import logoImage from "../textlogo.png";
@@ -40,72 +40,128 @@ function Login() {
   };
 
   return (
-    <main className="signup-page">
-      <section className="signup-wrapper">
-        <Link to="/" className="signup-brand">
-          <img src={logoImage} alt="MOMO 로고" />
-        </Link>
-
-        <section className="signup-card login-card">
-          <div className="signup-card-heading">
-            <span className="signup-eyebrow">WELCOME BACK</span>
-
-            <h1>
-              다시, 나만의 영화 메모로
-              <br />
-              돌아오셨네요.
-            </h1>
-
-            <p>
-              로그인하고 마음에 남는 영화와
-              <br />
-              다양한 리뷰를 만나 보세요.
-            </p>
-
-            <div className="signup-note-label">
-              <span>MY MOVIE NOTE</span>
-              <span>LOGIN TO MOMO</span>
-            </div>
-          </div>
-
-          <form onSubmit={onSubmit}>
-            <div className="signup-field">
-              <label htmlFor="loginId">아이디</label>
-              <input
-                id="loginId"
-                type="text"
-                value={inputId}
-                placeholder="아이디를 입력해 주세요."
-                onChange={(event) => setInputId(event.target.value)}
-              />
-            </div>
-
-            <div className="signup-field">
-              <label htmlFor="loginPassword">비밀번호</label>
-              <input
-                id="loginPassword"
-                type="password"
-                value={inputPwd}
-                placeholder="비밀번호를 입력해 주세요."
-                onChange={(event) => setInputPwd(event.target.value)}
-              />
-            </div>
-
-            <button type="submit" className="signup-submit" disabled={!isValid}>
-              로그인
-              <span>→</span>
-            </button>
-          </form>
-
-          <div className="signup-footer">
-            <span>아직 계정이 없으신가요?</span>
-            <Link to="/signup">회원가입</Link>
-          </div>
-        </section>
-
-        <p className="signup-bottom-caption">YOUR MOVIES, YOUR MEMORIES.</p>
-      </section>
-    </main>
+    React.createElement(
+  "main",
+  {"className":"signup-page"},
+  React.createElement(
+      "section",
+      {"className":"signup-wrapper"},
+      React.createElement(
+            Link,
+            {"to":"/","className":"signup-brand"},
+            React.createElement(
+                    "img",
+                    {"src":logoImage,"alt":"MOMO 로고"}
+                  )
+          ),
+      React.createElement(
+            "section",
+            {"className":"signup-card login-card"},
+            React.createElement(
+                    "div",
+                    {"className":"signup-card-heading"},
+                    React.createElement(
+                              "span",
+                              {"className":"signup-eyebrow"},
+                              "WELCOME BACK"
+                            ),
+                    React.createElement(
+                              "h1",
+                              null,
+                              "다시, 나만의 영화 메모로",
+                              React.createElement(
+                                          "br",
+                                          null
+                                        ),
+                              "돌아오셨네요."
+                            ),
+                    React.createElement(
+                              "p",
+                              null,
+                              "로그인하고 마음에 남는 영화와",
+                              React.createElement(
+                                          "br",
+                                          null
+                                        ),
+                              "다양한 리뷰를 만나 보세요."
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"signup-note-label"},
+                              React.createElement(
+                                          "span",
+                                          null,
+                                          "MY MOVIE NOTE"
+                                        ),
+                              React.createElement(
+                                          "span",
+                                          null,
+                                          "LOGIN TO MOMO"
+                                        )
+                            )
+                  ),
+            React.createElement(
+                    "form",
+                    {"onSubmit":onSubmit},
+                    React.createElement(
+                              "div",
+                              {"className":"signup-field"},
+                              React.createElement(
+                                          "label",
+                                          {"htmlFor":"loginId"},
+                                          "아이디"
+                                        ),
+                              React.createElement(
+                                          "input",
+                                          {"id":"loginId","type":"text","value":inputId,"placeholder":"아이디를 입력해 주세요.","onChange":(event) => setInputId(event.target.value)}
+                                        )
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"signup-field"},
+                              React.createElement(
+                                          "label",
+                                          {"htmlFor":"loginPassword"},
+                                          "비밀번호"
+                                        ),
+                              React.createElement(
+                                          "input",
+                                          {"id":"loginPassword","type":"password","value":inputPwd,"placeholder":"비밀번호를 입력해 주세요.","onChange":(event) => setInputPwd(event.target.value)}
+                                        )
+                            ),
+                    React.createElement(
+                              "button",
+                              {"type":"submit","className":"signup-submit","disabled":!isValid},
+                              "로그인",
+                              React.createElement(
+                                          "span",
+                                          null,
+                                          "→"
+                                        )
+                            )
+                  ),
+            React.createElement(
+                    "div",
+                    {"className":"signup-footer"},
+                    React.createElement(
+                              "span",
+                              null,
+                              "아직 계정이 없으신가요?"
+                            ),
+                    React.createElement(
+                              Link,
+                              {"to":"/signup"},
+                              "회원가입"
+                            )
+                  )
+          ),
+      React.createElement(
+            "p",
+            {"className":"signup-bottom-caption"},
+            "YOUR MOVIES, YOUR MEMORIES."
+          )
+    )
+)
   );
 }
 
