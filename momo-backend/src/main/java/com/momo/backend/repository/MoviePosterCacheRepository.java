@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
-
 import java.util.Collection;
 import java.util.List;
 
@@ -20,6 +19,7 @@ public interface MoviePosterCacheRepository
     List<MoviePosterCache> findAllByMovieCodeIn(
             Collection<String> movieCodes
     );
+
     @Modifying
     @Transactional
     @Query(value = """
@@ -28,8 +28,12 @@ public interface MoviePosterCacheRepository
             VALUES (:movieCode, :title, :releaseDate, NULL, 'PENDING', :now)
             ON DUPLICATE KEY UPDATE title = VALUES(title), release_date = VALUES(release_date)
             """, nativeQuery = true)
-    void insertIfAbsent(@Param("movieCode") String movieCode, @Param("title") String title,
-                        @Param("releaseDate") String releaseDate, @Param("now") LocalDateTime now);
+    void insertIfAbsent(
+            @Param("movieCode") String movieCode,
+            @Param("title") String title,
+            @Param("releaseDate") String releaseDate,
+            @Param("now") LocalDateTime now
+    );
 
     @Modifying
     @Transactional
@@ -42,7 +46,10 @@ public interface MoviePosterCacheRepository
                     OR (status = 'PROCESSING'
                         AND (updated_at IS NULL OR updated_at < :processingBefore)))
             """, nativeQuery = true)
-    int tryClaim(@Param("movieCode") String movieCode, @Param("now") LocalDateTime now,
-                 @Param("failedBefore") LocalDateTime failedBefore,
-                 @Param("processingBefore") LocalDateTime processingBefore);
+    int tryClaim(
+            @Param("movieCode") String movieCode,
+            @Param("now") LocalDateTime now,
+            @Param("failedBefore") LocalDateTime failedBefore,
+            @Param("processingBefore") LocalDateTime processingBefore
+    );
 }
