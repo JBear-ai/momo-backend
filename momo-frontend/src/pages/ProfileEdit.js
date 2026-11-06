@@ -22,6 +22,8 @@ function ProfileEdit() {
 
   // 비밀번호 검증 요청의 순서를 관리
   const passwordCheckRequestId = useRef(0);
+  const profileImageUrlRef = useRef("");
+  const profilePreviewRef = useRef("");
 
   /* =========================
      회원정보 상태
@@ -75,43 +77,53 @@ function ProfileEdit() {
   ========================= */
 
   useEffect(() => {
-    setUserId(localStorage.getItem("username") || "");
-    setNickname(localStorage.getItem("nickname") || "");
-    setEmail(localStorage.getItem("email") || "");
-  }, []);
+    let active = true;
 
-  // 서버에 저장된 프로필 이미지 정보를 불러옵니다.
-  useEffect(() => {
-    let imageUrl = "";
-
-    const loadProfileImage = async () => {
+    async function loadProfile() {
       try {
         const userResponse = await AxiosApi.memberMe();
+        const user = userResponse.data || {};
 
-        const savedProfileImage = userResponse.data.profileImage || "";
+        if (!active) return;
+
+        // 서버 회원정보를 우선 사용하고 기존 로컬 값은 누락 필드의 임시 대체값으로만 사용한다.
+        setUserId(user.loginId || user.username || localStorage.getItem("username") || "");
+        setNickname(user.nickname || localStorage.getItem("nickname") || "");
+        setEmail(user.email || localStorage.getItem("email") || "");
+
+        const savedProfileImage = user.profileImage || "";
         setProfileImage(savedProfileImage);
 
-        // 저장된 이미지가 있을 때 실제 이미지 데이터를 불러옵니다.
         if (savedProfileImage) {
           const imageResponse = await AxiosApi.profileImageGet();
-
-          imageUrl = URL.createObjectURL(imageResponse.data);
-          setProfileImageUrl(imageUrl);
+          if (!active) return;
+          const objectUrl = URL.createObjectURL(imageResponse.data);
+          profileImageUrlRef.current = objectUrl;
+          setProfileImageUrl(objectUrl);
         }
       } catch (error) {
-        console.error("프로필 이미지 조회 실패:", error);
+        if (!active) return;
+        console.error("회원정보 및 프로필 이미지 조회 실패:", error);
+        if (error.response?.status === 401) {
+          navigate("/login", { replace: true });
+        }
       }
-    };
+    }
 
-    loadProfileImage();
+    loadProfile();
 
-    // 화면을 벗어날 때 생성한 임시 이미지 주소를 정리합니다.
     return () => {
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
+      active = false;
+      if (profileImageUrlRef.current) {
+        URL.revokeObjectURL(profileImageUrlRef.current);
+        profileImageUrlRef.current = "";
+      }
+      if (profilePreviewRef.current) {
+        URL.revokeObjectURL(profilePreviewRef.current);
+        profilePreviewRef.current = "";
       }
     };
-  }, []);
+  }, [navigate]);
 
   /* =========================
      입력값 유효성 검사
@@ -149,7 +161,8 @@ function ProfileEdit() {
       !isSamePassword);
 
   // 전체 유효성
-  const isAllValid = isNickname && isEmail && isPasswordValid && !isSubmitting;
+  const isAllValid =
+    isNickname && isEmail && isPasswordValid && !isSubmitting && !profileImageUploading;
 
   /* =========================
      현재 비밀번호 검증
@@ -251,12 +264,13 @@ function ProfileEdit() {
     setProfileFile(file);
 
     // 이전 미리보기 주소가 있으면 먼저 정리합니다.
-    if (profilePreview) {
-      URL.revokeObjectURL(profilePreview);
+    if (profilePreviewRef.current) {
+      URL.revokeObjectURL(profilePreviewRef.current);
     }
 
     // 사용자가 선택한 이미지를 업로드 전에 미리 보여줍니다.
     const previewUrl = URL.createObjectURL(file);
+    profilePreviewRef.current = previewUrl;
     setProfilePreview(previewUrl);
   };
 
@@ -280,15 +294,16 @@ function ProfileEdit() {
       const newImageUrl = URL.createObjectURL(imageResponse.data);
 
       // 기존 이미지 주소가 있으면 정리한 뒤 새 이미지 주소로 변경합니다.
-      if (profileImageUrl) {
-        URL.revokeObjectURL(profileImageUrl);
+      if (profileImageUrlRef.current) {
+        URL.revokeObjectURL(profileImageUrlRef.current);
       }
-
+      profileImageUrlRef.current = newImageUrl;
       setProfileImageUrl(newImageUrl);
 
       // 선택한 파일과 미리보기 상태를 초기화합니다.
-      if (profilePreview) {
-        URL.revokeObjectURL(profilePreview);
+      if (profilePreviewRef.current) {
+        URL.revokeObjectURL(profilePreviewRef.current);
+        profilePreviewRef.current = "";
       }
 
       setProfileFile(null);
@@ -316,12 +331,14 @@ function ProfileEdit() {
       await AxiosApi.profileImageDelete();
 
       // 기존에 생성한 이미지 주소를 정리합니다.
-      if (profileImageUrl) {
-        URL.revokeObjectURL(profileImageUrl);
+      if (profileImageUrlRef.current) {
+        URL.revokeObjectURL(profileImageUrlRef.current);
+        profileImageUrlRef.current = "";
       }
 
-      if (profilePreview) {
-        URL.revokeObjectURL(profilePreview);
+      if (profilePreviewRef.current) {
+        URL.revokeObjectURL(profilePreviewRef.current);
+        profilePreviewRef.current = "";
       }
 
       setProfileImage("");
@@ -521,7 +538,7 @@ function ProfileEdit() {
                 type="file"
                 accept="image/jpeg,image/png"
                 onChange={handleProfileImageChange}
-                disabled={profileImageUploading}
+                disabled={profileImageUploading || isSubmitting}
               />
 
               <div className="profile-image-buttons">
@@ -529,7 +546,7 @@ function ProfileEdit() {
                   type="button"
                   className="profile-button"
                   onClick={handleProfileImageUpload}
-                  disabled={!profileFile || profileImageUploading}
+                  disabled={!profileFile || profileImageUploading || isSubmitting}
                 >
                   {profileImageUploading ? "처리 중..." : "이미지 변경"}
                 </button>
@@ -539,7 +556,7 @@ function ProfileEdit() {
                     type="button"
                     className="profile-button profile-button-secondary"
                     onClick={handleProfileImageDelete}
-                    disabled={profileImageUploading}
+                    disabled={profileImageUploading || isSubmitting}
                   >
                     이미지 삭제
                   </button>
@@ -733,7 +750,7 @@ function ProfileEdit() {
               <button
                 type="submit"
                 className="profile-button"
-                disabled={!isAllValid}
+                disabled={!isAllValid || profileImageUploading}
               >
                 {isSubmitting ? "저장 중..." : "저장"}
               </button>
