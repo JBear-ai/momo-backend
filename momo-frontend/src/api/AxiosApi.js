@@ -3,9 +3,7 @@ import axios from "axios";
 const HM_DOMAIN = "http://localhost:8111";
 
 const AxiosApi = {
-  // =========================================================
   // 1. 회원 아이디 중복 확인
-  // =========================================================
 
   memberIdExist: async (loginId) => {
     return await axios.get(
@@ -13,9 +11,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 2. 회원가입
-  // =========================================================
 
   memberSignup: async (loginId, password, nickname, email) => {
     return await axios.post(`${HM_DOMAIN}/api/auth/signup`, {
@@ -26,9 +22,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 3. 로그인
-  // =========================================================
 
   memberLogin: async (loginId, password) => {
     return await axios.post(
@@ -38,9 +32,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 4. 회원정보 수정
-  // =========================================================
 
   memberUpdate: async (data) => {
     return await axios.put(`${HM_DOMAIN}/api/auth/me`, data, {
@@ -48,9 +40,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 5. 회원 탈퇴
-  // =========================================================
 
   memberDelete: async (password) => {
     return await axios.delete(`${HM_DOMAIN}/api/auth/me`, {
@@ -59,9 +49,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 6. 영화 검색
-  // =========================================================
 
   movieSearch: async (keyword, page, size = 20, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/movies/search`, {
@@ -74,9 +62,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 6-1. 일일 박스오피스 조회
-  // =========================================================
 
   dailyBoxOffice: async (targetDate, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/boxoffice/daily`, {
@@ -85,9 +71,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 6-2. 영화 상세정보 조회
-  // =========================================================
 
   movieDetail: async (movieCode, signal) => {
     return await axios.get(
@@ -96,9 +80,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 7. 장르별 영화 목록 조회
-  // =========================================================
 
   moviesByGenre: async (genre, page, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/movies/genre`, {
@@ -110,9 +92,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 7-1. 박스오피스 진입 이력이 확인된 추천 후보 조회
-  // =========================================================
 
   boxOfficeRecommendations: async (genre, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/movies/recommendations`, {
@@ -121,9 +101,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 8. 영화 포스터 조회
-  // =========================================================
 
   moviePoster: async (movieCode, signal) => {
     return await axios.get(
@@ -132,9 +110,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 9. 영화 포스터 상태 일괄 조회
-  // =========================================================
 
   moviePosterStatuses: async (movieCodes, signal) => {
     return await axios.post(
@@ -144,9 +120,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 10. 영화별 리뷰 조회
-  // =========================================================
 
   movieReviews: async (movieCode, page = 0, signal) => {
     return await axios.get(
@@ -158,9 +132,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 11. 영화 평가 조회
-  // =========================================================
 
   movieRating: async (movieCode, signal) => {
     return await axios.get(
@@ -169,9 +141,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 11-1. 로그인 회원의 좋아요 영화 목록 조회
-  // =========================================================
 
   myLikedMovies: async (signal) => {
     return await axios.get(`${HM_DOMAIN}/api/movies/my/liked`, {
@@ -180,9 +150,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 12. 영화 좋아요 / 싫어요 저장 및 변경
-  // =========================================================
 
   movieRatingSave: async (movieCode, liked) => {
     return await axios.put(
@@ -197,9 +165,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 13. 영화 평가 취소
-  // =========================================================
 
   movieRatingDelete: async (movieCode) => {
     return await axios.delete(
@@ -208,9 +174,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 14. 리뷰 작성
-  // =========================================================
 
   reviewCreate: async (movieCode, title, content) => {
     return await axios.post(
@@ -220,9 +184,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 15. 로그인 사용자 정보 조회
-  // =========================================================
 
   memberMe: async () => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me`, {
@@ -230,9 +192,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 16. 로그아웃
-  // =========================================================
 
   memberLogout: async () => {
     return await axios.post(
@@ -242,9 +202,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 17. 현재 비밀번호 확인
-  // =========================================================
 
   memberPasswordCheck: async (currentPassword) => {
     return await axios.post(
@@ -254,9 +212,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 18. 전체 리뷰 목록 조회
-  // =========================================================
 
   allReviews: async (page = 0, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/reviews`, {
@@ -266,9 +222,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 19. 리뷰 상세 조회
-  // =========================================================
 
   reviewDetail: async (reviewId, signal) => {
     return await axios.get(
@@ -280,9 +234,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 20. 프로필 이미지 업로드 및 변경
-  // =========================================================
 
   profileImageUpload: async (file) => {
     const formData = new FormData();
@@ -302,9 +254,7 @@ const AxiosApi = {
     );
   },
 
-  // =========================================================
   // 21. 프로필 이미지 삭제
-  // =========================================================
 
   profileImageDelete: async () => {
     return await axios.delete(`${HM_DOMAIN}/api/auth/me/profile-image`, {
@@ -312,9 +262,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 22. 프로필 이미지 조회
-  // =========================================================
 
   profileImageGet: async () => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me/profile-image`, {
@@ -323,9 +271,7 @@ const AxiosApi = {
     });
   },
 
-  // =========================================================
   // 23. 인물 상세 및 필모그래피 조회
-  // =========================================================
 
   getPersonDetail: async (type, name, signal) => {
     return await axios.get(
