@@ -406,8 +406,9 @@ public class TmdbService {
                 }
 
                 String candidateDate = getText(result, "release_date");
-                if (!requestedYear.isBlank() && candidateDate.length() >= 4
-                        && !requestedYear.equals(candidateDate.substring(0, 4))) {
+                if (!requestedYear.isBlank()
+                        && (candidateDate.length() < 4
+                        || !requestedYear.equals(candidateDate.substring(0, 4)))) {
                     continue;
                 }
 
