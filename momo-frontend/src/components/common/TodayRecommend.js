@@ -103,7 +103,7 @@ function TodayRecommend() {
           .map((value) => value.trim())
           .find(Boolean);
 
-        // 장르가 일치하면서 최근 7일 박스오피스 진입 이력이 있는 영화만 조회한다.
+        // 장르가 일치하면서 박스오피스 진입 이력이 확인된 영화만 조회한다.
         if (genre) {
           try {
             const genreResponse = await AxiosApi.boxOfficeRecommendations(
@@ -147,7 +147,7 @@ function TodayRecommend() {
           setRecommendationType(
             genre
               ? `${seedLabel}의 장르 후보 부족 · 박스오피스 인기 이력 기반`
-              : "최근 7일 박스오피스 진입 이력 기반",
+              : "박스오피스 진입 이력 기반",
           );
         }
       } catch (requestError) {
@@ -182,7 +182,7 @@ function TodayRecommend() {
   if (!movie) {
     return (
       <div className="recommend-state">
-        최근 7일 박스오피스 진입 이력이 있는 영화 중 추천 조건을 충족하는 작품이 없습니다.
+        박스오피스 진입 이력이 확인된 영화 중 추천 조건을 충족하는 작품이 없습니다.
       </div>
     );
   }
