@@ -54,35 +54,51 @@ function TodayRecommend() {
           favorites.map((item) => String(item.movieCode)).filter(Boolean),
         );
 
-        // 관심 영화가 있으면 가장 최근 저장된 영화의 장르를 추천 기준으로 사용한다.
-        if (favorites.length > 0) {
-          const latestFavorite = favorites[favorites.length - 1];
-          let favoriteGenre = latestFavorite.genre || "";
+        // 서버에 저장된 좋아요 영화 목록을 취향 분석의 1순위로 사용한다.
+        let likedMovies = [];
+        try {
+          const likedResponse = await AxiosApi.myLikedMovies(controller.signal);
+          likedMovies = Array.isArray(likedResponse.data) ? likedResponse.data : [];
+        } catch (likedError) {
+          if (likedError.code === "ERR_CANCELED") throw likedError;
+          console.warn("좋아요 영화 목록 조회 실패. 관심 영화로 대체합니다.", likedError);
+        }
 
-          if (!favoriteGenre && isValidMovieCode(latestFavorite.movieCode)) {
-            const detail = await AxiosApi.movieDetail(
-              latestFavorite.movieCode,
-              controller.signal,
-            );
-            favoriteGenre = detail.data?.genre || "";
-          }
+        const excludedCodes = new Set([
+          ...favoriteCodes,
+          ...likedMovies.map((item) => String(item.movieCode)).filter(Boolean),
+        ]);
 
-          const genre = favoriteGenre.split(",").map((value) => value.trim()).find(Boolean);
+        // 좋아요한 영화의 장르를 우선 분석하고, 없으면 관심 영화의 장르를 사용한다.
+        const seedMovie = likedMovies[0] || favorites[favorites.length - 1];
+        let preferredGenre = seedMovie?.genre || "";
 
-          if (genre) {
-            const genreResponse = await AxiosApi.moviesByGenre(genre, 1, controller.signal);
-            const candidates = Array.isArray(genreResponse.data)
-              ? genreResponse.data
-              : genreResponse.data?.content || [];
-            const selected = await chooseUnratedMovie(candidates, favoriteCodes);
+        if (!preferredGenre && isValidMovieCode(seedMovie?.movieCode)) {
+          const detail = await AxiosApi.movieDetail(
+            seedMovie.movieCode,
+            controller.signal,
+          );
+          preferredGenre = detail.data?.genre || "";
+        }
 
-            if (selected) {
-              if (active) {
-                setMovie(selected);
-                setRecommendationType(`관심 영화의 ${genre} 장르 기반`);
-              }
-              return;
+        const genre = preferredGenre
+          .split(",")
+          .map((value) => value.trim())
+          .find(Boolean);
+
+        if (genre) {
+          const genreResponse = await AxiosApi.moviesByGenre(genre, 1, controller.signal);
+          const candidates = Array.isArray(genreResponse.data)
+            ? genreResponse.data
+            : genreResponse.data?.content || [];
+          const selected = await chooseUnratedMovie(candidates, excludedCodes);
+
+          if (selected) {
+            if (active) {
+              setMovie(selected);
+              setRecommendationType(`좋아요한 영화의 ${genre} 장르 기반`);
             }
+            return;
           }
         }
 
@@ -95,7 +111,7 @@ function TodayRecommend() {
         const fallbackCandidates = boxOffice
           .filter((item) => Number(item.rank) >= 2)
           .sort((a, b) => Number(a.rank) - Number(b.rank));
-        const fallback = await chooseUnratedMovie(fallbackCandidates, favoriteCodes);
+        const fallback = await chooseUnratedMovie(fallbackCandidates, excludedCodes);
 
         if (active) {
           setMovie(fallback);
