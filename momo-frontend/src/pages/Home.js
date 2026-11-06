@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TodayRecommend from "../components/common/TodayRecommend";
 import FavoriteStar from "../components/common/FavoriteStar";
@@ -125,152 +125,274 @@ function Home() {
   ];
 
   return (
-    <HomePage>
-      <FeatureSection>
-        <FeatureInfo>
-          <Eyebrow>MOMO · 오늘의 영화</Eyebrow>
-          <FeatureTitle>오늘은 어떤 영화를</FeatureTitle>
-          <FeatureTitle>기억하고 싶나요?</FeatureTitle>
-          <FeatureDescription>
-            영화를 보고 떠오른 생각을 기록하고,
-            <br />
-            다른 사람의 감상도 함께 살펴보세요.
-          </FeatureDescription>
-        </FeatureInfo>
-
-        <FeatureVisual>
-          <TodayRecommend />
-        </FeatureVisual>
-      </FeatureSection>
-
-      <Section>
-        <SectionHeading>
-          <div>
-            <h2>오늘의 박스오피스</h2>
-            <p>가장 많은 관객이 선택한 영화</p>
-          </div>
-          <MoreText>일일 관객 순위</MoreText>
-        </SectionHeading>
-
-        {loading ? (
-          <p>영화 정보를 불러오는 중입니다.</p>
-        ) : movies.length === 0 ? (
-          <p>현재 표시할 영화가 없습니다.</p>
-        ) : (
-          <MovieGrid>
-            {movies.slice(0, 10).map((movie, index) => (
-              <MovieCard
-                key={movie.movieCode || index}
-                role="button"
-                tabIndex={0}
-                onClick={() => goToMovie(movie.movieCode)}
-                onKeyDown={(event) =>
-                  handleMovieKeyDown(event, movie.movieCode)
-                }
-              >
-                <PosterWrap>
-                  {movie.posterUrl ? (
-                    <img src={movie.posterUrl} alt={movie.title} />
-                  ) : (
-                    <EmptyPoster>포스터 준비 중</EmptyPoster>
-                  )}
-
-                  <Rank>{movie.rank}</Rank>
-                  <FavoriteStar movie={movie} />
-                </PosterWrap>
-
-                <MovieInfo>
-                  <h3>{movie.title}</h3>
-                  <p>{movie.releaseDate || "개봉일 정보 없음"}</p>
-                </MovieInfo>
-              </MovieCard>
-            ))}
-          </MovieGrid>
-        )}
-      </Section>
-
-      <Section>
-        <SectionHeading>
-          <div>
-            <h2>장르로 영화 찾기</h2>
-            <p>지금 끌리는 분위기를 선택해 보세요.</p>
-          </div>
-        </SectionHeading>
-
-        <GenreList>
-          {genres.map((genre) => (
-            <button
-              key={genre}
-              type="button"
-              onClick={() =>
-                navigate("/search?genre=" + encodeURIComponent(genre))
-              }
-            >
-              {genre}
-            </button>
-          ))}
-        </GenreList>
-      </Section>
-
-      <Section>
-        <SectionHeading>
-          <div>
-            <h2>관심 영화</h2>
-            <p>별표로 저장한 영화를 다시 만나보세요.</p>
-          </div>
-
-          <button
-            type="button"
-            className="home-favorites-more"
-            onClick={() => navigate("/profile/favorites")}
-          >
-            전체 보기 →
-          </button>
-        </SectionHeading>
-
-        {favoriteMovies.length === 0 ? (
-          <div className="home-favorites-empty">
-            박스오피스 포스터의 별표를 눌러 관심 영화를 저장해 보세요.
-          </div>
-        ) : (
-          <MovieGrid>
-            {favoriteMovies.slice(0, 5).map((movie) => (
-              <MovieCard
-                key={movie.movieCode}
-                role="button"
-                tabIndex={0}
-                onClick={() => goToMovie(movie.movieCode)}
-                onKeyDown={(event) =>
-                  handleMovieKeyDown(event, movie.movieCode)
-                }
-              >
-                <PosterWrap>
-                  {movie.posterUrl ? (
-                    <img src={movie.posterUrl} alt={movie.title} />
-                  ) : (
-                    <EmptyPoster>포스터 준비 중</EmptyPoster>
-                  )}
-
-                  <FavoriteStar movie={movie} active />
-                </PosterWrap>
-
-                <MovieInfo>
-                  <h3>{movie.title}</h3>
-                  <p>{movie.releaseDate || "개봉일 정보 없음"}</p>
-                </MovieInfo>
-              </MovieCard>
-            ))}
-          </MovieGrid>
-        )}
-      </Section>
-
-      <BrandLine>
-        <div>
-          <h2>영화는 끝나도, 감상은 남습니다.</h2>
-          <p>당신의 영화 기록을 MOMO에 남겨보세요.</p>
-        </div>
-      </BrandLine>
-    </HomePage>
+    React.createElement(
+  HomePage,
+  null,
+  React.createElement(
+      FeatureSection,
+      null,
+      React.createElement(
+            FeatureInfo,
+            null,
+            React.createElement(
+                    Eyebrow,
+                    null,
+                    "MOMO · 오늘의 영화"
+                  ),
+            React.createElement(
+                    FeatureTitle,
+                    null,
+                    "오늘은 어떤 영화를"
+                  ),
+            React.createElement(
+                    FeatureTitle,
+                    null,
+                    "기억하고 싶나요?"
+                  ),
+            React.createElement(
+                    FeatureDescription,
+                    null,
+                    "영화를 보고 떠오른 생각을 기록하고,",
+                    React.createElement(
+                              "br",
+                              null
+                            ),
+                    "다른 사람의 감상도 함께 살펴보세요."
+                  )
+          ),
+      React.createElement(
+            FeatureVisual,
+            null,
+            React.createElement(
+                    TodayRecommend,
+                    null
+                  )
+          )
+    ),
+  React.createElement(
+      Section,
+      null,
+      React.createElement(
+            SectionHeading,
+            null,
+            React.createElement(
+                    "div",
+                    null,
+                    React.createElement(
+                              "h2",
+                              null,
+                              "오늘의 박스오피스"
+                            ),
+                    React.createElement(
+                              "p",
+                              null,
+                              "가장 많은 관객이 선택한 영화"
+                            )
+                  ),
+            React.createElement(
+                    MoreText,
+                    null,
+                    "일일 관객 순위"
+                  )
+          ),
+      (loading ? (
+                React.createElement(
+            "p",
+            null,
+            "영화 정보를 불러오는 중입니다."
+          )
+              ) : movies.length === 0 ? (
+                React.createElement(
+            "p",
+            null,
+            "현재 표시할 영화가 없습니다."
+          )
+              ) : (
+                React.createElement(
+            MovieGrid,
+            null,
+            (movies.slice(0, 10).map((movie, index) => (
+                          React.createElement(
+                    MovieCard,
+                    {"key":movie.movieCode || index,"role":"button","tabIndex":0,"onClick":() => goToMovie(movie.movieCode),"onKeyDown":(event) =>
+                                      handleMovieKeyDown(event, movie.movieCode)},
+                    React.createElement(
+                              PosterWrap,
+                              null,
+                              (movie.posterUrl ? (
+                                                  React.createElement(
+                                          "img",
+                                          {"src":movie.posterUrl,"alt":movie.title}
+                                        )
+                                                ) : (
+                                                  React.createElement(
+                                          EmptyPoster,
+                                          null,
+                                          "포스터 준비 중"
+                                        )
+                                                )),
+                              React.createElement(
+                                          Rank,
+                                          null,
+                                          (movie.rank)
+                                        ),
+                              React.createElement(
+                                          FavoriteStar,
+                                          {"movie":movie}
+                                        )
+                            ),
+                    React.createElement(
+                              MovieInfo,
+                              null,
+                              React.createElement(
+                                          "h3",
+                                          null,
+                                          (movie.title)
+                                        ),
+                              React.createElement(
+                                          "p",
+                                          null,
+                                          (movie.releaseDate || "개봉일 정보 없음")
+                                        )
+                            )
+                  )
+                        )))
+          )
+              ))
+    ),
+  React.createElement(
+      Section,
+      null,
+      React.createElement(
+            SectionHeading,
+            null,
+            React.createElement(
+                    "div",
+                    null,
+                    React.createElement(
+                              "h2",
+                              null,
+                              "장르로 영화 찾기"
+                            ),
+                    React.createElement(
+                              "p",
+                              null,
+                              "지금 끌리는 분위기를 선택해 보세요."
+                            )
+                  )
+          ),
+      React.createElement(
+            GenreList,
+            null,
+            (genres.map((genre) => (
+                        React.createElement(
+                    "button",
+                    {"key":genre,"type":"button","onClick":() =>
+                                    navigate("/search?genre=" + encodeURIComponent(genre))},
+                    (genre)
+                  )
+                      )))
+          )
+    ),
+  React.createElement(
+      Section,
+      null,
+      React.createElement(
+            SectionHeading,
+            null,
+            React.createElement(
+                    "div",
+                    null,
+                    React.createElement(
+                              "h2",
+                              null,
+                              "관심 영화"
+                            ),
+                    React.createElement(
+                              "p",
+                              null,
+                              "별표로 저장한 영화를 다시 만나보세요."
+                            )
+                  ),
+            React.createElement(
+                    "button",
+                    {"type":"button","className":"home-favorites-more","onClick":() => navigate("/profile/favorites")},
+                    "전체 보기 →"
+                  )
+          ),
+      (favoriteMovies.length === 0 ? (
+                React.createElement(
+            "div",
+            {"className":"home-favorites-empty"},
+            "박스오피스 포스터의 별표를 눌러 관심 영화를 저장해 보세요."
+          )
+              ) : (
+                React.createElement(
+            MovieGrid,
+            null,
+            (favoriteMovies.slice(0, 5).map((movie) => (
+                          React.createElement(
+                    MovieCard,
+                    {"key":movie.movieCode,"role":"button","tabIndex":0,"onClick":() => goToMovie(movie.movieCode),"onKeyDown":(event) =>
+                                      handleMovieKeyDown(event, movie.movieCode)},
+                    React.createElement(
+                              PosterWrap,
+                              null,
+                              (movie.posterUrl ? (
+                                                  React.createElement(
+                                          "img",
+                                          {"src":movie.posterUrl,"alt":movie.title}
+                                        )
+                                                ) : (
+                                                  React.createElement(
+                                          EmptyPoster,
+                                          null,
+                                          "포스터 준비 중"
+                                        )
+                                                )),
+                              React.createElement(
+                                          FavoriteStar,
+                                          {"movie":movie,"active":true}
+                                        )
+                            ),
+                    React.createElement(
+                              MovieInfo,
+                              null,
+                              React.createElement(
+                                          "h3",
+                                          null,
+                                          (movie.title)
+                                        ),
+                              React.createElement(
+                                          "p",
+                                          null,
+                                          (movie.releaseDate || "개봉일 정보 없음")
+                                        )
+                            )
+                  )
+                        )))
+          )
+              ))
+    ),
+  React.createElement(
+      BrandLine,
+      null,
+      React.createElement(
+            "div",
+            null,
+            React.createElement(
+                    "h2",
+                    null,
+                    "영화는 끝나도, 감상은 남습니다."
+                  ),
+            React.createElement(
+                    "p",
+                    null,
+                    "당신의 영화 기록을 MOMO에 남겨보세요."
+                  )
+          )
+    )
+)
   );
 }
 
