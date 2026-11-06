@@ -21,7 +21,7 @@ jobs:
 
       - name: Run Gemini Review Script
         env:
-          GEMINI_API_KEY: ${{ secrets.제미나이 스튜디오 깃헙 }}
+          GEMINI_API_KEY: ${{ secrets.GitHub }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
