@@ -7,24 +7,8 @@ import { getFavoriteMovies } from "../../utils/favorites";
 const isValidMovieCode = (movieCode) => /^\d{8}$/.test(String(movieCode || ""));
 const isValidReleaseDate = (releaseDate) => /^\d{8}$/.test(String(releaseDate || ""));
 
-const getBoxOfficeHistoryLabel = (candidate) => {
-  const rank = Number(candidate?.lastBoxOfficeRank);
-  const date = String(candidate?.lastBoxOfficeDate || "");
-
-  if (Number.isInteger(rank) && rank > 0 && /^\d{8}$/.test(date)) {
-    return `${date.slice(0, 4)}.${date.slice(4, 6)}.${date.slice(6, 8)} 박스오피스 ${rank}위 진입`;
-  }
-
-  if (Number.isInteger(rank) && rank > 0) {
-    return `박스오피스 ${rank}위 진입 이력`;
-  }
-
-  return "박스오피스 진입 이력";
-};
-
 function TodayRecommend() {
   const [movie, setMovie] = useState(null);
-  const [recommendationType, setRecommendationType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const navigate = useNavigate();
@@ -41,6 +25,23 @@ function TodayRecommend() {
         if (requestError.code === "ERR_CANCELED") throw requestError;
         // 평가 조회 실패 시 평가 여부를 확인할 수 없으므로 후보에서 제외한다.
         return "UNKNOWN";
+      }
+    };
+
+    const attachMovieOverview = async (candidate) => {
+      try {
+        const detail = await AxiosApi.movieDetail(
+          candidate.movieCode,
+          controller.signal,
+        );
+        return {
+          ...candidate,
+          overview: String(detail.data?.overview || "").trim(),
+        };
+      } catch (detailError) {
+        if (detailError.code === "ERR_CANCELED") throw detailError;
+        console.warn("추천 영화 줄거리 조회 실패:", detailError);
+        return { ...candidate, overview: "" };
       }
     };
 
@@ -97,7 +98,6 @@ function TodayRecommend() {
 
         // 가장 최근 좋아요 영화를 취향 분석 기준으로 사용한다.
         const seedMovie = likedMovies[0] || favorites[favorites.length - 1];
-        const seedLabel = likedMovies.length > 0 ? "좋아요한 영화" : "관심 영화";
         let preferredGenre = seedMovie?.genre || "";
 
         if (!preferredGenre && isValidMovieCode(seedMovie?.movieCode)) {
@@ -132,12 +132,8 @@ function TodayRecommend() {
             );
 
             if (selected) {
-              if (active) {
-                setMovie(selected);
-                setRecommendationType(
-                  `개봉 3개월 이상 경과 · ${seedLabel}의 ${genre} 장르 · ${getBoxOfficeHistoryLabel(selected)}`,
-                );
-              }
+              const selectedWithOverview = await attachMovieOverview(selected);
+              if (active) setMovie(selectedWithOverview);
               return;
             }
           } catch (genreError) {
@@ -157,14 +153,10 @@ function TodayRecommend() {
           checkedCodes,
         );
 
-        if (active) {
-          setMovie(fallback);
-          setRecommendationType(
-            genre
-              ? `개봉 3개월 이상 경과 · ${seedLabel}의 장르 후보 부족 · ${getBoxOfficeHistoryLabel(fallback)}`
-              : `개봉 3개월 이상 경과 · ${getBoxOfficeHistoryLabel(fallback)}`,
-          );
-        }
+        const fallbackWithOverview = fallback
+          ? await attachMovieOverview(fallback)
+          : null;
+        if (active) setMovie(fallbackWithOverview);
       } catch (requestError) {
         if (requestError.code !== "ERR_CANCELED") {
           console.error("오늘의 추천작 조회 실패:", requestError);
@@ -197,7 +189,7 @@ function TodayRecommend() {
   if (!movie) {
     return (
       <div className="recommend-state">
-        개봉 후 3개월이 지났고 박스오피스 진입 이력이 확인된 영화 중 추천 조건을 충족하는 작품이 없습니다.
+        현재 추천할 수 있는 영화가 없습니다.
       </div>
     );
   }
@@ -216,9 +208,13 @@ function TodayRecommend() {
         <span className="recommend-label">오늘의 추천작</span>
         <h2 className="recommend-title">{movie.title}</h2>
         <p className="recommend-info">
-          {releaseYear}년 개봉
-          {" · "}{recommendationType}
+          {[releaseYear && `${releaseYear}년 개봉`, movie.genre]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
+        {movie.overview && (
+          <p className="recommend-description">{movie.overview}</p>
+        )}
         <button
           className="recommend-button"
           type="button"

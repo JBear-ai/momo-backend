@@ -1,84 +1,85 @@
 
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '4.1.2'
-	id 'io.spring.dependency-management' version '1.1.7'
+    id 'java'
+    id 'org.springframework.boot' version '4.1.2'
+    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.momo'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dependencies {
-	// Spring Boot 기본 기능
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // Spring Boot 기본 기능
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
-	// Google Cloud 라이브러리 버전 관리
-	implementation platform('com.google.cloud:libraries-bom:26.88.1')
+    // Google Cloud 라이브러리 버전 관리
+    implementation platform('com.google.cloud:libraries-bom:26.88.1')
 
-	// Firebase Admin SDK
-	implementation 'com.google.firebase:firebase-admin:9.11.0'
+    // Firebase Admin SDK
+    implementation 'com.google.firebase:firebase-admin:9.11.0'
 
-	// Google 인증
-	implementation 'com.google.auth:google-auth-library-oauth2-http'
+    // Google 인증
+    implementation 'com.google.auth:google-auth-library-oauth2-http'
 
-	// Google Cloud Storage
-	implementation 'com.google.cloud:google-cloud-storage'
+    // Google Cloud Storage
+    implementation 'com.google.cloud:google-cloud-storage'
 
-	// API 문서
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+    // API 문서
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
-	// 데이터베이스 마이그레이션
-	implementation 'org.flywaydb:flyway-core'
+    // 데이터베이스 마이그레이션
+    implementation 'org.flywaydb:flyway-core'
 
-	// Lombok
-	compileOnly 'org.projectlombok:lombok'
-	annotationProcessor 'org.projectlombok:lombok'
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
 
-	// 운영 데이터베이스
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	runtimeOnly 'org.flywaydb:flyway-mysql'
+    // 운영 데이터베이스
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'org.flywaydb:flyway-mysql'
 
-	// 테스트
-	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    // 테스트
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 
-	// 테스트용 Lombok
-	testCompileOnly 'org.projectlombok:lombok'
-	testAnnotationProcessor 'org.projectlombok:lombok'
+    // 테스트용 Lombok
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
 
-	// 테스트 실행 환경
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testRuntimeOnly 'com.h2database:h2'
+    // 테스트 실행 환경
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'com.h2database:h2'
 }
 
-//tasks.named('test') {
-//	enabled = false
-//}
+// JUnit 테스트 실행 설정
+tasks.named('test') {
+    useJUnitPlatform()
+}
 
+// Windows 명령어 길이 제한(Error 206) 우회
 tasks.withType(JavaExec).configureEach {
-	// Windows 환경에서 명령어 길이 제한(Error 206) 우회
-	if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-		classpath = sourceSets.main.runtimeClasspath
-	}
+    if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+        classpath = sourceSets.main.runtimeClasspath
+    }
 }
 
 tasks.withType(Test).configureEach {
-	if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-		classpath = sourceSets.test.runtimeClasspath
-	}
+    if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+        classpath = sourceSets.test.runtimeClasspath
+    }
 }

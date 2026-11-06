@@ -373,7 +373,70 @@ public class TmdbService {
     }
 
     // =========================================================
-    // 4. TV 프로그램 포스터 검색
+    // 4. 영화 줄거리 조회
+    // =========================================================
+
+    public Optional<String> findMovieOverview(String title, String releaseDate) {
+        if (title == null || title.isBlank()) {
+            return Optional.empty();
+        }
+
+        try {
+            String json = tmdbApiClient.searchMovie(title);
+            if (json == null || json.isBlank()) {
+                return Optional.empty();
+            }
+
+            JsonNode results = objectMapper.readTree(json).path("results");
+            if (!results.isArray() || results.isEmpty()) {
+                return Optional.empty();
+            }
+
+            String requestedTitle = normalizeTitle(title);
+            String requestedYear = releaseDate != null && releaseDate.length() >= 4
+                    ? releaseDate.substring(0, 4) : "";
+
+            for (JsonNode result : results) {
+                String candidateTitle = normalizeTitle(getText(result, "title"));
+                String candidateOriginalTitle = normalizeTitle(getText(result, "original_title"));
+
+                if (!requestedTitle.equals(candidateTitle)
+                        && !requestedTitle.equals(candidateOriginalTitle)) {
+                    continue;
+                }
+
+                String candidateDate = getText(result, "release_date");
+                if (!requestedYear.isBlank()
+                        && (candidateDate.length() < 4
+                        || !requestedYear.equals(candidateDate.substring(0, 4)))) {
+                    continue;
+                }
+
+                long movieId = result.path("id").asLong(0);
+                if (movieId <= 0) {
+                    continue;
+                }
+
+                String detailJson = tmdbApiClient.getMovieDetail(movieId);
+                if (detailJson == null || detailJson.isBlank()) {
+                    continue;
+                }
+
+                String overview = getText(
+                        objectMapper.readTree(detailJson), "overview");
+                if (!overview.isBlank()) {
+                    return Optional.of(overview);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("TMDb 영화 줄거리 조회 실패 - 제목: {}", title, e);
+        }
+
+        return Optional.empty();
+    }
+
+    // =========================================================
+    // 5. TV 프로그램 포스터 검색
     // =========================================================
 
     public String findTvPosterUrl(String title) {
@@ -444,7 +507,7 @@ public class TmdbService {
     }
 
     // =========================================================
-    // 5. 공통 보조 메서드
+    // 6. 공통 보조 메서드
     // =========================================================
 
     // TMDb 포스터 주소 생성
