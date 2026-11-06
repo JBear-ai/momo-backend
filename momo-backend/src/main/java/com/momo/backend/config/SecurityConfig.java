@@ -126,6 +126,11 @@ public class SecurityConfig {
                                 "/api/reviews/movie/*",
                                 "/api/reviews/movie/*/rating"
                         ).permitAll()
+                        // 인물 상세 조회 API 허용
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/persons/**"
+                        ).permitAll()
 
                         // 그 외 API는 로그인 필요
                         .anyRequest().authenticated()
@@ -217,5 +222,6 @@ public class SecurityConfig {
 
         return source;
     }
+
 
 }

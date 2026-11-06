@@ -2,18 +2,23 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 
-// 생년월일로부터 나이를 계산하는 안전한 함수
 function calculateAge(birthday) {
   if (!birthday) return null;
+
   const birthDate = new Date(birthday);
-  if (isNaN(birthDate.getTime())) return null;
+  if (Number.isNaN(birthDate.getTime())) return null;
 
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
     age--;
   }
+
   return age;
 }
 
@@ -26,44 +31,60 @@ function PersonDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 인물 상세 정보 및 필모그래피 데이터 조회
   useEffect(() => {
+    let active = true;
+
     async function fetchPersonDetail() {
       try {
         setLoading(true);
         setError("");
 
         const response = await AxiosApi.getPersonDetail(type, identifier);
+        const personData = response?.data?.personInfo;
+        const movies = response?.data?.filmography;
 
-        // 응답 데이터 방어 처리 및 매핑
-        const personData =
-          response?.data?.personInfo || response?.data?.person || {};
-        const filmos =
-          response?.data?.filmography || response?.data?.movies || [];
+        if (!personData) {
+          throw new Error("인물 정보 응답이 올바르지 않습니다.");
+        }
+
+        if (!active) return;
 
         setPerson({
-          name: personData.name || decodeURIComponent(identifier),
-          profileUrl: personData.profileUrl || personData.profile_path || null,
-          birthday: personData.birthday || personData.birthDate || null,
-          nationality:
-            personData.nationality || personData.place_of_birth || null,
-          agency: personData.agency || null,
-          biography: personData.biography || personData.intro || null,
+          tmdbId: personData.tmdbId,
+          name: personData.name || identifier,
+          profileUrl: personData.profileUrl || null,
+          birthday: personData.birthday || null,
+          deathday: personData.deathday || null,
+          placeOfBirth: personData.placeOfBirth || null,
+          biography: personData.biography || null,
+          knownForDepartment: personData.knownForDepartment || null,
         });
 
-        setFilmography(filmos);
+        setFilmography(Array.isArray(movies) ? movies : []);
       } catch (err) {
+        if (!active) return;
+
         console.error("인물 정보 조회 실패:", err);
-        setPerson({ name: decodeURIComponent(identifier) });
+        setPerson({ name: identifier });
         setFilmography([]);
+        setError(
+          err?.response?.data?.message ||
+            "인물 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+        );
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     if (identifier) {
       fetchPersonDetail();
     }
+
+    return () => {
+      active = false;
+    };
   }, [type, identifier]);
 
   if (loading) {
@@ -74,7 +95,6 @@ function PersonDetail() {
     );
   }
 
-  // 나이 계산식 안전하게 수정
   const age = person?.birthday ? calculateAge(person.birthday) : null;
 
   return (
@@ -83,18 +103,16 @@ function PersonDetail() {
         ← 이전으로 돌아가기
       </button>
 
-      {/* 인물 기본 정보 및 프로필 사진 */}
+      {error && (
+        <p className="people-empty" role="alert">
+          {error}
+        </p>
+      )}
+
       <section className="movie-detail-header">
         <div className="movie-detail-poster">
           {person?.profileUrl ? (
-            <img
-              src={
-                person.profileUrl.startsWith("http")
-                  ? person.profileUrl
-                  : `https://image.tmdb.org/t/p/w500${person.profileUrl}`
-              }
-              alt={person?.name || "인물 사진"}
-            />
+            <img src={person.profileUrl} alt={person.name || "인물 사진"} />
           ) : (
             <div className="poster-placeholder">
               <span>👤</span>
@@ -110,18 +128,23 @@ function PersonDetail() {
 
           <h1>{person?.name}</h1>
 
-          {/* 메타 정보 (국적, 소속사, 생년월일, 나이 등) */}
           <div
             className="person-meta-details"
             style={{ margin: "12px 0", lineHeight: "1.6" }}
           >
-            {person?.nationality && <p>국적/출생지: {person.nationality}</p>}
-            {person?.agency && <p>소속사: {person.agency}</p>}
+            {person?.placeOfBirth && <p>출생지: {person.placeOfBirth}</p>}
+
             {person?.birthday && (
               <p>
-                생년월일: {person.birthday}{" "}
-                {age !== null && !isNaN(age) ? `(${age}세)` : ""}
+                생년월일: {person.birthday}
+                {age !== null && " (" + age + "세)"}
               </p>
+            )}
+
+            {person?.deathday && <p>사망일: {person.deathday}</p>}
+
+            {person?.knownForDepartment && (
+              <p>분야: {person.knownForDepartment}</p>
             )}
           </div>
 
@@ -129,44 +152,30 @@ function PersonDetail() {
         </div>
       </section>
 
-      {/* 포스터와 연도가 포함된 필모그래피 목록 */}
       <section className="detail-content-section">
         <h2>필모그래피 ({filmography.length})</h2>
 
         {filmography.length > 0 ? (
           <div className="people-list">
-            {filmography.map((movie, index) => {
-              const releaseYear =
-                movie?.releaseDate || movie?.release_date
-                  ? String(movie.releaseDate || movie.release_date).substring(
-                      0,
-                      4,
-                    )
-                  : "";
-
-              const posterImage = movie?.posterUrl || movie?.poster_path;
+            {filmography.map((movie) => {
+              const releaseYear = movie.releaseDate
+                ? movie.releaseDate.substring(0, 4)
+                : "";
 
               return (
-                <button
-                  type="button"
+                <div
                   className="person-chip"
-                  key={`${movie?.movieCode || movie?.id || index}-${index}`}
-                  onClick={() => {
-                    const movieId = movie?.movieCode || movie?.id;
-                    if (movieId) navigate(`/movie/${movieId}`);
+                  key={movie.tmdbId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
                 >
-                  {posterImage ? (
+                  {movie.posterUrl ? (
                     <img
-                      src={
-                        posterImage.startsWith("http")
-                          ? posterImage
-                          : `https://image.tmdb.org/t/p/w500${posterImage}`
-                      }
-                      alt={
-                        movie?.title || movie?.original_title || "작품 포스터"
-                      }
+                      src={movie.posterUrl}
+                      alt={movie.title || "작품 포스터"}
                       style={{
                         width: "30px",
                         height: "42px",
@@ -177,17 +186,15 @@ function PersonDetail() {
                   ) : (
                     <span style={{ fontSize: "18px" }}>🎬</span>
                   )}
+
                   <span>
-                    {movie?.title || movie?.original_title || "제목 없음"}{" "}
-                    {releaseYear && `(${releaseYear})`}
-                    {(movie?.role || movie?.character) && (
-                      <span className="person-role">
-                        {" "}
-                        ({movie.role || movie.character} 역)
-                      </span>
+                    {movie.title || "제목 없음"}
+                    {releaseYear && " (" + releaseYear + ")"}
+                    {movie.role && (
+                      <span className="person-role"> ({movie.role})</span>
                     )}
                   </span>
-                </button>
+                </div>
               );
             })}
           </div>

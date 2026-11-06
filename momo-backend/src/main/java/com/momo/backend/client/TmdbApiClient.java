@@ -50,4 +50,43 @@ public class TmdbApiClient {
                         .queryParam("language", "ko-KR").queryParam("include_adult", false).build())
                 .retrieve().body(String.class));
     }
+
+    public String searchPerson(String name, String language) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("인물 이름이 비어 있습니다.");
+        }
+
+        String safeLanguage = (language == null || language.isBlank())
+                ? "ko-KR"
+                : language;
+
+        return metrics.record("TMDB", "searchPerson", () -> restClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/search/person")
+                        .queryParam("api_key", apiKey)
+                        .queryParam("query", name.trim())
+                        .queryParam("language", safeLanguage)
+                        .queryParam("include_adult", false)
+                        .build())
+                .retrieve()
+                .body(String.class));
+    }
+
+    public String getPersonDetail(long personId, String language) {
+        if (personId <= 0) {
+            throw new IllegalArgumentException("올바르지 않은 TMDb 인물 ID입니다.");
+        }
+
+        String safeLanguage = (language == null || language.isBlank())
+                ? "ko-KR"
+                : language;
+
+        return metrics.record("TMDB", "getPersonDetail", () -> restClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/person/{personId}")
+                        .queryParam("api_key", apiKey)
+                        .queryParam("language", safeLanguage)
+                        .queryParam("append_to_response", "combined_credits")
+                        .build(personId))
+                .retrieve()
+                .body(String.class));
+    }
 }

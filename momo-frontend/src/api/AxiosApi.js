@@ -278,6 +278,21 @@ const AxiosApi = {
       responseType: "blob",
     });
   },
+
+  // =========================================================
+  // 23. 인물 상세 및 필모그래피 조회
+  // =========================================================
+
+  getPersonDetail: async (type, name, signal) => {
+    return await axios.get(
+      HM_DOMAIN +
+        "/api/persons/" +
+        encodeURIComponent(type) +
+        "/" +
+        encodeURIComponent(name),
+      { signal },
+    );
+  },
 };
 
 export default AxiosApi;
