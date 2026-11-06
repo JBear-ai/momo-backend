@@ -57,7 +57,10 @@ public class MoviePosterCacheService {
 
     public Optional<MoviePosterStatusResponse> findPosterStatus(String movieCode) {
         return posterCacheRepository.findById(movieCode)
-                .map(cache -> new MoviePosterStatusResponse(cache.getMovieCode(), cache.getStatus(),
-                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl()));
+                .map(cache -> new MoviePosterStatusResponse(
+                        cache.getMovieCode(),
+                        cache.getStatus(),
+                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl()
+                ));
     }
 }
