@@ -32,6 +32,13 @@ public class Movie {
 
     private String watchGrade;
 
+    // TMDb에서 확인한 영화 줄거리. 추천 카드와 상세 화면에서 재사용한다.
+    @Column(columnDefinition = "TEXT")
+    private String overview;
+
+    // 줄거리 조회 실패 시 반복 외부 API 호출을 방지한다.
+    private LocalDateTime overviewAttemptedAt;
+
     // 박스오피스 진입 이력. 일별 박스오피스 수집 시 누적 갱신한다.
     @Column(name = "box_office_entered", nullable = false)
     private boolean boxOfficeEntered = false;
@@ -74,6 +81,22 @@ public class Movie {
         }
 
         boxOfficeEntered = true;
+    }
+
+    public boolean canAttemptOverview(LocalDateTime now) {
+        return overviewAttemptedAt == null
+                || overviewAttemptedAt.isBefore(now.minusDays(7));
+    }
+
+    public void markOverviewAttempted(LocalDateTime attemptedAt) {
+        this.overviewAttemptedAt = attemptedAt;
+    }
+
+    public void updateOverview(String overview) {
+        if (overview != null && !overview.isBlank()
+                && (this.overview == null || this.overview.isBlank())) {
+            this.overview = overview.trim();
+        }
     }
 
     public void updatePosterUrl(String posterUrl) {
