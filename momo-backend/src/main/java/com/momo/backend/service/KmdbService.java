@@ -128,7 +128,6 @@ public class KmdbService {
         return "";
     }
 
-
     /**
      * 영화 코드, 제목, 개봉일로 포스터 검색
      *
