@@ -75,6 +75,28 @@ const AxiosApi = {
   },
 
   // =========================================================
+  // 6-1. 일일 박스오피스 조회
+  // =========================================================
+
+  dailyBoxOffice: async (targetDate, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/boxoffice/daily`, {
+      params: { targetDate },
+      signal,
+    });
+  },
+
+  // =========================================================
+  // 6-2. 영화 상세정보 조회
+  // =========================================================
+
+  movieDetail: async (movieCode, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}`,
+      { signal },
+    );
+  },
+
+  // =========================================================
   // 7. 장르별 영화 목록 조회
   // =========================================================
 
