@@ -66,9 +66,6 @@ dependencies {
 	testRuntimeOnly 'com.h2database:h2'
 }
 
-tasks.named('test') {
-	enabled = false
-}
 
 tasks.withType(JavaExec).configureEach {
 	// Windows 환경에서 명령어 길이 제한(Error 206) 우회
