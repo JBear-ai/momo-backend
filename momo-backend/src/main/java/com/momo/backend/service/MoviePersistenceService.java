@@ -18,6 +18,7 @@ import java.util.Map;
 public class MoviePersistenceService {
     private final MovieRepository movieRepository;
 
+    // 검색 결과에 포함된 영화 정보를 DB에 저장하거나 보완
     @Transactional
     public void saveSearchMovies(List<MovieSearchResponse> movies) {
         if (movies == null || movies.isEmpty()) {
