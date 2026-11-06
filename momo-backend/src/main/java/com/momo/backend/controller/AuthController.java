@@ -43,9 +43,7 @@ public class AuthController {
     private final SecurityContextRepository securityContextRepository;
 
 
-    // =========================================================
     // 1. 회원가입
-    // =========================================================
 
     @PostMapping("/signup")
     public ResponseEntity<UserResponse> signUp(
@@ -59,9 +57,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 2. 로그인
-    // =========================================================
 
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(
@@ -107,9 +103,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 3. 로그인한 회원 정보 조회
-    // =========================================================
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMyInfo(
@@ -123,9 +117,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 4. 회원 정보 수정
-    // =========================================================
 
     @PutMapping("/me")
     public ResponseEntity<UserResponse> updateMyInfo(
@@ -141,9 +133,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 5. 회원 탈퇴
-    // =========================================================
 
     @DeleteMapping("/me")
     public ResponseEntity<String> deleteMyAccount(
@@ -171,9 +161,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 6. 로그아웃
-    // =========================================================
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
@@ -194,9 +182,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 7. 내가 누른 좋아요 총개수 조회
-    // =========================================================
 
     @GetMapping("/me/likes/count")
     public ResponseEntity<Long> getMyLikeCount(
@@ -210,9 +196,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 8. 회원 아이디 중복 확인
-    // =========================================================
 
     @GetMapping("/exists/id/{loginId}")
     public ResponseEntity<Boolean> checkLoginId(
@@ -224,9 +208,7 @@ public class AuthController {
     }
 
 
-    // =========================================================
     // 9. 현재 비밀번호 일치 여부 확인
-    // =========================================================
 
     @PostMapping("/me/password-check")
     public ResponseEntity<Boolean> checkCurrentPassword(
@@ -241,9 +223,7 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
-    // =========================================================
     // 10. 프로필 이미지 업로드 및 변경
-    // =========================================================
     @PostMapping("/me/profile-image")
     public ResponseEntity<UserResponse> updateProfileImage(
             @RequestParam("file") MultipartFile file,
@@ -258,9 +238,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // =========================================================
     // 11. 프로필 이미지 삭제
-    // =========================================================
     @DeleteMapping("/me/profile-image")
     public ResponseEntity<UserResponse> removeProfileImage(
             Authentication authentication) {
@@ -273,9 +251,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // =========================================================
     // 12. 프로필 이미지 조회
-    // =========================================================
 
     @GetMapping("/me/profile-image")
     public ResponseEntity<byte[]> getProfileImage(
