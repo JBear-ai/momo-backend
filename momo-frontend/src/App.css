@@ -1453,9 +1453,21 @@ body {
 }
 
 .recommend-info {
-    margin: 0 0 28px;
+    margin: 0 0 12px;
     color: rgba(255, 255, 255, 0.85);
     font-size: 15px;
+}
+
+.recommend-description {
+    max-width: 760px;
+    margin: 0 0 26px;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 15px;
+    line-height: 1.7;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .recommend-button {
