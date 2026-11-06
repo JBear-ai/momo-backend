@@ -33,16 +33,11 @@ function FavoriteStar({ movie }) {
   };
 
   return (
-    <button
-      type="button"
-      className={`favorite-star ${favorite ? "is-active" : ""}`}
-      onClick={handleFavoriteClick}
-      aria-label={favorite ? "관심 영화 해제" : "관심 영화 추가"}
-      aria-pressed={favorite}
-      title={favorite ? "관심 영화 해제" : "관심 영화 추가"}
-    >
-      🎬
-    </button>
+    React.createElement(
+  "button",
+  {"type":"button","className":`favorite-star ${favorite ? "is-active" : ""}`,"onClick":handleFavoriteClick,"aria-label":favorite ? "관심 영화 해제" : "관심 영화 추가","aria-pressed":favorite,"title":favorite ? "관심 영화 해제" : "관심 영화 추가"},
+  "🎬"
+)
   );
 }
 
