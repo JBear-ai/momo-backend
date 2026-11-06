@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Link,
   NavLink,
@@ -377,76 +377,161 @@ function Layout() {
   };
 
   return (
-    <Container>
-      <Header>
-        <Logo to="/" aria-label="MOMO 홈">
-          <LogoImage src={textlogo} alt="MOMO" />
-        </Logo>
-
-        <SearchForm onSubmit={handleSearchSubmit}>
-          <SearchInput
-            type="text"
-            placeholder="영화 제목 또는 키워드 검색"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-
-          <SearchButton type="submit">검색</SearchButton>
-        </SearchForm>
-
-        <Navigation>
-          {authLoading ? null : nickname ? (
-            <UserArea>
-              <NavLink to="/">홈</NavLink>
-              <NavLink to="/reviews">전체 리뷰</NavLink>
-              <NavLink to="/profile">마이페이지</NavLink>
-              <p>
-                <strong>{nickname}님</strong>
-              </p>
-
-              <ActionButton onClick={handleLogout}>로그아웃</ActionButton>
-            </UserArea>
-          ) : (
-            <UserArea>
-              <NavLink to="/login">로그인</NavLink>
-
-              <NavLink to="/signup">회원가입</NavLink>
-            </UserArea>
-          )}
-        </Navigation>
-      </Header>
-
-      <Main>
-        <Outlet />
-      </Main>
-
-      <Footer>
-        <FooterContainer>
-          <FooterLeft>
-            <FooterLogo src={textlogo} alt="MOMO" />
-
-            <FooterDesc>
-              영화를 메모하다, 메모지처럼 가볍게 남기는 나만의 영화 기록 공간
-              MOVIEMEMO.
-            </FooterDesc>
-          </FooterLeft>
-
-          <FooterRight>
-            <FooterColumn>
-              <h4>Service</h4>
-              <Link to="/">홈 오버뷰</Link>
-              <Link to="/reviews">전체 리뷰</Link>
-              <Link to="/profile">마이 페이지</Link>
-            </FooterColumn>
-          </FooterRight>
-        </FooterContainer>
-
-        <FooterBottom>
-          <p>© 2026 MOMO. All rights reserved.</p>
-          <p>Designed for Movie Lovers with Warm Analog 감성</p>
-        </FooterBottom>
-      </Footer>
-    </Container>
+    React.createElement(
+  Container,
+  null,
+  React.createElement(
+      Header,
+      null,
+      React.createElement(
+            Logo,
+            {"to":"/","aria-label":"MOMO 홈"},
+            React.createElement(
+                    LogoImage,
+                    {"src":textlogo,"alt":"MOMO"}
+                  )
+          ),
+      React.createElement(
+            SearchForm,
+            {"onSubmit":handleSearchSubmit},
+            React.createElement(
+                    SearchInput,
+                    {"type":"text","placeholder":"영화 제목 또는 키워드 검색","value":keyword,"onChange":(e) => setKeyword(e.target.value)}
+                  ),
+            React.createElement(
+                    SearchButton,
+                    {"type":"submit"},
+                    "검색"
+                  )
+          ),
+      React.createElement(
+            Navigation,
+            null,
+            (authLoading ? null : nickname ? (
+                        React.createElement(
+                    UserArea,
+                    null,
+                    React.createElement(
+                              NavLink,
+                              {"to":"/"},
+                              "홈"
+                            ),
+                    React.createElement(
+                              NavLink,
+                              {"to":"/reviews"},
+                              "전체 리뷰"
+                            ),
+                    React.createElement(
+                              NavLink,
+                              {"to":"/profile"},
+                              "마이페이지"
+                            ),
+                    React.createElement(
+                              "p",
+                              null,
+                              React.createElement(
+                                          "strong",
+                                          null,
+                                          (nickname),
+                                          "님"
+                                        )
+                            ),
+                    React.createElement(
+                              ActionButton,
+                              {"onClick":handleLogout},
+                              "로그아웃"
+                            )
+                  )
+                      ) : (
+                        React.createElement(
+                    UserArea,
+                    null,
+                    React.createElement(
+                              NavLink,
+                              {"to":"/login"},
+                              "로그인"
+                            ),
+                    React.createElement(
+                              NavLink,
+                              {"to":"/signup"},
+                              "회원가입"
+                            )
+                  )
+                      ))
+          )
+    ),
+  React.createElement(
+      Main,
+      null,
+      React.createElement(
+            Outlet,
+            null
+          )
+    ),
+  React.createElement(
+      Footer,
+      null,
+      React.createElement(
+            FooterContainer,
+            null,
+            React.createElement(
+                    FooterLeft,
+                    null,
+                    React.createElement(
+                              FooterLogo,
+                              {"src":textlogo,"alt":"MOMO"}
+                            ),
+                    React.createElement(
+                              FooterDesc,
+                              null,
+                              "영화를 메모하다, 메모지처럼 가볍게 남기는 나만의 영화 기록 공간 MOVIEMEMO."
+                            )
+                  ),
+            React.createElement(
+                    FooterRight,
+                    null,
+                    React.createElement(
+                              FooterColumn,
+                              null,
+                              React.createElement(
+                                          "h4",
+                                          null,
+                                          "Service"
+                                        ),
+                              React.createElement(
+                                          Link,
+                                          {"to":"/"},
+                                          "홈 오버뷰"
+                                        ),
+                              React.createElement(
+                                          Link,
+                                          {"to":"/reviews"},
+                                          "전체 리뷰"
+                                        ),
+                              React.createElement(
+                                          Link,
+                                          {"to":"/profile"},
+                                          "마이 페이지"
+                                        )
+                            )
+                  )
+          ),
+      React.createElement(
+            FooterBottom,
+            null,
+            React.createElement(
+                    "p",
+                    null,
+                    "© 2026 MOMO. All rights reserved."
+                  ),
+            React.createElement(
+                    "p",
+                    null,
+                    "Designed for Movie Lovers with Warm Analog 감성"
+                  )
+          )
+    )
+)
   );
 }
 
