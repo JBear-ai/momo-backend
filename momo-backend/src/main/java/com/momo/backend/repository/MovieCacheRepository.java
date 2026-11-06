@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
-
 import java.util.Optional;
 
 public interface MovieCacheRepository
@@ -17,6 +16,7 @@ public interface MovieCacheRepository
             String cacheType,
             String cacheKey
     );
+
     @Modifying
     @Transactional
     @Query(value = """
@@ -28,9 +28,13 @@ public interface MovieCacheRepository
                 cached_at = VALUES(cached_at),
                 expires_at = VALUES(expires_at)
             """, nativeQuery = true)
-    void upsert(@Param("cacheType") String cacheType, @Param("cacheKey") String cacheKey,
-                @Param("contentJson") String contentJson, @Param("now") LocalDateTime now,
-                @Param("expiresAt") LocalDateTime expiresAt);
+    void upsert(
+            @Param("cacheType") String cacheType,
+            @Param("cacheKey") String cacheKey,
+            @Param("contentJson") String contentJson,
+            @Param("now") LocalDateTime now,
+            @Param("expiresAt") LocalDateTime expiresAt
+    );
 
     @Modifying
     @Transactional
