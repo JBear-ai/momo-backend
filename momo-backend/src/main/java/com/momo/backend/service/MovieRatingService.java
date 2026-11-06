@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -97,6 +98,34 @@ public class MovieRatingService {
                 );
 
         movieRatingRepository.delete(rating);
+    }
+
+    // 로그인 회원이 좋아요한 영화 목록 조회
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getMyLikedMovies(String loginId) {
+        if (loginId == null || loginId.isBlank()) {
+            return List.of();
+        }
+
+        User user = userRepository.findByLoginId(loginId).orElse(null);
+        if (user == null) {
+            return List.of();
+        }
+
+        return movieRatingRepository
+                .findByUser_UserIdAndLikedOrderByRatingIdDesc(user.getUserId(), true)
+                .stream()
+                .map(rating -> {
+                    Movie movie = rating.getMovie();
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("movieCode", movie.getMovieCode());
+                    item.put("title", movie.getTitle());
+                    item.put("genre", movie.getGenre());
+                    item.put("releaseDate", movie.getReleaseDate());
+                    item.put("posterUrl", movie.getPosterUrl());
+                    return item;
+                })
+                .toList();
     }
 
     // 특정 영화의 전체 평가 및 로그인 회원의 평가 상태 조회

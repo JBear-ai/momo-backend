@@ -17,6 +17,19 @@ public class MovieRatingController {
 
         private final MovieRatingService movieRatingService;
 
+        @GetMapping("/my/liked")
+        public ResponseEntity<java.util.List<Map<String, Object>>> getMyLikedMovies(
+                        Authentication authentication) {
+                String loginId = authentication != null
+                                && authentication.isAuthenticated()
+                                && !"anonymousUser".equals(authentication.getName())
+                                ? authentication.getName()
+                                : null;
+
+                return ResponseEntity.ok(
+                                movieRatingService.getMyLikedMovies(loginId));
+        }
+
         @GetMapping("/{movieCode:[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]}/rating")
         public ResponseEntity<Map<String, Object>> getMovieRating(
                         @PathVariable String movieCode,

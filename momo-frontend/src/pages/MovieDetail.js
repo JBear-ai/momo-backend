@@ -99,54 +99,53 @@ function MovieDetail() {
   // =========================================================
 
   useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
     async function fetchMovieDetail() {
       try {
         setLoading(true);
         setError("");
+        setMovie(null);
 
-        const detailResponse = await fetch(
-          `http://localhost:8111/api/movies/${id}`,
-        );
-
-        if (!detailResponse.ok) {
-          throw new Error(`영화 상세정보 조회 실패: ${detailResponse.status}`);
-        }
-
-        const detailData = await detailResponse.json();
+        const detailResponse = await AxiosApi.movieDetail(id, controller.signal);
+        const detailData = detailResponse.data;
 
         let posterUrl = "";
-
         try {
-          const posterResponse = await fetch(
-            `http://localhost:8111/api/movies/${id}/poster`,
-          );
-
-          if (posterResponse.ok) {
-            const posterData = await posterResponse.json();
-            posterUrl = posterData.posterUrl || "";
-          } else {
-            console.error("포스터 조회 실패:", posterResponse.status);
-          }
+          const posterResponse = await AxiosApi.moviePoster(id, controller.signal);
+          posterUrl = posterResponse.data?.posterUrl || "";
         } catch (posterError) {
-          console.error("포스터 조회 오류:", posterError);
+          if (posterError.code === "ERR_CANCELED") throw posterError;
+          console.warn("포스터 조회 실패:", posterError);
         }
 
+        if (!active) return;
         setMovie({
           ...detailData,
           id: detailData.movieCode,
           posterUrl,
         });
-      } catch (error) {
-        console.error("영화 상세정보 조회 실패:", error);
-        setError(error.message);
+      } catch (requestError) {
+        if (!active || requestError.code === "ERR_CANCELED") return;
+        console.error("영화 상세정보 조회 실패:", requestError);
+        setError(
+          requestError.response?.data?.message ||
+          requestError.message ||
+          "영화 정보를 불러오지 못했습니다.",
+        );
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
-    if (id) {
-      fetchMovieDetail();
-    }
+    if (id) fetchMovieDetail();
+    else setLoading(false);
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [id]);
 
   // =========================================================
@@ -155,41 +154,54 @@ function MovieDetail() {
 
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
 
     async function fetchReviewsAndRating() {
-      try {
-        setReviewError("");
-        setRatingError("");
+      setReviewError("");
+      setRatingError("");
+      setReviews([]);
+      setRatingSummary({
+        likeCount: 0,
+        dislikeCount: 0,
+        totalCount: 0,
+        positiveRate: null,
+        myRating: null,
+      });
 
-        const [reviewsResponse, ratingResponse] = await Promise.all([
-          AxiosApi.movieReviews(id, 0, controller.signal),
-          AxiosApi.movieRating(id, controller.signal),
-        ]);
+      const [reviewsResult, ratingResult] = await Promise.allSettled([
+        AxiosApi.movieReviews(id, 0, controller.signal),
+        AxiosApi.movieRating(id, controller.signal),
+      ]);
 
-        setReviews(reviewsResponse.data.content || []);
+      if (!active) return;
 
+      if (reviewsResult.status === "fulfilled") {
+        setReviews(reviewsResult.value.data?.content || []);
+      } else if (reviewsResult.reason?.code !== "ERR_CANCELED") {
+        console.error("영화 메모 조회 실패:", reviewsResult.reason);
+        setReviewError("영화 메모를 불러오지 못했습니다.");
+      }
+
+      if (ratingResult.status === "fulfilled") {
+        const data = ratingResult.value.data || {};
         setRatingSummary({
-          likeCount: ratingResponse.data.likeCount || 0,
-          dislikeCount: ratingResponse.data.dislikeCount || 0,
-          totalCount: ratingResponse.data.totalCount || 0,
-          positiveRate: ratingResponse.data.positiveRate ?? null,
-          myRating: ratingResponse.data.myRating ?? null,
+          likeCount: data.likeCount || 0,
+          dislikeCount: data.dislikeCount || 0,
+          totalCount: data.totalCount || 0,
+          positiveRate: data.positiveRate ?? null,
+          myRating: data.myRating ?? null,
         });
-      } catch (error) {
-        if (error.name !== "CanceledError" && error.code !== "ERR_CANCELED") {
-          console.error("리뷰 및 평점 조회 실패:", error);
-
-          setReviewError("리뷰를 불러오지 못했습니다.");
-          setRatingError("영화 평가를 불러오지 못했습니다.");
-        }
+      } else if (ratingResult.reason?.code !== "ERR_CANCELED") {
+        console.error("영화 평가 조회 실패:", ratingResult.reason);
+        setRatingError("영화 평가를 불러오지 못했습니다.");
       }
     }
 
-    if (id) {
-      fetchReviewsAndRating();
-    }
-
-    return () => controller.abort();
+    if (id) fetchReviewsAndRating();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [id]);
 
   // =========================================================
@@ -211,13 +223,13 @@ function MovieDetail() {
 
   async function refreshMovieRating() {
     const response = await AxiosApi.movieRating(movie.movieCode);
-
+    const data = response.data || {};
     setRatingSummary({
-      likeCount: response.data.likeCount || 0,
-      dislikeCount: response.data.dislikeCount || 0,
-      totalCount: response.data.totalCount || 0,
-      positiveRate: response.data.positiveRate ?? null,
-      myRating: response.data.myRating ?? null,
+      likeCount: data.likeCount || 0,
+      dislikeCount: data.dislikeCount || 0,
+      totalCount: data.totalCount || 0,
+      positiveRate: data.positiveRate ?? null,
+      myRating: data.myRating ?? null,
     });
   }
 
@@ -281,11 +293,15 @@ function MovieDetail() {
         await AxiosApi.movieRatingSave(movie.movieCode, liked);
       }
 
-      await refreshMovieRating();
+      // 저장 요청이 성공한 뒤의 조회 실패는 저장 실패로 취급하지 않는다.
+      try {
+        await refreshMovieRating();
+      } catch (refreshError) {
+        console.error("평가 저장 후 최신 집계 조회 실패:", refreshError);
+        setRatingError("평가는 저장됐지만 최신 집계를 불러오지 못했습니다. 새로고침해 주세요.");
+      }
     } catch (error) {
       console.error("영화 평가 처리 실패:", error);
-
-      // 서버 요청 실패 시 기존 평가 상태 복구
       setRatingSummary(previousSummary);
 
       if (error.response?.status === 401) {
@@ -366,8 +382,11 @@ function MovieDetail() {
   // =========================================================
 
   function moveToPersonDetail(person, type) {
-    const identifier = person.personId || person.name;
+    const identifier = person.name?.trim();
 
+    if (!identifier || identifier === "이름 없음") return;
+
+    // 백엔드는 TMDb ID가 아닌 인물 이름으로 검색한다.
     navigate(`/person/${type}/${encodeURIComponent(identifier)}`);
   }
 
