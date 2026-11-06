@@ -50,9 +50,10 @@ jobs:
           # 2. Gemini 클라이언트 초기화
           client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
 
-          # 3. Gemini에게 코드 리뷰 요청 (gemini-2.5-flash 모델 사용)
+          # 3. Gemini에게 코드 리뷰 요청 (한글 출력 명시)
           prompt = f'''
           다음은 Git Pull Request의 변경된 코드(Diff)입니다. 이 코드를 검토하고 버그, 보안 취약점, 개선할 점을 간략하고 명확하게 한국어로 리뷰해 주세요.
+          모든 답변과 설명은 반드시 한국어로 작성해 주세요.
 
           {code_diff}
           '''
@@ -66,4 +67,17 @@ jobs:
 
           # 4. 리뷰 결과를 GitHub PR에 댓글로 등록
           comment_url = f'https://api.github.com/repos/{repo}/issues/{pr_number}/comments'
-          comment_headers =
+          comment_headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github.v3+json'
+          }
+          payload = {
+              'body': f'### 🤖 Gemini Code Review\n\n{review_comment}'
+          }
+          
+          res = requests.post(comment_url, headers=comment_headers, json=payload)
+          if res.status_code == 201:
+              print('리뷰 댓글이 성공적으로 등록되었습니다.')
+          else:
+              print(f'댓글 등록 실패: {res.status_code}, {res.text}')
+          "
