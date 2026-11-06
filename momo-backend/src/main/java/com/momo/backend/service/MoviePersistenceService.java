@@ -20,29 +20,57 @@ public class MoviePersistenceService {
 
     @Transactional
     public void saveSearchMovies(List<MovieSearchResponse> movies) {
-        if (movies == null || movies.isEmpty()) return;
-        List<String> codes = movies.stream().filter(item -> item != null)
-                .map(MovieSearchResponse::movieCode).filter(code -> code != null && !code.isBlank())
-                .distinct().toList();
+        if (movies == null || movies.isEmpty()) {
+            return;
+        }
+
+        List<String> codes = movies.stream()
+                .filter(item -> item != null)
+                .map(MovieSearchResponse::movieCode)
+                .filter(code -> code != null && !code.isBlank())
+                .distinct()
+                .toList();
         if (codes.isEmpty()) return;
 
         Map<String, Movie> existing = new HashMap<>();
-        movieRepository.findAllById(codes).forEach(movie -> existing.put(movie.getMovieCode(), movie));
+        movieRepository.findAllById(codes).forEach(movie ->
+                existing.put(movie.getMovieCode(), movie));
         List<Movie> inserts = new ArrayList<>();
 
         for (MovieSearchResponse item : movies) {
             if (item == null || item.movieCode() == null || item.movieCode().isBlank()
-                    || item.title() == null || item.title().isBlank()) continue;
+                    || item.title() == null || item.title().isBlank()) {
+                continue;
+            }
             Movie saved = existing.get(item.movieCode());
             if (saved == null) {
-                inserts.add(new Movie(item.movieCode(), item.title(), "", item.releaseDate(),
-                        "", item.genre(), item.director(), "", ""));
+                inserts.add(new Movie(
+                        item.movieCode(),
+                        item.title(),
+                        "",
+                        item.releaseDate(),
+                        "",
+                        item.genre(),
+                        item.director(),
+                        "",
+                        ""
+                ));
             } else {
-                saved.supplementMissingDetails("", item.releaseDate(), "", item.genre(),
-                        item.director(), "", "", "KOBIS_SEARCH");
+                saved.supplementMissingDetails(
+                        "",
+                        item.releaseDate(),
+                        "",
+                        item.genre(),
+                        item.director(),
+                        "",
+                        "",
+                        "KOBIS_SEARCH"
+                );
             }
         }
-        if (!inserts.isEmpty()) movieRepository.saveAll(inserts);
+        if (!inserts.isEmpty()) {
+            movieRepository.saveAll(inserts);
+        }
         log.info("검색 영화 DB 저장 완료. 신규 저장: {}, 기존 영화: {}", inserts.size(), existing.size());
     }
 }
