@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -924,9 +926,11 @@ public class MovieService {
 
             try {
 
-                return enrichBoxOfficePosters(
-                        readCachedBoxOffice(cached.getContentJson())
-                );
+                List<BoxOfficeResponse> cachedMovies =
+                        readCachedBoxOffice(cached.getContentJson());
+                markBoxOfficeHistory(cachedMovies, targetDate);
+
+                return enrichBoxOfficePosters(cachedMovies);
 
             } catch (Exception e) {
 
@@ -947,8 +951,6 @@ public class MovieService {
 
         List<BoxOfficeResponse> movies = new ArrayList<>();
 
-        List<MovieSearchResponse> searchResults = new ArrayList<>();
-
         for (JsonNode item : boxOfficeList) {
 
             if (isBlank(item.path("movieCd").asText(""))
@@ -959,14 +961,6 @@ public class MovieService {
             String movieCode = item.path("movieCd").asText("");
             String title = item.path("movieNm").asText("");
             String releaseDate = item.path("openDt").asText("");
-
-            searchResults.add(new MovieSearchResponse(
-                    movieCode,
-                    title,
-                    releaseDate,
-                    "",
-                    ""
-            ));
 
             movies.add(new BoxOfficeResponse(
                     item.path("rank").asInt(),
@@ -979,8 +973,8 @@ public class MovieService {
             ));
         }
 
-        // 3. 박스오피스 영화도 Movie DB에 저장
-        saveSearchMoviesToDatabase(searchResults);
+        // 3. 박스오피스 진입 이력을 영화 DB에 누적 저장
+        markBoxOfficeHistory(movies, targetDate);
 
         // 4. 포스터 캐시를 확인하고 없는 영화만 비동기 검색
         List<BoxOfficeResponse> enriched =
@@ -995,6 +989,135 @@ public class MovieService {
         );
 
         return enriched;
+    }
+
+    // =========================================================
+    // 박스오피스 진입 이력 누적 저장
+    // =========================================================
+
+    private void markBoxOfficeHistory(
+            List<BoxOfficeResponse> boxOfficeMovies,
+            String targetDate
+    ) {
+        if (boxOfficeMovies == null || boxOfficeMovies.isEmpty()) {
+            return;
+        }
+
+        List<MovieSearchResponse> searchMovies = boxOfficeMovies.stream()
+                .filter(item -> item != null)
+                .map(item -> new MovieSearchResponse(
+                        item.movieCode(),
+                        item.title(),
+                        item.releaseDate(),
+                        "",
+                        ""
+                ))
+                .toList();
+
+        // 박스오피스 영화가 Movie 테이블에 없으면 먼저 저장한다.
+        saveSearchMoviesToDatabase(searchMovies);
+
+        List<String> movieCodes = boxOfficeMovies.stream()
+                .filter(item -> item != null)
+                .map(BoxOfficeResponse::movieCode)
+                .filter(code -> !isBlank(code))
+                .distinct()
+                .toList();
+
+        Map<String, Movie> savedMovies = new HashMap<>();
+        movieRepository.findAllById(movieCodes)
+                .forEach(movie -> savedMovies.put(movie.getMovieCode(), movie));
+
+        for (BoxOfficeResponse item : boxOfficeMovies) {
+            if (item == null || isBlank(item.movieCode())) {
+                continue;
+            }
+
+            Movie movie = savedMovies.get(item.movieCode());
+            if (movie != null) {
+                movie.markBoxOfficeEntered(item.rank(), targetDate);
+            }
+        }
+
+        movieRepository.saveAll(savedMovies.values());
+    }
+
+    // =========================================================
+    // 최근 7일 박스오피스 이력 확보
+    // =========================================================
+
+    private void refreshRecentBoxOfficeHistory() {
+        LocalDate today = LocalDate.now();
+
+        // 오늘 기준 어제부터 7일 전까지의 일별 순위를 누적한다.
+        for (int daysAgo = 1; daysAgo <= 7; daysAgo++) {
+            String targetDate = today.minusDays(daysAgo)
+                    .format(DateTimeFormatter.BASIC_ISO_DATE);
+
+            try {
+                getDailyBoxOffice(targetDate);
+            } catch (Exception e) {
+                // 특정 날짜의 API 응답이 실패해도 나머지 날짜는 계속 확인한다.
+                log.warn("최근 박스오피스 이력 수집 실패. targetDate: {}",
+                        targetDate, e);
+            }
+        }
+    }
+
+    // =========================================================
+    // 박스오피스 이력이 확인된 추천 후보 조회
+    // =========================================================
+
+    public List<Map<String, Object>> getBoxOfficeRecommendations(String genre) {
+        refreshRecentBoxOfficeHistory();
+
+        String normalizedGenre = isBlank(genre)
+                ? null
+                : normalizeGenre(genre);
+
+        if (normalizedGenre != null) {
+            try {
+                // 장르 목록을 한 번 수집해 박스오피스 영화의 장르 정보를 보완한다.
+                getMoviesByGenre(normalizedGenre, 1);
+            } catch (Exception e) {
+                log.warn("추천용 장르 정보 보완 실패. genre: {}",
+                        normalizedGenre, e);
+            }
+        }
+
+        List<Movie> candidates = normalizedGenre == null
+                ? movieRepository
+                        .findByBoxOfficeEnteredTrueOrderByBestBoxOfficeRankAscLastBoxOfficeDateDesc()
+                : movieRepository
+                        .findByBoxOfficeEnteredTrueAndGenreContainingIgnoreCaseOrderByBestBoxOfficeRankAscLastBoxOfficeDateDesc(
+                                normalizedGenre
+                        );
+
+        return candidates.stream()
+                .filter(movie -> movie.getMovieCode() != null
+                        && movie.getMovieCode().matches("\\d{8}"))
+                .filter(movie -> !isBlank(movie.getTitle()))
+                // 개봉일이 확인되지 않는 항목은 추천 후보에서 제외한다.
+                .filter(movie -> movie.getReleaseDate() != null
+                        && movie.getReleaseDate().matches("\\d{8}"))
+                .filter(movie -> normalizedGenre == null
+                        || (!isBlank(movie.getGenre())
+                        && movie.getGenre().toLowerCase()
+                                .contains(normalizedGenre.toLowerCase())))
+                .limit(30)
+                .map(movie -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("movieCode", movie.getMovieCode());
+                    result.put("title", movie.getTitle());
+                    result.put("releaseDate", movie.getReleaseDate());
+                    result.put("genre", movie.getGenre());
+                    result.put("director", movie.getDirector());
+                    result.put("posterUrl", findSavedPosterUrl(movie.getMovieCode()));
+                    result.put("bestBoxOfficeRank", movie.getBestBoxOfficeRank());
+                    result.put("lastBoxOfficeDate", movie.getLastBoxOfficeDate());
+                    return result;
+                })
+                .toList();
     }
 
     // =========================================================
