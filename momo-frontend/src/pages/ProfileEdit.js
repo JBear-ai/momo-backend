@@ -87,7 +87,12 @@ function ProfileEdit() {
         if (!active) return;
 
         // 서버 회원정보를 우선 사용하고 기존 로컬 값은 누락 필드의 임시 대체값으로만 사용한다.
-        setUserId(user.loginId || user.username || localStorage.getItem("username") || "");
+        setUserId(
+          user.loginId ||
+            user.username ||
+            localStorage.getItem("username") ||
+            "",
+        );
         setNickname(user.nickname || localStorage.getItem("nickname") || "");
         setEmail(user.email || localStorage.getItem("email") || "");
 
@@ -162,7 +167,11 @@ function ProfileEdit() {
 
   // 전체 유효성
   const isAllValid =
-    isNickname && isEmail && isPasswordValid && !isSubmitting && !profileImageUploading;
+    isNickname &&
+    isEmail &&
+    isPasswordValid &&
+    !isSubmitting &&
+    !profileImageUploading;
 
   /* =========================
      현재 비밀번호 검증
@@ -533,20 +542,24 @@ function ProfileEdit() {
                 )}
               </div>
 
-              <input
-                id="profile-image-input"
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={handleProfileImageChange}
-                disabled={profileImageUploading || isSubmitting}
-              />
+              <div className="profile-image-input-wrapper">
+                <input
+                  id="profile-image-input"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  onChange={handleProfileImageChange}
+                  disabled={profileImageUploading || isSubmitting}
+                />
+              </div>
 
               <div className="profile-image-buttons">
                 <button
                   type="button"
                   className="profile-button"
                   onClick={handleProfileImageUpload}
-                  disabled={!profileFile || profileImageUploading || isSubmitting}
+                  disabled={
+                    !profileFile || profileImageUploading || isSubmitting
+                  }
                 >
                   {profileImageUploading ? "처리 중..." : "이미지 변경"}
                 </button>
