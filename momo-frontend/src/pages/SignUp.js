@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 import logoImage from "../textlogo.png";
@@ -107,9 +107,6 @@ function SignUp() {
         inputNickname.trim(),
         inputEmail.trim(),
       );
-
-      console.log(response.data);
-
       // 백엔드에서 HTTP 201을 반환하면 회원가입 성공
       if (response.status === 201) {
         alert(`${inputNickname}님, 회원가입이 완료되었습니다.`);
@@ -124,185 +121,209 @@ function SignUp() {
   };
 
   return (
-    <main className="signup-page">
-      <section className="signup-wrapper">
-        <Link to="/" className="signup-brand">
-          <img src={logoImage} alt="MOMO 로고" />
-        </Link>
-
-        <section className="signup-card">
-          <div className="signup-card-heading">
-            <span className="signup-eyebrow">YOUR MOVIE JOURNAL</span>
-
-            <h1>
-              나만의 영화 메모를
-              <br />
-              시작해 볼까요?
-            </h1>
-
-            <p>
-              회원가입하고 마음에 남는 영화와
-              <br />
-              다양한 리뷰를 기록해 보세요.
-            </p>
-
-            <div className="signup-note-label">
-              <span>MY MOVIE NOTE</span>
-              <span>JOIN MOMO</span>
-            </div>
-          </div>
-
-          <form onSubmit={onSubmit}>
-            {/* 아이디 */}
-            <div className="signup-field">
-              <label htmlFor="signupId">아이디</label>
-
-              <input
-                id="signupId"
-                type="text"
-                name="id"
-                value={inputId}
-                placeholder="아이디를 입력해 주세요."
-                onChange={(e) => setInputId(e.target.value)}
-                required
-              />
-
-              <p
-                className="signup-message"
-                style={{
-                  color: isIdOk ? "#2e9e4f" : "#e5484d",
-                }}
-              >
-                {getIdMessage()}
-              </p>
-            </div>
-
-            {/* 이메일: 형식만 검사 */}
-            <div className="signup-field">
-              <label htmlFor="signupEmail">이메일</label>
-
-              <input
-                id="signupEmail"
-                type="email"
-                name="email"
-                value={inputEmail}
-                placeholder="이메일을 입력해 주세요."
-                onChange={(e) => setInputEmail(e.target.value.trim())}
-                required
-              />
-
-              <p
-                className="signup-message"
-                style={{
-                  color: isEmail ? "#2e9e4f" : "#e5484d",
-                }}
-              >
-                {inputEmail &&
-                  (isEmail
-                    ? "올바른 이메일 형식입니다."
-                    : "이메일 형식이 올바르지 않습니다.")}
-              </p>
-            </div>
-
-            {/* 비밀번호 */}
-            <div className="signup-field">
-              <label htmlFor="signupPassword">비밀번호</label>
-
-              <input
-                id="signupPassword"
-                type="password"
-                name="password"
-                value={inputPwd}
-                placeholder="비밀번호를 입력해 주세요."
-                onChange={(e) => setInputPwd(e.target.value)}
-                required
-              />
-
-              <p
-                className="signup-message"
-                style={{
-                  color: isPwd ? "#2e9e4f" : "#e5484d",
-                }}
-              >
-                {inputPwd &&
-                  (isPwd
-                    ? "사용 가능한 비밀번호입니다."
-                    : "영문, 숫자, 특수문자를 포함해 8~20자로 입력하세요.")}
-              </p>
-            </div>
-
-            {/* 비밀번호 확인 */}
-            <div className="signup-field">
-              <label htmlFor="signupPasswordCheck">비밀번호 확인</label>
-
-              <input
-                id="signupPasswordCheck"
-                type="password"
-                name="passwordCheck"
-                value={inputPwdCheck}
-                placeholder="비밀번호를 다시 입력해 주세요."
-                onChange={(e) => setInputPwdCheck(e.target.value)}
-                required
-              />
-
-              <p
-                className="signup-message"
-                style={{
-                  color: isPwdCheck ? "#2e9e4f" : "#e5484d",
-                }}
-              >
-                {inputPwdCheck &&
-                  (isPwdCheck
-                    ? "비밀번호가 일치합니다."
-                    : "비밀번호가 일치하지 않습니다.")}
-              </p>
-            </div>
-
-            {/* 닉네임 */}
-            <div className="signup-field">
-              <label htmlFor="signupNickname">닉네임</label>
-
-              <input
-                id="signupNickname"
-                type="text"
-                name="nickname"
-                value={inputNickname}
-                placeholder="닉네임을 입력해 주세요."
-                onChange={(e) => setInputNickname(e.target.value.trim())}
-                required
-              />
-
-              <p
-                className="signup-message"
-                style={{
-                  color: isNickname ? "#2e9e4f" : "#e5484d",
-                }}
-              >
-                {inputNickname &&
-                  (isNickname
-                    ? "사용 가능한 닉네임입니다."
-                    : "한글, 영문, 숫자로 2~10자 입력하세요.")}
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              className="signup-submit"
-              disabled={!isAllValid}
-            >
-              무료 회원가입하고 영화 메모하러 가기
-            </button>
-          </form>
-
-          <div className="signup-footer">
-            <span>이미 계정이 있으신가요?</span>
-            <Link to="/login">로그인</Link>
-          </div>
-        </section>
-
-        <p className="signup-bottom-caption">YOUR MOVIES, YOUR MEMORIES.</p>
-      </section>
-    </main>
+    React.createElement(
+  "main",
+  {"className":"signup-page"},
+  React.createElement(
+      "section",
+      {"className":"signup-wrapper"},
+      React.createElement(
+            Link,
+            {"to":"/","className":"signup-brand"},
+            React.createElement(
+                    "img",
+                    {"src":logoImage,"alt":"MOMO 로고"}
+                  )
+          ),
+      React.createElement(
+            "section",
+            {"className":"signup-card"},
+            React.createElement(
+                    "div",
+                    {"className":"signup-card-heading"},
+                    React.createElement(
+                              "span",
+                              {"className":"signup-eyebrow"},
+                              "YOUR MOVIE JOURNAL"
+                            ),
+                    React.createElement(
+                              "h1",
+                              null,
+                              "나만의 영화 메모를",
+                              React.createElement(
+                                          "br",
+                                          null
+                                        ),
+                              "시작해 볼까요?"
+                            ),
+                    React.createElement(
+                              "p",
+                              null,
+                              "회원가입하고 마음에 남는 영화와",
+                              React.createElement(
+                                          "br",
+                                          null
+                                        ),
+                              "다양한 리뷰를 기록해 보세요."
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"signup-note-label"},
+                              React.createElement(
+                                          "span",
+                                          null,
+                                          "MY MOVIE NOTE"
+                                        ),
+                              React.createElement(
+                                          "span",
+                                          null,
+                                          "JOIN MOMO"
+                                        )
+                            )
+                  ),
+            React.createElement(
+                    "form",
+                    {"onSubmit":onSubmit},
+                    React.createElement(
+                              "div",
+                              {"className":"signup-field"},
+                              React.createElement(
+                                          "label",
+                                          {"htmlFor":"signupId"},
+                                          "아이디"
+                                        ),
+                              React.createElement(
+                                          "input",
+                                          {"id":"signupId","type":"text","name":"id","value":inputId,"placeholder":"아이디를 입력해 주세요.","onChange":(e) => setInputId(e.target.value),"required":true}
+                                        ),
+                              React.createElement(
+                                          "p",
+                                          {"className":"signup-message","style":{
+                                                            color: isIdOk ? "#2e9e4f" : "#e5484d",
+                                                          }},
+                                          (getIdMessage())
+                                        )
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"signup-field"},
+                              React.createElement(
+                                          "label",
+                                          {"htmlFor":"signupEmail"},
+                                          "이메일"
+                                        ),
+                              React.createElement(
+                                          "input",
+                                          {"id":"signupEmail","type":"email","name":"email","value":inputEmail,"placeholder":"이메일을 입력해 주세요.","onChange":(e) => setInputEmail(e.target.value.trim()),"required":true}
+                                        ),
+                              React.createElement(
+                                          "p",
+                                          {"className":"signup-message","style":{
+                                                            color: isEmail ? "#2e9e4f" : "#e5484d",
+                                                          }},
+                                          (inputEmail &&
+                                                            (isEmail
+                                                              ? "올바른 이메일 형식입니다."
+                                                              : "이메일 형식이 올바르지 않습니다."))
+                                        )
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"signup-field"},
+                              React.createElement(
+                                          "label",
+                                          {"htmlFor":"signupPassword"},
+                                          "비밀번호"
+                                        ),
+                              React.createElement(
+                                          "input",
+                                          {"id":"signupPassword","type":"password","name":"password","value":inputPwd,"placeholder":"비밀번호를 입력해 주세요.","onChange":(e) => setInputPwd(e.target.value),"required":true}
+                                        ),
+                              React.createElement(
+                                          "p",
+                                          {"className":"signup-message","style":{
+                                                            color: isPwd ? "#2e9e4f" : "#e5484d",
+                                                          }},
+                                          (inputPwd &&
+                                                            (isPwd
+                                                              ? "사용 가능한 비밀번호입니다."
+                                                              : "영문, 숫자, 특수문자를 포함해 8~20자로 입력하세요."))
+                                        )
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"signup-field"},
+                              React.createElement(
+                                          "label",
+                                          {"htmlFor":"signupPasswordCheck"},
+                                          "비밀번호 확인"
+                                        ),
+                              React.createElement(
+                                          "input",
+                                          {"id":"signupPasswordCheck","type":"password","name":"passwordCheck","value":inputPwdCheck,"placeholder":"비밀번호를 다시 입력해 주세요.","onChange":(e) => setInputPwdCheck(e.target.value),"required":true}
+                                        ),
+                              React.createElement(
+                                          "p",
+                                          {"className":"signup-message","style":{
+                                                            color: isPwdCheck ? "#2e9e4f" : "#e5484d",
+                                                          }},
+                                          (inputPwdCheck &&
+                                                            (isPwdCheck
+                                                              ? "비밀번호가 일치합니다."
+                                                              : "비밀번호가 일치하지 않습니다."))
+                                        )
+                            ),
+                    React.createElement(
+                              "div",
+                              {"className":"signup-field"},
+                              React.createElement(
+                                          "label",
+                                          {"htmlFor":"signupNickname"},
+                                          "닉네임"
+                                        ),
+                              React.createElement(
+                                          "input",
+                                          {"id":"signupNickname","type":"text","name":"nickname","value":inputNickname,"placeholder":"닉네임을 입력해 주세요.","onChange":(e) => setInputNickname(e.target.value.trim()),"required":true}
+                                        ),
+                              React.createElement(
+                                          "p",
+                                          {"className":"signup-message","style":{
+                                                            color: isNickname ? "#2e9e4f" : "#e5484d",
+                                                          }},
+                                          (inputNickname &&
+                                                            (isNickname
+                                                              ? "사용 가능한 닉네임입니다."
+                                                              : "한글, 영문, 숫자로 2~10자 입력하세요."))
+                                        )
+                            ),
+                    React.createElement(
+                              "button",
+                              {"type":"submit","className":"signup-submit","disabled":!isAllValid},
+                              "무료 회원가입하고 영화 메모하러 가기"
+                            )
+                  ),
+            React.createElement(
+                    "div",
+                    {"className":"signup-footer"},
+                    React.createElement(
+                              "span",
+                              null,
+                              "이미 계정이 있으신가요?"
+                            ),
+                    React.createElement(
+                              Link,
+                              {"to":"/login"},
+                              "로그인"
+                            )
+                  )
+          ),
+      React.createElement(
+            "p",
+            {"className":"signup-bottom-caption"},
+            "YOUR MOVIES, YOUR MEMORIES."
+          )
+    )
+)
   );
 }
 

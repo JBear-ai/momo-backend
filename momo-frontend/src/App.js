@@ -1,3 +1,4 @@
+import React from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
@@ -17,28 +18,105 @@ import PersonDetail from "./pages/PersonDetail"; // 1. PersonDetail 컴포넌트
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/movie/:id" element={<MovieDetail />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/reviews" element={<AllReviews />} />
-          <Route path="/reviews/:reviewId" element={<ReviewDetail />} />
-
-          {/* 2. 인물 상세 페이지 라우트 추가 */}
-          <Route path="/person/:type/:identifier" element={<PersonDetail />} />
-
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/edit" element={<ProfileEdit />} />
-          <Route path="/profile/delete" element={<ProfileDelete />} />
-          <Route path="/profile/favorites" element={<FavoriteMovies />} />
-        </Route>
-
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-      </Routes>
-    </BrowserRouter>
+    React.createElement(
+  BrowserRouter,
+  null,
+  React.createElement(
+      Routes,
+      null,
+      React.createElement(
+            Route,
+            {"element":React.createElement(
+                    Layout,
+                    null
+                  )},
+            React.createElement(
+                    Route,
+                    {"path":"/","element":React.createElement(
+                              Home,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/movie/:id","element":React.createElement(
+                              MovieDetail,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/search","element":React.createElement(
+                              Search,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/reviews","element":React.createElement(
+                              AllReviews,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/reviews/:reviewId","element":React.createElement(
+                              ReviewDetail,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/person/:type/:identifier","element":React.createElement(
+                              PersonDetail,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/profile","element":React.createElement(
+                              Profile,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/profile/edit","element":React.createElement(
+                              ProfileEdit,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/profile/delete","element":React.createElement(
+                              ProfileDelete,
+                              null
+                            )}
+                  ),
+            React.createElement(
+                    Route,
+                    {"path":"/profile/favorites","element":React.createElement(
+                              FavoriteMovies,
+                              null
+                            )}
+                  )
+          ),
+      React.createElement(
+            Route,
+            {"path":"/login","element":React.createElement(
+                    Login,
+                    null
+                  )}
+          ),
+      React.createElement(
+            Route,
+            {"path":"/signup","element":React.createElement(
+                    SignUp,
+                    null
+                  )}
+          )
+    )
+)
   );
 }
 

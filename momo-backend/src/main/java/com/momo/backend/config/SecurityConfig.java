@@ -23,29 +23,21 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 public class SecurityConfig {
 
-    // =========================================================
     // 1. 비밀번호 암호화 설정
-    // =========================================================
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-
-    // =========================================================
     // 2. SecurityContextRepository 설정
-    // =========================================================
 
     @Bean
     public SecurityContextRepository securityContextRepository() {
         return new HttpSessionSecurityContextRepository();
     }
 
-
-    // =========================================================
     // 3. Spring Security 필터 설정
-    // =========================================================
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -55,30 +47,19 @@ public class SecurityConfig {
 
         http
 
-                // -------------------------------------------------
                 // CSRF 비활성화
-                // -------------------------------------------------
                 .csrf(csrf -> csrf.disable())
 
-
-                // -------------------------------------------------
                 // CORS 활성화
-                // -------------------------------------------------
                 .cors(cors -> {})
 
-
-                // -------------------------------------------------
                 // SecurityContext 세션 저장 설정
-                // -------------------------------------------------
                 .securityContext(context -> context
                         .requireExplicitSave(true)
                         .securityContextRepository(securityContextRepository)
                 )
 
-
-                // -------------------------------------------------
                 // URL별 접근 권한 설정
-                // -------------------------------------------------
                 .authorizeHttpRequests(auth -> auth
 
                         // Swagger 접근 허용
@@ -136,10 +117,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-
-                // -------------------------------------------------
                 // 인증 실패 및 권한 거부 응답
-                // -------------------------------------------------
                 .exceptionHandling(exception -> exception
 
                         // 로그인하지 않은 사용자
@@ -184,10 +162,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-
-    // =========================================================
     // 4. CORS 설정
-    // =========================================================
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -222,6 +197,5 @@ public class SecurityConfig {
 
         return source;
     }
-
 
 }

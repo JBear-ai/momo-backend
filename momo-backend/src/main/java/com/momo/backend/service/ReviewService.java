@@ -10,7 +10,12 @@ import com.momo.backend.entity.Review;
 import com.momo.backend.entity.User;
 import com.momo.backend.entity.Movie;
 
-import com.momo.backend.repository.*;
+import com.momo.backend.repository.CommentReactionRepository;
+import com.momo.backend.repository.CommentRepository;
+import com.momo.backend.repository.MovieRepository;
+import com.momo.backend.repository.ReviewReactionRepository;
+import com.momo.backend.repository.ReviewRepository;
+import com.momo.backend.repository.UserRepository;
 
 import com.momo.backend.exception.CustomException;
 
@@ -41,10 +46,7 @@ public class ReviewService {
     private final ReviewReactionRepository reviewReactionRepository;
     private final CommentReactionRepository commentReactionRepository;
 
-
-    // =========================================================
-    // 1. 전체 리뷰 목록 조회
-    // =========================================================
+    // 전체 리뷰 목록 조회
 
     @Transactional(readOnly = true)
     public Page<ReviewPageResponse> getAllReviews(int page) {
@@ -100,10 +102,7 @@ public class ReviewService {
         });
     }
 
-
-    // =========================================================
-    // 2. 개봉일에서 연도 추출
-    // =========================================================
+    // 개봉일에서 연도 추출
 
     private Integer extractMovieYear(String releaseDate) {
 
@@ -120,10 +119,7 @@ public class ReviewService {
         }
     }
 
-
-    // =========================================================
-    // 3. 리뷰 작성
-    // =========================================================
+    // 리뷰 작성
 
     public ReviewResponse createReview(
             String loginId,
@@ -161,10 +157,7 @@ public class ReviewService {
         return new ReviewResponse(savedReview);
     }
 
-
-    // =========================================================
-    // 4. 리뷰 상세 조회
-    // =========================================================
+    // 리뷰 상세 조회
 
     @Transactional(readOnly = true)
     public ReviewResponse getReview(Long reviewId) {
@@ -179,10 +172,7 @@ public class ReviewService {
         return new ReviewResponse(review);
     }
 
-
-    // =========================================================
-    // 5. 영화별 리뷰 조회
-    // =========================================================
+    // 영화별 리뷰 조회
 
     @Transactional(readOnly = true)
     public Page<ReviewResponse> getMovieReviews(
@@ -199,10 +189,7 @@ public class ReviewService {
                 .map(ReviewResponse::new);
     }
 
-
-    // =========================================================
-    // 6. 내가 작성한 리뷰 조회
-    // =========================================================
+    // 내가 작성한 리뷰 조회
 
     @Transactional(readOnly = true)
     public Page<ReviewResponse> getMyReviews(
@@ -234,10 +221,7 @@ public class ReviewService {
                 .map(ReviewResponse::new);
     }
 
-
-    // =========================================================
-    // 7. 리뷰 수정
-    // =========================================================
+    // 리뷰 수정
 
     public ReviewResponse updateReview(
             Long reviewId,
@@ -266,10 +250,7 @@ public class ReviewService {
         return new ReviewResponse(review);
     }
 
-
-    // =========================================================
-    // 8. 리뷰 삭제
-    // =========================================================
+    // 리뷰 삭제
 
     public void deleteReview(
             Long reviewId,

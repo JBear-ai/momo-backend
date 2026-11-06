@@ -175,59 +175,93 @@ function TodayRecommend() {
   }, []);
 
   if (loading) {
-    return <div className="recommend-state">오늘의 추천작을 불러오는 중입니다.</div>;
+    return React.createElement(
+  "div",
+  {"className":"recommend-state"},
+  "오늘의 추천작을 불러오는 중입니다."
+);
   }
 
   if (error) {
     return (
-      <div className="recommend-state">
-        추천 영화 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
-      </div>
+      React.createElement(
+  "div",
+  {"className":"recommend-state"},
+  "추천 영화 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+)
     );
   }
 
   if (!movie) {
     return (
-      <div className="recommend-state">
-        현재 추천할 수 있는 영화가 없습니다.
-      </div>
+      React.createElement(
+  "div",
+  {"className":"recommend-state"},
+  "현재 추천할 수 있는 영화가 없습니다."
+)
     );
   }
 
   const releaseYear = movie.releaseDate.slice(0, 4);
 
   return (
-    <section className="recommend-banner">
-      {movie.posterUrl ? (
-        <img className="recommend-poster" src={movie.posterUrl} alt={movie.title} />
-      ) : (
-        <div className="recommend-poster poster-placeholder">포스터 준비 중</div>
-      )}
-      <div className="recommend-overlay" />
-      <div className="recommend-content">
-        <span className="recommend-label">오늘의 추천작</span>
-        <h2 className="recommend-title">{movie.title}</h2>
-        <p className="recommend-info">
-          {[releaseYear && `${releaseYear}년 개봉`, movie.genre]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {movie.overview && (
-          <p className="recommend-description">{movie.overview}</p>
-        )}
-        <button
-          className="recommend-button"
-          type="button"
-          onClick={() => {
-            if (isValidMovieCode(movie.movieCode)) {
-              navigate(`/movie/${encodeURIComponent(movie.movieCode)}`);
-            }
-          }}
-        >
-          영화 자세히 보기
-        </button>
-      </div>
-    </section>
+    React.createElement(
+  "section",
+  {"className":"recommend-banner"},
+  (movie.posterUrl ? (
+          React.createElement(
+      "img",
+      {"className":"recommend-poster","src":movie.posterUrl,"alt":movie.title}
+    )
+        ) : (
+          React.createElement(
+      "div",
+      {"className":"recommend-poster poster-placeholder"},
+      "포스터 준비 중"
+    )
+        )),
+  React.createElement(
+      "div",
+      {"className":"recommend-overlay"}
+    ),
+  React.createElement(
+      "div",
+      {"className":"recommend-content"},
+      React.createElement(
+            "span",
+            {"className":"recommend-label"},
+            "오늘의 추천작"
+          ),
+      React.createElement(
+            "h2",
+            {"className":"recommend-title"},
+            (movie.title)
+          ),
+      React.createElement(
+            "p",
+            {"className":"recommend-info"},
+            ([releaseYear && `${releaseYear}년 개봉`, movie.genre]
+                        .filter(Boolean)
+                        .join(" · "))
+          ),
+      (movie.overview && (
+                React.createElement(
+            "p",
+            {"className":"recommend-description"},
+            (movie.overview)
+          )
+              )),
+      React.createElement(
+            "button",
+            {"className":"recommend-button","type":"button","onClick":() => {
+                        if (isValidMovieCode(movie.movieCode)) {
+                          navigate(`/movie/${encodeURIComponent(movie.movieCode)}`);
+                        }
+                      }},
+            "영화 자세히 보기"
+          )
+    )
+)
   );
 }
 

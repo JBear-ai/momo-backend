@@ -2,6 +2,7 @@ package com.momo.backend.scheduler;
 
 import com.momo.backend.service.MovieService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,6 +17,7 @@ import java.time.format.DateTimeFormatter;
 @Component
 @ConditionalOnProperty(name = "momo.boxoffice.scheduler.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
+@Slf4j
 public class BoxOfficeScheduler {
 
     private final MovieService movieService;
@@ -33,7 +35,7 @@ public class BoxOfficeScheduler {
 
         movieService.getDailyBoxOffice(targetDate);
 
-        System.out.println("박스오피스 자동 조회 완료: " + targetDate);
+        log.info("박스오피스 자동 조회 완료: {}", targetDate);
     }
 
     // 서버 시작 시 전날 박스오피스 확인
@@ -46,9 +48,6 @@ public class BoxOfficeScheduler {
 
         movieService.getDailyBoxOffice(targetDate);
 
-        System.out.println("서버 시작 시 박스오피스 확인 완료: " + targetDate);
+        log.info("서버 시작 시 박스오피스 확인 완료: {}", targetDate);
     }
-    // 어떻게 작동할까요?
-    // 스프링 서버 시작 완료 → 전날 날짜 계산 → mysql에 해당 날짜 데이터가 있는가?
-    // 있으면 재사용 없으면 KOBIS.KMDB 조회 후 저장
 }

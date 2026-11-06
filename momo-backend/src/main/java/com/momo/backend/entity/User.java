@@ -50,7 +50,7 @@ public class User {
     public User(String loginId, String passwordHash,
                 String nickname, String email) {
         this.loginId = loginId;
-        this.passwordHash = passwordHash; // 암호화가 목적
+        this.passwordHash = passwordHash; // 암호화된 비밀번호 저장
         this.nickname = nickname;
         this.email = email;
     }

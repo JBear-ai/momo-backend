@@ -72,9 +72,7 @@ public class MovieService {
     private static final int GENRE_SCAN_SIZE = 100;
     private static final int GENRE_PAGE_SIZE = 10;
 
-    // =========================================================
     // 통합 캐시 조회
-    // =========================================================
 
     private MovieCache findValidCache(String cacheType, String cacheKey) {
 
@@ -91,9 +89,7 @@ public class MovieService {
         return cache;
     }
 
-    // =========================================================
     // 통합 캐시 저장
-    // =========================================================
 
     private void saveCache(
             String cacheType,
@@ -121,9 +117,7 @@ public class MovieService {
         }
     }
 
-    // =========================================================
     // 공통 JSON 검증
-    // =========================================================
 
     private JsonNode readRequiredArray(
             String json,
@@ -184,9 +178,7 @@ public class MovieService {
         }
     }
 
-    // =========================================================
     // 영화 검색 캐시 변환
-    // =========================================================
 
     private MovieSearchPageResponse readCachedSearchPage(
             String contentJson
@@ -226,17 +218,13 @@ public class MovieService {
         );
     }
 
-    // =========================================================
     // 검색 결과를 Movie DB에 저장
-    // =========================================================
 
     private void saveSearchMoviesToDatabase(List<MovieSearchResponse> movies) {
         moviePersistenceService.saveSearchMovies(movies);
     }
 
-    // =========================================================
     // 영화 검색
-    // =========================================================
 
     public MovieSearchPageResponse searchMovies(
             String keyword,
@@ -374,9 +362,7 @@ public class MovieService {
         return response;
     }
 
-    // =========================================================
     // 포스터 비동기 검색 등록
-    // =========================================================
 
     private void enqueuePosterSearches(
             List<MovieSearchResponse> movies
@@ -437,9 +423,7 @@ public class MovieService {
         }
     }
 
-    // =========================================================
     // 영화 상세정보 조회
-    // =========================================================
 
     @Transactional
     public MovieDetailResponse getMovieDetail(String movieCode) {
@@ -492,9 +476,7 @@ public class MovieService {
         return toDetailResponse(newMovie);
     }
 
-    // =========================================================
     // KOBIS 상세정보 조회 및 DB 항목 보완
-    // =========================================================
 
     private void supplementFromKobis(Movie movie) {
 
@@ -643,9 +625,7 @@ public class MovieService {
         }
     }
 
-    // =========================================================
     // 외부 API 상세정보 보완
-    // =========================================================
 
     private void supplementMissingDetails(Movie movie) {
 
@@ -750,9 +730,7 @@ public class MovieService {
         );
     }
 
-    // =========================================================
     // 박스오피스 캐시 변환
-    // =========================================================
 
     private List<BoxOfficeResponse> readCachedBoxOffice(
             String contentJson
@@ -783,9 +761,7 @@ public class MovieService {
         return movies;
     }
 
-    // =========================================================
     // DB와 포스터 캐시를 이용한 포스터 조회
-    // =========================================================
 
     private String findSavedPosterUrl(String movieCode) {
 
@@ -816,9 +792,7 @@ public class MovieService {
         return "";
     }
 
-    // =========================================================
     // 포스터가 없는 영화만 비동기 검색
-    // =========================================================
 
     private void enqueuePosterSearch(
             String movieCode,
@@ -865,9 +839,7 @@ public class MovieService {
         }
     }
 
-    // =========================================================
     // 박스오피스 포스터 캐시 보완
-    // =========================================================
 
     private List<BoxOfficeResponse> enrichBoxOfficePosters(List<BoxOfficeResponse> movies) {
         if (movies == null || movies.isEmpty()) return List.of();
@@ -914,9 +886,7 @@ public class MovieService {
         }
     }
 
-    // =========================================================
     // 일별 박스오피스 조회
-    // =========================================================
 
     public List<BoxOfficeResponse> getDailyBoxOffice(
             String targetDate
@@ -1012,9 +982,7 @@ public class MovieService {
         return enriched;
     }
 
-    // =========================================================
     // 박스오피스 진입 이력 누적 저장
-    // =========================================================
 
     private void markBoxOfficeHistory(
             List<BoxOfficeResponse> boxOfficeMovies,
@@ -1063,9 +1031,7 @@ public class MovieService {
         movieRepository.saveAll(savedMovies.values());
     }
 
-    // =========================================================
     // 최근 7일 박스오피스 이력 확보
-    // =========================================================
 
     private void refreshRecentBoxOfficeHistory() {
         LocalDate today = LocalDate.now();
@@ -1085,9 +1051,7 @@ public class MovieService {
         }
     }
 
-    // =========================================================
     // 박스오피스 이력이 확인된 추천 후보 조회
-    // =========================================================
 
     public List<Map<String, Object>> getBoxOfficeRecommendations(String genre) {
         refreshRecentBoxOfficeHistory();
@@ -1154,9 +1118,7 @@ public class MovieService {
                 .toList();
     }
 
-    // =========================================================
     // 장르 이름 정규화
-    // =========================================================
 
     private String normalizeGenre(String genre) {
 
@@ -1167,9 +1129,7 @@ public class MovieService {
         };
     }
 
-    // =========================================================
     // 장르 캐시 JSON 변환
-    // =========================================================
 
     private List<MovieSearchResponse> readCachedGenreMovies(
             String contentJson
@@ -1197,9 +1157,7 @@ public class MovieService {
         return movies;
     }
 
-    // =========================================================
     // 장르 전체 목록 수집
-    // =========================================================
 
     private List<MovieSearchResponse> fetchAllMoviesByGenre(
             String genre
@@ -1266,9 +1224,7 @@ public class MovieService {
         return result;
     }
 
-    // =========================================================
     // 장르별 영화 조회
-    // =========================================================
 
     public List<MovieSearchResponse> getMoviesByGenre(
             String genre,
@@ -1360,9 +1316,7 @@ public class MovieService {
         return pageMovies;
     }
 
-    // =========================================================
     // 포스터 조회 API
-    // =========================================================
 
     public MoviePosterResponse getMoviePoster(String movieCode) {
 

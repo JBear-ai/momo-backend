@@ -1,10 +1,11 @@
 package com.momo.backend.dto.auth;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import jakarta.validation.constraints.Pattern;
-
 
 @Getter
 @NoArgsConstructor
@@ -25,7 +26,7 @@ public class SignupRequest {
     @Size(min = 2, max = 12)
     private String nickname;
 
-    // 선택 입력 이메일 (입력했다면 이메일 형식 검사)
+    // 필수 입력 이메일 (이메일 형식 검사)
     @NotBlank(message = "이메일은 필수 입력 항목입니다.")
     @Email(message = "올바른 이메일 형식이 아닙니다.")
     @Pattern(
