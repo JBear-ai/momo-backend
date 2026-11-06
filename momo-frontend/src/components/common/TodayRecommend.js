@@ -189,7 +189,7 @@ function TodayRecommend() {
   if (!movie) {
     return (
       <div className="recommend-state">
-        개봉 후 3개월이 지났고 박스오피스 진입 이력이 확인된 영화 중 추천 조건을 충족하는 작품이 없습니다.
+        현재 추천할 수 있는 영화가 없습니다.
       </div>
     );
   }
