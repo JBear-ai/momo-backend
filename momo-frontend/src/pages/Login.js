@@ -6,36 +6,30 @@ import logoImage from "../textlogo.png";
 function Login() {
   const [inputId, setInputId] = useState("");
   const [inputPwd, setInputPwd] = useState("");
+  const navigate = useNavigate();
 
-  const nav = useNavigate();
-
-  // 아이디와 비밀번호가 모두 입력되었는지 확인
+  // 아이디와 비밀번호가 입력되었는지 확인
   const isValid = inputId.trim() !== "" && inputPwd !== "";
 
-  // 로그인 버튼 클릭 또는 Enter 입력 시 실행
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  // 로그인 요청
+  const onSubmit = async (event) => {
+    event.preventDefault();
 
     try {
-      // [수정 완료] 두 번째 인자에 inputPwd가 들어가도록 수정!
       const response = await AxiosApi.memberLogin(inputId, inputPwd);
 
-      console.log("로그인 응답 데이터:", response.data);
-
       if (response.status === 200 && response.data) {
-        const nickname = response.data.nickname || "회원";
         const loginId = response.data.loginId || inputId.trim();
+        const nickname = response.data.nickname || "회원";
 
-        // 로그인 성공 후 기존 사용자 정보 저장
         localStorage.setItem("username", loginId);
         localStorage.setItem("nickname", nickname);
 
-        // 로그인 성공 후 Layout에 로그인 상태가 변경되었음을 알림
-        // Layout은 이벤트를 받으면 서버에 로그인 상태를 다시 확인
+        // 로그인 상태가 바뀌었다는 것을 Layout에 알린다.
         window.dispatchEvent(new Event("momo-auth-changed"));
 
         alert("로그인에 성공했습니다.");
-        nav("/", { replace: true });
+        navigate("/", { replace: true });
       } else {
         alert("아이디 또는 비밀번호가 틀립니다.");
       }
@@ -82,7 +76,7 @@ function Login() {
                 type="text"
                 value={inputId}
                 placeholder="아이디를 입력해 주세요."
-                onChange={(e) => setInputId(e.target.value)}
+                onChange={(event) => setInputId(event.target.value)}
               />
             </div>
 
@@ -93,7 +87,7 @@ function Login() {
                 type="password"
                 value={inputPwd}
                 placeholder="비밀번호를 입력해 주세요."
-                onChange={(e) => setInputPwd(e.target.value)}
+                onChange={(event) => setInputPwd(event.target.value)}
               />
             </div>
 
