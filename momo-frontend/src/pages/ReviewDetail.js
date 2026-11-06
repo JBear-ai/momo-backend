@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 
@@ -71,92 +71,138 @@ function ReviewDetail() {
   // 로딩 화면
   if (loading) {
     return (
-      <div className="review-detail-page">
-        <div className="review-detail-state">리뷰를 불러오는 중입니다.</div>
-      </div>
+      React.createElement(
+  "div",
+  {"className":"review-detail-page"},
+  React.createElement(
+      "div",
+      {"className":"review-detail-state"},
+      "리뷰를 불러오는 중입니다."
+    )
+)
     );
   }
 
   // 오류 화면
   if (error || !review) {
     return (
-      <div className="review-detail-page">
-        <button
-          type="button"
-          className="review-detail-back"
-          onClick={() => navigate("/reviews")}
-        >
-          ← 전체 리뷰로 돌아가기
-        </button>
-
-        <div className="review-detail-state review-detail-error">
-          {error || "리뷰 정보를 찾을 수 없습니다."}
-        </div>
-      </div>
+      React.createElement(
+  "div",
+  {"className":"review-detail-page"},
+  React.createElement(
+      "button",
+      {"type":"button","className":"review-detail-back","onClick":() => navigate("/reviews")},
+      "← 전체 리뷰로 돌아가기"
+    ),
+  React.createElement(
+      "div",
+      {"className":"review-detail-state review-detail-error"},
+      (error || "리뷰 정보를 찾을 수 없습니다.")
+    )
+)
     );
   }
 
   return (
-    <div className="review-detail-page">
-      {/* 전체 리뷰로 돌아가기 */}
-      <Link to="/reviews" className="review-detail-back">
-        ← 전체 리뷰
-      </Link>
-
-      <article className="review-detail-card">
-        {/* 상단 제목 */}
-        <p className="review-detail-eyebrow">MOMO COMMUNITY REVIEW</p>
-
-        <h1 className="review-detail-title">{review.title}</h1>
-
-        {/* 작성자 정보 */}
-        <div className="review-detail-meta">
-          <span>
-            작성자 <strong>{review.nickname || "익명"}</strong>
-          </span>
-
-          <span>작성일 {formatDate(review.createdAt)}</span>
-        </div>
-
-        {/* 영화 정보 */}
-        <section className="review-detail-movie">
-          <div className="review-detail-movie-info">
-            <span className="review-detail-movie-label">REVIEW MOVIE</span>
-
-            <strong>영화 코드: {review.movieCode || "-"}</strong>
-          </div>
-
-          <span className="review-detail-movie-code">
-            REVIEW #{review.reviewId}
-          </span>
-        </section>
-
-        {/* 작성자의 영화 평가 */}
-        <div
-          className={`review-detail-reaction ${
-            review.liked ? "like" : "dislike"
-          }`}
-        >
-          {review.liked ? "좋아요" : "싫어요"}
-        </div>
-
-        {/* 리뷰 본문 */}
-        <section>
-          <p className="review-detail-eyebrow">REVIEW CONTENT</p>
-
-          <div className="review-detail-content">{review.content}</div>
-        </section>
-
-        {/* 수정 일자 */}
-        {review.updatedAt &&
-          new Date(review.updatedAt).getTime() >
-            new Date(review.createdAt).getTime() && (
-            <p className="review-detail-updated">
-              최종 수정일: {formatDate(review.updatedAt)}
-            </p>
-          )}
-      </article>
-    </div>
+    React.createElement(
+  "div",
+  {"className":"review-detail-page"},
+  React.createElement(
+      Link,
+      {"to":"/reviews","className":"review-detail-back"},
+      "← 전체 리뷰"
+    ),
+  React.createElement(
+      "article",
+      {"className":"review-detail-card"},
+      React.createElement(
+            "p",
+            {"className":"review-detail-eyebrow"},
+            "MOMO COMMUNITY REVIEW"
+          ),
+      React.createElement(
+            "h1",
+            {"className":"review-detail-title"},
+            (review.title)
+          ),
+      React.createElement(
+            "div",
+            {"className":"review-detail-meta"},
+            React.createElement(
+                    "span",
+                    null,
+                    "작성자 ",
+                    React.createElement(
+                              "strong",
+                              null,
+                              (review.nickname || "익명")
+                            )
+                  ),
+            React.createElement(
+                    "span",
+                    null,
+                    "작성일 ",
+                    (formatDate(review.createdAt))
+                  )
+          ),
+      React.createElement(
+            "section",
+            {"className":"review-detail-movie"},
+            React.createElement(
+                    "div",
+                    {"className":"review-detail-movie-info"},
+                    React.createElement(
+                              "span",
+                              {"className":"review-detail-movie-label"},
+                              "REVIEW MOVIE"
+                            ),
+                    React.createElement(
+                              "strong",
+                              null,
+                              "영화 코드: ",
+                              (review.movieCode || "-")
+                            )
+                  ),
+            React.createElement(
+                    "span",
+                    {"className":"review-detail-movie-code"},
+                    "REVIEW #",
+                    (review.reviewId)
+                  )
+          ),
+      React.createElement(
+            "div",
+            {"className":`review-detail-reaction ${
+                        review.liked ? "like" : "dislike"
+                      }`},
+            (review.liked ? "좋아요" : "싫어요")
+          ),
+      React.createElement(
+            "section",
+            null,
+            React.createElement(
+                    "p",
+                    {"className":"review-detail-eyebrow"},
+                    "REVIEW CONTENT"
+                  ),
+            React.createElement(
+                    "div",
+                    {"className":"review-detail-content"},
+                    (review.content)
+                  )
+          ),
+      (review.updatedAt &&
+                new Date(review.updatedAt).getTime() >
+                  new Date(review.createdAt).getTime() && (
+                  React.createElement(
+            "p",
+            {"className":"review-detail-updated"},
+            "최종 수정일: ",
+            (formatDate(review.updatedAt))
+          )
+                ))
+    )
+)
   );
 }
 
