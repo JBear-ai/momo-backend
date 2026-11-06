@@ -1,159 +1,161 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../App.css";
+import AxiosApi from "../../api/AxiosApi";
+import { getFavoriteMovies } from "../../utils/favorites";
 
-const h = React.createElement;
-
-const getYesterdayDate = () => {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}${month}${day}`;
-};
-
-const isValidMovieCode = (movieCode) => {
-  return /^[0-9]{8}$/.test(String(movieCode || ""));
-};
+const isValidMovieCode = (movieCode) => /^[0-9]{8}$/.test(String(movieCode || ""));
 
 function TodayRecommend() {
   const [movie, setMovie] = useState(null);
+  const [recommendationType, setRecommendationType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
   const navigate = useNavigate();
 
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
 
-    const fetchRecommendMovie = async () => {
+    const getRating = async (movieCode) => {
+      try {
+        const response = await AxiosApi.movieRating(movieCode, controller.signal);
+        return response.data?.myRating ?? null;
+      } catch (requestError) {
+        if (requestError.code === "ERR_CANCELED") throw requestError;
+        // 평가 조회 실패 시 해당 후보의 개인 평가를 확인할 수 없으므로 추천하지 않는다.
+        return "UNKNOWN";
+      }
+    };
+
+    const chooseUnratedMovie = async (candidates, excludedCodes) => {
+      const uniqueCandidates = candidates.filter((item, index, list) =>
+        item &&
+        isValidMovieCode(item.movieCode) &&
+        item.title &&
+        !excludedCodes.has(String(item.movieCode)) &&
+        list.findIndex((candidate) => String(candidate?.movieCode) === String(item.movieCode)) === index
+      );
+
+      for (const candidate of uniqueCandidates) {
+        const myRating = await getRating(candidate.movieCode);
+        if (myRating === null) return candidate;
+      }
+      return null;
+    };
+
+    async function loadRecommendation() {
       try {
         setLoading(true);
         setError(false);
 
-        const targetDate = getYesterdayDate();
-
-        const response = await fetch(
-          `http://localhost:8111/api/boxoffice/daily?targetDate=${targetDate}`,
-          { signal: controller.signal },
+        const favorites = getFavoriteMovies();
+        const favoriteCodes = new Set(
+          favorites.map((item) => String(item.movieCode)).filter(Boolean),
         );
 
-        if (!response.ok) {
-          throw new Error(`박스오피스 조회 실패: ${response.status}`);
+        // 관심 영화가 있으면 가장 최근 저장된 영화의 장르를 추천 기준으로 사용한다.
+        if (favorites.length > 0) {
+          const latestFavorite = favorites[favorites.length - 1];
+          let favoriteGenre = latestFavorite.genre || "";
+
+          if (!favoriteGenre && isValidMovieCode(latestFavorite.movieCode)) {
+            const detail = await AxiosApi.movieDetail(
+              latestFavorite.movieCode,
+              controller.signal,
+            );
+            favoriteGenre = detail.data?.genre || "";
+          }
+
+          const genre = favoriteGenre.split(",").map((value) => value.trim()).find(Boolean);
+
+          if (genre) {
+            const genreResponse = await AxiosApi.moviesByGenre(genre, 1, controller.signal);
+            const candidates = Array.isArray(genreResponse.data)
+              ? genreResponse.data
+              : genreResponse.data?.content || [];
+            const selected = await chooseUnratedMovie(candidates, favoriteCodes);
+
+            if (selected) {
+              if (active) {
+                setMovie(selected);
+                setRecommendationType(`관심 영화의 ${genre} 장르 기반`);
+              }
+              return;
+            }
+          }
         }
 
-        const data = await response.json();
+        // 관심 영화가 없거나 장르 후보가 없으면 어제 박스오피스 2~10위에서 대체한다.
+        const date = new Date();
+        date.setDate(date.getDate() - 1);
+        const targetDate = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+        const boxOfficeResponse = await AxiosApi.dailyBoxOffice(targetDate, controller.signal);
+        const boxOffice = Array.isArray(boxOfficeResponse.data) ? boxOfficeResponse.data : [];
+        const fallbackCandidates = boxOffice
+          .filter((item) => Number(item.rank) >= 2)
+          .sort((a, b) => Number(a.rank) - Number(b.rank));
+        const fallback = await chooseUnratedMovie(fallbackCandidates, favoriteCodes);
 
-        if (!Array.isArray(data)) {
-          throw new Error("박스오피스 응답 형식이 올바르지 않습니다.");
+        if (active) {
+          setMovie(fallback);
+          setRecommendationType("박스오피스 인기작 기반");
         }
-
-        const recommendedMovie = data.find(
-          (item) =>
-            item &&
-            Number(item.rank) === 1 &&
-            isValidMovieCode(item.movieCode) &&
-            typeof item.title === "string" &&
-            item.title.trim().length > 0,
-        );
-
-        if (!recommendedMovie) {
-          setMovie(null);
-          return;
-        }
-
-        setMovie(recommendedMovie);
       } catch (requestError) {
-        if (requestError.name !== "AbortError") {
+        if (requestError.code !== "ERR_CANCELED") {
           console.error("오늘의 추천작 조회 실패:", requestError);
-          setError(true);
+          if (active) setError(true);
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
+    }
+
+    loadRecommendation();
+    return () => {
+      active = false;
+      controller.abort();
     };
-
-    fetchRecommendMovie();
-
-    return () => controller.abort();
   }, []);
 
-  const releaseYear =
-    movie && movie.releaseDate ? movie.releaseDate.substring(0, 4) : "";
-
   if (loading) {
-    return h(
-      "div",
-      { className: "recommend-state" },
-      "오늘의 추천작을 불러오는 중입니다.",
-    );
+    return <div className="recommend-state">오늘의 추천작을 불러오는 중입니다.</div>;
   }
 
   if (error || !movie) {
-    return h(
-      "div",
-      { className: "recommend-state" },
-      "추천 영화를 불러오지 못했습니다.",
-    );
+    return <div className="recommend-state">추천 영화를 찾지 못했습니다. 영화 상세 페이지에서 관심 영화를 등록해 보세요.</div>;
   }
 
-  return h(
-    "section",
-    { className: "recommend-banner" },
+  const releaseYear = movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : "";
 
-    movie.posterUrl
-      ? h("img", {
-          className: "recommend-poster",
-          src: movie.posterUrl,
-          alt: movie.title,
-        })
-      : h(
-          "div",
-          { className: "recommend-poster poster-placeholder" },
-          "포스터 준비 중",
-        ),
-
-    h("div", {
-      className: "recommend-overlay",
-    }),
-
-    h(
-      "div",
-      { className: "recommend-content" },
-
-      h("span", { className: "recommend-label" }, "오늘의 추천작"),
-
-      h("h2", { className: "recommend-title" }, movie.title),
-
-      h(
-        "p",
-        { className: "recommend-info" },
-        releaseYear ? `${releaseYear}년 개봉` : "개봉일 정보 없음",
-        " · ",
-        "박스오피스 1위",
-      ),
-
-      h(
-        "button",
-        {
-          className: "recommend-button",
-          type: "button",
-          onClick: () => {
-            if (!isValidMovieCode(movie.movieCode)) {
-              return;
+  return (
+    <section className="recommend-banner">
+      {movie.posterUrl ? (
+        <img className="recommend-poster" src={movie.posterUrl} alt={movie.title} />
+      ) : (
+        <div className="recommend-poster poster-placeholder">포스터 준비 중</div>
+      )}
+      <div className="recommend-overlay" />
+      <div className="recommend-content">
+        <span className="recommend-label">오늘의 추천작</span>
+        <h2 className="recommend-title">{movie.title}</h2>
+        <p className="recommend-info">
+          {releaseYear ? `${releaseYear}년 개봉` : "개봉일 정보 없음"}
+          {" · "}{recommendationType}
+        </p>
+        <button
+          className="recommend-button"
+          type="button"
+          onClick={() => {
+            if (isValidMovieCode(movie.movieCode)) {
+              navigate(`/movie/${encodeURIComponent(movie.movieCode)}`);
             }
-
-            navigate(`/movie/${encodeURIComponent(movie.movieCode)}`);
-          },
-        },
-        "영화 자세히 보기",
-      ),
-    ),
+          }}
+        >
+          영화 자세히 보기
+        </button>
+      </div>
+    </section>
   );
 }
 
