@@ -12,6 +12,7 @@ public record MovieDetailResponse(
         String genre,           // 장르
         String director,        // 감독
         List<String> actors,    // 출연 배우
-        String watchGrade       // 관람등급
+        String watchGrade,      // 관람등급
+        String overview         // 영화 줄거리
 ) {
 }
