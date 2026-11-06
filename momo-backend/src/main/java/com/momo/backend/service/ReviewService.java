@@ -42,9 +42,7 @@ public class ReviewService {
     private final CommentReactionRepository commentReactionRepository;
 
 
-    // =========================================================
     // 1. 전체 리뷰 목록 조회
-    // =========================================================
 
     @Transactional(readOnly = true)
     public Page<ReviewPageResponse> getAllReviews(int page) {
@@ -101,9 +99,7 @@ public class ReviewService {
     }
 
 
-    // =========================================================
     // 2. 개봉일에서 연도 추출
-    // =========================================================
 
     private Integer extractMovieYear(String releaseDate) {
 
@@ -121,9 +117,7 @@ public class ReviewService {
     }
 
 
-    // =========================================================
     // 3. 리뷰 작성
-    // =========================================================
 
     public ReviewResponse createReview(
             String loginId,
@@ -162,9 +156,7 @@ public class ReviewService {
     }
 
 
-    // =========================================================
     // 4. 리뷰 상세 조회
-    // =========================================================
 
     @Transactional(readOnly = true)
     public ReviewResponse getReview(Long reviewId) {
@@ -180,9 +172,7 @@ public class ReviewService {
     }
 
 
-    // =========================================================
     // 5. 영화별 리뷰 조회
-    // =========================================================
 
     @Transactional(readOnly = true)
     public Page<ReviewResponse> getMovieReviews(
@@ -200,9 +190,7 @@ public class ReviewService {
     }
 
 
-    // =========================================================
     // 6. 내가 작성한 리뷰 조회
-    // =========================================================
 
     @Transactional(readOnly = true)
     public Page<ReviewResponse> getMyReviews(
@@ -235,9 +223,7 @@ public class ReviewService {
     }
 
 
-    // =========================================================
     // 7. 리뷰 수정
-    // =========================================================
 
     public ReviewResponse updateReview(
             Long reviewId,
@@ -267,9 +253,7 @@ public class ReviewService {
     }
 
 
-    // =========================================================
     // 8. 리뷰 삭제
-    // =========================================================
 
     public void deleteReview(
             Long reviewId,
