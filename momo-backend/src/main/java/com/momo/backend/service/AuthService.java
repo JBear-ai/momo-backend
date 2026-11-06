@@ -62,7 +62,9 @@ public class AuthService {
     // 로그인 및 회원 정보 조회
 
     public User login(String loginId, String password) {
-        User user = getLoginUser(loginId);
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
