@@ -32,6 +32,20 @@ public class Movie {
 
     private String watchGrade;
 
+    // 박스오피스 진입 이력. 일별 박스오피스 수집 시 누적 갱신한다.
+    @Column(name = "box_office_entered", nullable = false)
+    private boolean boxOfficeEntered = false;
+
+    // 확인된 박스오피스 최고 순위와 가장 최근 진입일
+    @Column(name = "best_box_office_rank")
+    private Integer bestBoxOfficeRank;
+
+    @Column(name = "last_box_office_date", length = 8)
+    private String lastBoxOfficeDate;
+
+    @Column(name = "last_box_office_rank")
+    private Integer lastBoxOfficeRank;
+
     // 외부 API 상세정보 보완 상태
     private boolean supplementVerified;
 
@@ -47,6 +61,20 @@ public class Movie {
     // 포스터 정보
     @Column(length = 1000)
     private String posterUrl;
+
+    public void markBoxOfficeEntered(int rank, String targetDate) {
+        if (rank > 0 && (bestBoxOfficeRank == null || rank < bestBoxOfficeRank)) {
+            bestBoxOfficeRank = rank;
+        }
+
+        if (targetDate != null && targetDate.matches("\\d{8}")
+                && (lastBoxOfficeDate == null || targetDate.compareTo(lastBoxOfficeDate) >= 0)) {
+            lastBoxOfficeDate = targetDate;
+            lastBoxOfficeRank = rank;
+        }
+
+        boxOfficeEntered = true;
+    }
 
     public void updatePosterUrl(String posterUrl) {
         this.posterUrl = posterUrl;

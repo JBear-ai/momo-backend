@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/movies")
@@ -24,6 +25,13 @@ public class MovieController {
 
         private final ReviewService reviewService;
         private final MovieService movieService;
+
+        @GetMapping("/recommendations")
+        public ResponseEntity<List<Map<String, Object>>> getBoxOfficeRecommendations(
+                        @RequestParam(required = false) String genre) {
+                return ResponseEntity.ok(
+                                movieService.getBoxOfficeRecommendations(genre));
+        }
 
         @GetMapping("/search")
         public ResponseEntity<MovieSearchPageResponse> searchMovies(
