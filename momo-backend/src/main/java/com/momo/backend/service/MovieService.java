@@ -1094,9 +1094,9 @@ public class MovieService {
                         );
 
         return candidates.stream()
-                // 홈의 박스오피스 1위 카드와 추천작이 중복되지 않도록 최고 순위 1위 영화는 제외한다.
-                .filter(movie -> movie.getBestBoxOfficeRank() != null
-                        && movie.getBestBoxOfficeRank() >= 2)
+                // 홈에 표시되는 최신 박스오피스 1위 영화와 추천작이 중복되지 않도록 제외한다.
+                .filter(movie -> movie.getLastBoxOfficeRank() != null
+                        && movie.getLastBoxOfficeRank() >= 2)
                 .filter(movie -> movie.getMovieCode() != null
                         && movie.getMovieCode().matches("\\d{8}"))
                 .filter(movie -> !isBlank(movie.getTitle()))
