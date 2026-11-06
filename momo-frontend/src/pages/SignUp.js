@@ -107,9 +107,6 @@ function SignUp() {
         inputNickname.trim(),
         inputEmail.trim(),
       );
-
-      console.log(response.data);
-
       // 백엔드에서 HTTP 201을 반환하면 회원가입 성공
       if (response.status === 201) {
         alert(`${inputNickname}님, 회원가입이 완료되었습니다.`);
