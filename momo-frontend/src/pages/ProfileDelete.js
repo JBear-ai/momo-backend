@@ -8,39 +8,8 @@ function ProfileDelete() {
   const [password, setPassword] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  // const handleDelete = () => { 기존 부분 주석 처리
-  //   if (!password.trim()) {
-  //     alert("비밀번호를 입력해 주세요.");
-  //     return;
-  //   }
-
-  //   // 로컬스토리지에 저장된 비밀번호 확인 (기본값 "1234" 또는 실제 저장된 비번)
-  //   const savedPassword = localStorage.getItem("password") || "1234";
-
-  //   if (password !== savedPassword) {
-  //     alert("비밀번호가 일치하지 않습니다.");
-  //     return;
-  //   }
-
-  //   if (!isConfirmed) {
-  //     alert("회원 탈퇴 안내를 확인해 주세요.");
-  //     return;
-  //   }
-
-  //   // 비밀번호가 일치하고 체크박스도 체크된 경우
-  //   const confirmed = window.confirm("정말 회원 탈퇴하시겠습니까?");
-  //   if (!confirmed) {
-  //     return;
-  //   }
-
-  //   // 실제 백엔드 연동 시 탈퇴 API 호출 및 로컬스토리지 초기화 등 처리
-  //   // localStorage.clear();
-
-  //   alert("회원 탈퇴 API가 아직 연결되지 않았습니다.");
-  // };
-
   const handleDelete = async () => {
-    // 회원 탈퇴 처리 / 11.02
+    // 회원 탈퇴 처리
     // 비밀번호 입력 확인
     if (!password.trim()) {
       alert("비밀번호를 입력해 주세요.");
@@ -99,7 +68,7 @@ function ProfileDelete() {
             계정을 삭제하려면 본인 확인을 위해 현재 비밀번호를 입력해 주세요.
           </p>
 
-          {/* 비밀번호 확인 입력 필드 추가 */}
+          {/* 현재 비밀번호 확인 */}
           <div style={{ margin: "20px 0" }}>
             <label
               htmlFor="delete-password"
