@@ -43,6 +43,9 @@ public class Movie {
     @Column(name = "last_box_office_date", length = 8)
     private String lastBoxOfficeDate;
 
+    @Column(name = "last_box_office_rank")
+    private Integer lastBoxOfficeRank;
+
     // 외부 API 상세정보 보완 상태
     private boolean supplementVerified;
 
@@ -65,8 +68,9 @@ public class Movie {
         }
 
         if (targetDate != null && targetDate.matches("\\d{8}")
-                && (lastBoxOfficeDate == null || targetDate.compareTo(lastBoxOfficeDate) > 0)) {
+                && (lastBoxOfficeDate == null || targetDate.compareTo(lastBoxOfficeDate) >= 0)) {
             lastBoxOfficeDate = targetDate;
+            lastBoxOfficeRank = rank;
         }
 
         boxOfficeEntered = true;
