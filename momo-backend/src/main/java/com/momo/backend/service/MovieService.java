@@ -1093,7 +1093,16 @@ public class MovieService {
                                 normalizedGenre
                         );
 
+        // 개봉일 기준 최소 3개월이 지난 영화만 추천한다.
+        String minimumReleaseDate = LocalDate.now()
+                .minusMonths(3)
+                .format(DateTimeFormatter.BASIC_ISO_DATE);
+
         return candidates.stream()
+                // 개봉일이 기준일보다 최근인 영화는 추천 후보에서 제외한다.
+                .filter(movie -> movie.getReleaseDate() != null
+                        && movie.getReleaseDate().matches("\\d{8}")
+                        && movie.getReleaseDate().compareTo(minimumReleaseDate) <= 0)
                 // 홈에 표시되는 최신 박스오피스 1위 영화와 추천작이 중복되지 않도록 제외한다.
                 .filter(movie -> movie.getLastBoxOfficeRank() != null
                         && movie.getLastBoxOfficeRank() >= 2)
