@@ -4,8 +4,8 @@ import "../../App.css";
 import AxiosApi from "../../api/AxiosApi";
 import { getFavoriteMovies } from "../../utils/favorites";
 
-const isValidMovieCode = (movieCode) => /^\\d{8}$/.test(String(movieCode || ""));
-const isValidReleaseDate = (releaseDate) => /^\\d{8}$/.test(String(releaseDate || ""));
+const isValidMovieCode = (movieCode) => /^\d{8}$/.test(String(movieCode || ""));
+const isValidReleaseDate = (releaseDate) => /^\d{8}$/.test(String(releaseDate || ""));
 
 function TodayRecommend() {
   const [movie, setMovie] = useState(null);
