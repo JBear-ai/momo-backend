@@ -1,4 +1,3 @@
-
 package com.momo.backend.controller;
 
 import com.momo.backend.dto.movie.MoviePosterResponse;
@@ -21,35 +20,23 @@ public class MoviePosterController {
     private final MovieService movieService;
     private final MoviePosterCacheService posterCacheService;
 
-    // =========================================================
-    // 1. 영화 코드로 포스터 조회
-    // =========================================================
-
-    @GetMapping("/{movieCode}/poster")
+    @GetMapping("/{movieCode:[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]}/poster")
     public ResponseEntity<MoviePosterResponse> getMoviePoster(
-            @PathVariable String movieCode
-    ) {
+            @PathVariable String movieCode) {
 
         return ResponseEntity.ok(
-                movieService.getMoviePoster(movieCode)
-        );
+                movieService.getMoviePoster(movieCode));
     }
-
-    // =========================================================
-    // 2. 여러 영화의 포스터 상태 일괄 조회
-    // =========================================================
 
     @PostMapping("/posters/status")
     public ResponseEntity<List<MoviePosterStatusResponse>> getPosterStatuses(
-            @RequestBody List<String> movieCodes
-    ) {
+            @RequestBody List<String> movieCodes) {
 
         if (movieCodes == null || movieCodes.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
-        List<MoviePosterStatusResponse> responses =
-                posterCacheService.findPosterStatuses(movieCodes);
+        List<MoviePosterStatusResponse> responses = posterCacheService.findPosterStatuses(movieCodes);
 
         return ResponseEntity.ok(responses);
     }
