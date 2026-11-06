@@ -1,0 +1,69 @@
+name: Gemini Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install google-genai requests
+
+      - name: Run Gemini Review Script
+        env:
+          GEMINI_API_KEY: ${{ secrets.제미나이 스튜디오 깃헙 }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          python -c "
+          import os, requests
+          from google import genai
+
+          token = os.environ['GITHUB_TOKEN']
+          repo = os.environ['REPO']
+          pr_number = os.environ['PR_NUMBER']
+
+          # 1. GitHub API로 PR의 Diff(변경 내용) 가져오기
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github.v3.diff'
+          }
+          diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_number}'
+          diff_res = requests.get(diff_url, headers=headers)
+          code_diff = diff_res.text
+
+          if not code_diff.strip():
+              print('변경되거나 리뷰할 코드가 없습니다.')
+              exit(0)
+
+          # 2. Gemini 클라이언트 초기화
+          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
+
+          # 3. Gemini에게 코드 리뷰 요청 (gemini-2.5-flash 모델 사용)
+          prompt = f'''
+          다음은 Git Pull Request의 변경된 코드(Diff)입니다. 이 코드를 검토하고 버그, 보안 취약점, 개선할 점을 간략하고 명확하게 한국어로 리뷰해 주세요.
+
+          {code_diff}
+          '''
+
+          response = client.models.generate_content(
+              model='gemini-2.5-flash',
+              contents=prompt
+          )
+
+          review_comment = response.text
+
+          # 4. 리뷰 결과를 GitHub PR에 댓글로 등록
+          comment_url = f'https://api.github.com/repos/{repo}/issues/{pr_number}/comments'
+          comment_headers =
