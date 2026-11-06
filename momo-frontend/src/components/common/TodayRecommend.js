@@ -135,7 +135,7 @@ function TodayRecommend() {
               if (active) {
                 setMovie(selected);
                 setRecommendationType(
-                  `${seedLabel}의 ${genre} 장르 · ${getBoxOfficeHistoryLabel(selected)}`,
+                  `개봉 3개월 이상 경과 · ${seedLabel}의 ${genre} 장르 · ${getBoxOfficeHistoryLabel(selected)}`,
                 );
               }
               return;
@@ -161,8 +161,8 @@ function TodayRecommend() {
           setMovie(fallback);
           setRecommendationType(
             genre
-              ? `${seedLabel}의 장르 후보 부족 · ${getBoxOfficeHistoryLabel(fallback)}`
-              : getBoxOfficeHistoryLabel(fallback),
+              ? `개봉 3개월 이상 경과 · ${seedLabel}의 장르 후보 부족 · ${getBoxOfficeHistoryLabel(fallback)}`
+              : `개봉 3개월 이상 경과 · ${getBoxOfficeHistoryLabel(fallback)}`,
           );
         }
       } catch (requestError) {
@@ -197,7 +197,7 @@ function TodayRecommend() {
   if (!movie) {
     return (
       <div className="recommend-state">
-        박스오피스 진입 이력이 확인된 영화 중 추천 조건을 충족하는 작품이 없습니다.
+        개봉 후 3개월이 지났고 박스오피스 진입 이력이 확인된 영화 중 추천 조건을 충족하는 작품이 없습니다.
       </div>
     );
   }
