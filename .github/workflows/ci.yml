@@ -1,0 +1,45 @@
+name: MOMO Build and Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, feature/recommend-catalog-3month]
+
+jobs:
+  backend:
+    name: Backend Gradle Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: momo-backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Run backend tests
+        run: ./gradlew test
+
+  frontend:
+    name: Frontend Production Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: momo-frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: momo-frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
