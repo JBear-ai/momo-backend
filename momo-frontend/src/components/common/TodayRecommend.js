@@ -98,7 +98,6 @@ function TodayRecommend() {
 
         // 가장 최근 좋아요 영화를 취향 분석 기준으로 사용한다.
         const seedMovie = likedMovies[0] || favorites[favorites.length - 1];
-        const seedLabel = likedMovies.length > 0 ? "좋아요한 영화" : "관심 영화";
         let preferredGenre = seedMovie?.genre || "";
 
         if (!preferredGenre && isValidMovieCode(seedMovie?.movieCode)) {
