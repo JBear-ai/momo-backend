@@ -7,11 +7,13 @@ import com.google.firebase.FirebaseOptions;
 import jakarta.annotation.PostConstruct;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 
 @Configuration
+@Profile("!test")
 public class FirebaseConfig {
 
     @PostConstruct
