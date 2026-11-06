@@ -1,4 +1,3 @@
-
 package com.momo.backend.controller;
 
 import com.momo.backend.service.ReviewReactionService;
@@ -10,11 +9,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.HashMap;
 
-
 @RestController
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
-//@CrossOrigin(origins = "http://localhost:3000")
 @Slf4j
 public class ReviewReactionController {
 
