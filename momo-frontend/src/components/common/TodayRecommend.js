@@ -71,6 +71,7 @@ function TodayRecommend() {
 
         // 좋아요한 영화의 장르를 우선 분석하고, 없으면 관심 영화의 장르를 사용한다.
         const seedMovie = likedMovies[0] || favorites[favorites.length - 1];
+        const seedLabel = likedMovies.length > 0 ? "좋아요한 영화" : "관심 영화";
         let preferredGenre = seedMovie?.genre || "";
 
         if (!preferredGenre && isValidMovieCode(seedMovie?.movieCode)) {
@@ -96,7 +97,7 @@ function TodayRecommend() {
           if (selected) {
             if (active) {
               setMovie(selected);
-              setRecommendationType(`좋아요한 영화의 ${genre} 장르 기반`);
+              setRecommendationType(`${seedLabel}의 ${genre} 장르 기반`);
             }
             return;
           }
