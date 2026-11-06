@@ -456,6 +456,8 @@ public class MovieService {
 
             // 상세정보가 이미 충분하면 외부 API 호출 없음
             if (!hasMissingDetails(savedMovie)) {
+                supplementOverview(savedMovie);
+                movieRepository.save(savedMovie);
                 return toDetailResponse(savedMovie);
             }
 
@@ -471,6 +473,7 @@ public class MovieService {
                 }
             }
             supplementMissingDetails(savedMovie);
+            supplementOverview(savedMovie);
 
             movieRepository.save(savedMovie);
 
@@ -482,6 +485,7 @@ public class MovieService {
         Movie newMovie = fetchMovieDetailFromKobis(movieCode);
         newMovie.markKobisDetailAttempted(LocalDateTime.now());
         supplementMissingDetails(newMovie);
+        supplementOverview(newMovie);
 
         movieRepository.save(newMovie);
 
@@ -678,6 +682,22 @@ public class MovieService {
         }
     }
 
+    // 줄거리는 기본 상세정보의 누락 여부와 별도로 조회한다.
+    // DB에 저장하고 7일간 재시도하지 않아 외부 API 중복 호출을 막는다.
+    private void supplementOverview(Movie movie) {
+        if (!isBlank(movie.getOverview())
+                || !movie.canAttemptOverview(LocalDateTime.now())) {
+            return;
+        }
+
+        movie.markOverviewAttempted(LocalDateTime.now());
+        tmdbService.findMovieOverview(
+                        movie.getTitle(),
+                        movie.getReleaseDate()
+                )
+                .ifPresent(movie::updateOverview);
+    }
+
     private void applySupplement(
             Movie movie,
             MovieSupplement candidate
@@ -725,7 +745,8 @@ public class MovieService {
                 movie.getGenre(),
                 movie.getDirector(),
                 actors,
-                movie.getWatchGrade()
+                movie.getWatchGrade(),
+                movie.getOverview()
         );
     }
 
