@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Run backend tests
-        run: ./gradlew test
+        run: bash ./gradlew test
 
   frontend:
     name: Frontend Production Build
@@ -39,6 +39,8 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: momo-frontend/package-lock.json
+      - name: Synchronize lock file
+        run: npm install --package-lock-only --no-audit --no-fund
       - name: Install dependencies
         run: npm ci
       - name: Build frontend
