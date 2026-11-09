@@ -70,139 +70,126 @@ function ReviewDetail() {
 
   // 로딩 화면
   if (loading) {
-    return (
-      React.createElement(
-  "div",
-  {"className":"review-detail-page"},
-  React.createElement(
+    return React.createElement(
       "div",
-      {"className":"review-detail-state"},
-      "리뷰를 불러오는 중입니다."
-    )
-)
+      { className: "review-detail-page" },
+      React.createElement(
+        "div",
+        { className: "review-detail-state" },
+        "리뷰를 불러오는 중입니다.",
+      ),
     );
   }
 
   // 오류 화면
   if (error || !review) {
-    return (
-      React.createElement(
-  "div",
-  {"className":"review-detail-page"},
-  React.createElement(
-      "button",
-      {"type":"button","className":"review-detail-back","onClick":() => navigate("/reviews")},
-      "← 전체 리뷰로 돌아가기"
-    ),
-  React.createElement(
+    return React.createElement(
       "div",
-      {"className":"review-detail-state review-detail-error"},
-      (error || "리뷰 정보를 찾을 수 없습니다.")
-    )
-)
+      { className: "review-detail-page" },
+      React.createElement(
+        "button",
+        {
+          type: "button",
+          className: "review-detail-back",
+          onClick: () => navigate("/reviews"),
+        },
+        "← 전체 리뷰로 돌아가기",
+      ),
+      React.createElement(
+        "div",
+        { className: "review-detail-state review-detail-error" },
+        error || "리뷰 정보를 찾을 수 없습니다.",
+      ),
     );
   }
 
-  return (
+  return React.createElement(
+    "div",
+    { className: "review-detail-page" },
     React.createElement(
-  "div",
-  {"className":"review-detail-page"},
-  React.createElement(
       Link,
-      {"to":"/reviews","className":"review-detail-back"},
-      "← 전체 리뷰"
+      { to: "/reviews", className: "review-detail-back" },
+      "← 전체 리뷰",
     ),
-  React.createElement(
+    React.createElement(
       "article",
-      {"className":"review-detail-card"},
+      { className: "review-detail-card" },
       React.createElement(
-            "p",
-            {"className":"review-detail-eyebrow"},
-            "MOMO COMMUNITY REVIEW"
+        "p",
+        { className: "review-detail-eyebrow" },
+        "MOMO COMMUNITY REVIEW",
+      ),
+      React.createElement(
+        "h1",
+        { className: "review-detail-title" },
+        review.title,
+      ),
+      React.createElement(
+        "div",
+        { className: "review-detail-meta" },
+        React.createElement(
+          "span",
+          null,
+          "작성자 ",
+          React.createElement("strong", null, review.nickname || "익명"),
+        ),
+        React.createElement(
+          "span",
+          null,
+          "작성일 ",
+          formatDate(review.createdAt),
+        ),
+      ),
+      React.createElement(
+        "section",
+        { className: "review-detail-movie" },
+        React.createElement(
+          "div",
+          { className: "review-detail-movie-info" },
+          React.createElement(
+            "span",
+            { className: "review-detail-movie-label" },
+            "REVIEW MOVIE",
           ),
-      React.createElement(
-            "h1",
-            {"className":"review-detail-title"},
-            (review.title)
-          ),
-      React.createElement(
-            "div",
-            {"className":"review-detail-meta"},
-            React.createElement(
-                    "span",
-                    null,
-                    "작성자 ",
-                    React.createElement(
-                              "strong",
-                              null,
-                              (review.nickname || "익명")
-                            )
-                  ),
-            React.createElement(
-                    "span",
-                    null,
-                    "작성일 ",
-                    (formatDate(review.createdAt))
-                  )
-          ),
-      React.createElement(
-            "section",
-            {"className":"review-detail-movie"},
-            React.createElement(
-                    "div",
-                    {"className":"review-detail-movie-info"},
-                    React.createElement(
-                              "span",
-                              {"className":"review-detail-movie-label"},
-                              "REVIEW MOVIE"
-                            ),
-                    React.createElement(
-                              "strong",
-                              null,
-                              "영화 코드: ",
-                              (review.movieCode || "-")
-                            )
-                  ),
-            React.createElement(
-                    "span",
-                    {"className":"review-detail-movie-code"},
-                    "REVIEW #",
-                    (review.reviewId)
-                  )
-          ),
-      React.createElement(
-            "div",
-            {"className":`review-detail-reaction ${
-                        review.liked ? "like" : "dislike"
-                      }`},
-            (review.liked ? "좋아요" : "싫어요")
-          ),
-      React.createElement(
-            "section",
+          React.createElement(
+            "strong",
             null,
-            React.createElement(
-                    "p",
-                    {"className":"review-detail-eyebrow"},
-                    "REVIEW CONTENT"
-                  ),
-            React.createElement(
-                    "div",
-                    {"className":"review-detail-content"},
-                    (review.content)
-                  )
+            "영화 코드: ",
+            review.movieCode || "-",
           ),
-      (review.updatedAt &&
-                new Date(review.updatedAt).getTime() >
-                  new Date(review.createdAt).getTime() && (
-                  React.createElement(
-            "p",
-            {"className":"review-detail-updated"},
-            "최종 수정일: ",
-            (formatDate(review.updatedAt))
-          )
-                ))
-    )
-)
+        ),
+        React.createElement(
+          "span",
+          { className: "review-detail-movie-code" },
+          "REVIEW #",
+          review.reviewId,
+        ),
+      ),
+
+      React.createElement(
+        "section",
+        null,
+        React.createElement(
+          "p",
+          { className: "review-detail-eyebrow" },
+          "REVIEW CONTENT",
+        ),
+        React.createElement(
+          "div",
+          { className: "review-detail-content" },
+          review.content,
+        ),
+      ),
+      review.updatedAt &&
+        new Date(review.updatedAt).getTime() >
+          new Date(review.createdAt).getTime() &&
+        React.createElement(
+          "p",
+          { className: "review-detail-updated" },
+          "최종 수정일: ",
+          formatDate(review.updatedAt),
+        ),
+    ),
   );
 }
 
