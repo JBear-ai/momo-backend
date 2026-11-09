@@ -55,10 +55,10 @@ public class MoviePosterAsyncService {
 
         } catch (Exception e) {
 
-            posterCacheService.markAsFailed(movieCode);
-
+            // 외부 API 또는 일시적인 처리 오류는 검색 결과 없음과 다르다.
+            // PROCESSING 상태를 유지하면 캐시의 10분 timeout 이후 다시 검색할 수 있다.
             log.error(
-                    "포스터 검색 실패: {}",
+                    "포스터 검색 중 일시적인 오류 발생. 잠시 후 재시도합니다: {}",
                     movieCode,
                     e
             );

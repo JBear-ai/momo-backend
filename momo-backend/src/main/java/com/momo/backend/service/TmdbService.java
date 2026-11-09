@@ -29,105 +29,142 @@ public class TmdbService {
             "https://image.tmdb.org/t/p/w500";
 
     // 1. 영화 상세정보 보완
-    // KMDb에서 누락된 정보가 있을 때 TMDb에서 추가로 조회한다.
+    // KMDb 보완 후에도 누락된 영화 정보를 TMDb에서 조회
+
     public Optional<MovieSupplement> findMovieSupplement(
             String title, String titleEn, String releaseDate, String kobisDirector) {
 
-        if ((title == null || title.isBlank())
-                && (titleEn == null || titleEn.isBlank())) {
+        if (title == null || title.isBlank()) {
             return Optional.empty();
         }
 
-        for (String searchTitle : searchTitles(title, titleEn)) {
-            try {
-                String json = tmdbApiClient.searchMovie(searchTitle);
-                if (json == null || json.isBlank()) {
-                    continue;
-                }
+        try {
+            String json = tmdbApiClient.searchMovie(title);
 
-                JsonNode results = objectMapper.readTree(json).path("results");
-                if (!results.isArray()) {
-                    continue;
-                }
-
-                for (JsonNode result : results) {
-                    String candidateTitle = getText(result, "title");
-                    String candidateTitleEn = getText(result, "original_title");
-
-                    if (!matchesTitle(title, titleEn, candidateTitle, candidateTitleEn)) {
-                        continue;
-                    }
-
-                    long movieId = result.path("id").asLong(0);
-                    if (movieId <= 0) {
-                        continue;
-                    }
-
-                    String detailJson = tmdbApiClient.getMovieDetail(movieId);
-                    if (detailJson == null || detailJson.isBlank()) {
-                        continue;
-                    }
-
-                    JsonNode detail = objectMapper.readTree(detailJson);
-                    String director = "";
-                    List<String> actors = new ArrayList<>();
-
-                    for (JsonNode crew : detail.path("credits").path("crew")) {
-                        if ("Director".equalsIgnoreCase(getText(crew, "job"))) {
-                            director = getText(crew, "name");
-                            break;
-                        }
-                    }
-
-                    for (JsonNode cast : detail.path("credits").path("cast")) {
-                        String name = getText(cast, "name");
-                        if (!name.isBlank()) {
-                            actors.add(name);
-                        }
-                        if (actors.size() >= 10) {
-                            break;
-                        }
-                    }
-
-                    String koreanReleaseDate = selectKoreanTheatricalReleaseDate(
-                            detail.path("release_dates"));
-                    String candidateDate = getText(result, "release_date");
-
-                    // 국내 개봉일이 있으면 해외 최초 개봉일보다 국내 개봉일을 우선 검증한다.
-                    String verificationDate = firstNonBlank(
-                            koreanReleaseDate, candidateDate);
-
-                    if (!MovieMatchVerifier.isSameMovie(
-                            title, titleEn, releaseDate, kobisDirector,
-                            candidateTitle, candidateTitleEn,
-                            verificationDate, director)) {
-                        continue;
-                    }
-
-                    String genre = StreamSupport.stream(
-                                    detail.path("genres").spliterator(), false)
-                            .map(node -> getText(node, "name"))
-                            .filter(name -> !name.isBlank())
-                            .reduce((a, b) -> a + "," + b)
-                            .orElse("");
-
-                    return Optional.of(new MovieSupplement(
-                            candidateTitleEn,
-                            koreanReleaseDate,
-                            detail.path("runtime").asInt(0) > 0
-                                    ? detail.path("runtime").asText()
-                                    : "",
-                            genre,
-                            director,
-                            actors,
-                            "",
-                            "TMDb"
-                    ));
-                }
-            } catch (Exception e) {
-                // 한글 제목 검색이 실패해도 영문 제목 검색은 계속 진행한다.
-                log.warn("TMDb 상세정보 검색 실패 - 검색어: {}", searchTitle, e);
+            if (json == null || json.isBlank()) {
+                log.warn("TMDb 상세정보 검색 응답이 비어 있습니다. 제목: {}", title);
+                return Optional.empty();
             }
+
+            JsonNode results = objectMapper.readTree(json).path("results");
+
+            if (!results.isArray() || results.isEmpty()) {
+                return Optional.empty();
+            }
+
+            for (JsonNode result : results) {
+
+                String candidateTitle = getText(result, "title");
+                String candidateTitleEn = getText(result, "original_title");
+                String candidateDate = getText(result, "release_date");
+
+                // 검색된 영화의 제목과 원제를 KOBIS 정보와 비교
+                String requestedTitle = normalizeTitle(title);
+                String requestedTitleEn = normalizeTitle(titleEn);
+
+                if (!requestedTitle.equals(normalizeTitle(candidateTitle))
+                        && !requestedTitle.equals(normalizeTitle(candidateTitleEn))
+                        && (requestedTitleEn.isBlank()
+                        || (!requestedTitleEn.equals(normalizeTitle(candidateTitle))
+                        && !requestedTitleEn.equals(normalizeTitle(candidateTitleEn))))) {
+                    continue;
+                }
+
+                long movieId = result.path("id").asLong(0);
+
+                if (movieId == 0) {
+                    continue;
+                }
+
+                // 영화 ID로 상세정보 조회
+                String detailJson = tmdbApiClient.getMovieDetail(movieId);
+
+                if (detailJson == null || detailJson.isBlank()) {
+                    continue;
+                }
+
+                JsonNode detail = objectMapper.readTree(detailJson);
+
+                String director = "";
+                List<String> actors = new ArrayList<>();
+
+                // 감독 정보 추출
+                for (JsonNode crew : detail.path("credits").path("crew")) {
+
+                    if ("Director".equals(getText(crew, "job"))) {
+                        director = getText(crew, "name");
+                        break;
+                    }
+                }
+
+                // 배우 최대 10명 추출
+                for (JsonNode cast : detail.path("credits").path("cast")) {
+
+                    String name = getText(cast, "name");
+
+                    if (!name.isBlank()) {
+                        actors.add(name);
+                    }
+
+                    if (actors.size() >= 10) {
+                        break;
+                    }
+                }
+
+                // 한국 극장 개봉일 추출
+                String koreanReleaseDate = selectKoreanTheatricalReleaseDate(
+                        detail.path("release_dates"));
+
+                log.info(
+                        "TMDb 개봉일 확인 - 영화: {}, 한국 개봉일: [{}]",
+                        candidateTitle,
+                        koreanReleaseDate
+                );
+
+                // KOBIS 개봉일이 있으면 검색 결과 개봉일을 우선 검증에 사용
+                String verificationDate =
+                        releaseDate == null || releaseDate.isBlank()
+                                ? koreanReleaseDate
+                                : candidateDate;
+
+                // 동일 영화인지 최종 검증
+                if (!MovieMatchVerifier.isSameMovie(
+                        title,
+                        titleEn,
+                        releaseDate,
+                        kobisDirector,
+                        candidateTitle,
+                        candidateTitleEn,
+                        verificationDate,
+                        director)) {
+                    continue;
+                }
+
+                // 장르 추출
+                String genre = StreamSupport.stream(
+                                detail.path("genres").spliterator(), false)
+                        .map(node -> getText(node, "name"))
+                        .filter(name -> !name.isBlank())
+                        .reduce((a, b) -> a + "," + b)
+                        .orElse("");
+
+                // 검증된 영화의 보완 정보를 DTO로 반환
+                return Optional.of(new MovieSupplement(
+                        candidateTitleEn,
+                        koreanReleaseDate,
+                        detail.path("runtime").asInt(0) > 0
+                                ? detail.path("runtime").asText()
+                                : "",
+                        genre,
+                        director,
+                        actors,
+                        "",
+                        "TMDb"
+                ));
+            }
+
+        } catch (Exception e) {
+            log.warn("TMDb 상세정보 보완 실패 - 제목: {}", title, e);
         }
 
         return Optional.empty();
@@ -196,109 +233,137 @@ public class TmdbService {
 
     // 3. 영화 포스터 검색
 
-    // 기존 호출부 호환을 위해 기존 메서드명과 매개변수를 유지한다.
-    public String findMoviePosterUrl(String title, String releaseDate) {
-        return findMoviePosterUrl(title, "", releaseDate, "");
-    }
-
-    // 한글 제목, 영문 제목, 개봉일, 감독을 함께 사용해 포스터 후보를 검증한다.
     public String findMoviePosterUrl(
             String title,
-            String titleEn,
-            String releaseDate,
-            String kobisDirector) {
+            String releaseDate) {
 
-        if ((title == null || title.isBlank())
-                && (titleEn == null || titleEn.isBlank())) {
+        if (title == null || title.isBlank()) {
+            log.warn("TMDb 검색 실패 - 영화 제목이 비어 있습니다.");
             return null;
         }
 
-        String kobisYear = releaseYear(releaseDate);
+        try {
 
-        for (String searchTitle : searchTitles(title, titleEn)) {
-            try {
-                String json = tmdbApiClient.searchMovie(searchTitle);
-                if (json == null || json.isBlank()) {
+            String normalizedTitle = normalizeTitle(title);
+            String normalizedDate = normalizeDate(releaseDate);
+
+            log.info(
+                    "TMDb API 요청 - 원본 제목: {}, 정규화 제목: {}, 개봉일: {}",
+                    title, normalizedTitle, normalizedDate
+            );
+
+            String json = tmdbApiClient.searchMovie(title);
+
+            if (json == null || json.isBlank()) {
+                log.warn("TMDb API 응답이 비어 있습니다. 제목: {}", title);
+                return null;
+            }
+
+            JsonNode results = objectMapper.readTree(json)
+                    .path("results");
+
+            if (!results.isArray() || results.isEmpty()) {
+                log.warn(
+                        "TMDb 검색 결과 없음 - 제목: {}, results: {}",
+                        title, results
+                );
+                return null;
+            }
+
+            log.info(
+                    "TMDb 검색 후보 개수: {}",
+                    results.size()
+            );
+
+            String fallbackPosterUrl = null;
+
+            for (JsonNode result : results) {
+
+                String rawTitle = getText(result, "title");
+                String rawOriginalTitle = getText(result, "original_title");
+                String rawDate = getText(result, "release_date");
+                String rawPosterPath = getText(result, "poster_path");
+
+                String tmdbTitle = normalizeTitle(rawTitle);
+                String originalTitle = normalizeTitle(rawOriginalTitle);
+
+                log.info(
+                        "TMDb 후보 - 제목: [{}], 원제: [{}], 개봉일: [{}], 포스터 경로: [{}]",
+                        rawTitle,
+                        rawOriginalTitle,
+                        rawDate,
+                        rawPosterPath
+                );
+
+                // 제목이 일치하지 않으면 제외
+                if (!normalizedTitle.equals(tmdbTitle)
+                        && !normalizedTitle.equals(originalTitle)) {
+
+                    log.info(
+                            "TMDb 제목 불일치 - 요청: [{}], 검색 제목: [{}], 원제: [{}]",
+                            normalizedTitle, tmdbTitle, originalTitle
+                    );
+
                     continue;
                 }
 
-                JsonNode results = objectMapper.readTree(json).path("results");
-                if (!results.isArray()) {
+                String posterUrl = extractPoster(result);
+
+                if (posterUrl == null) {
+                    log.info(
+                            "TMDb 제목 일치했으나 포스터 경로 없음 - 제목: {}",
+                            rawTitle
+                    );
                     continue;
                 }
 
-                for (JsonNode result : results) {
-                    String candidateTitle = getText(result, "title");
-                    String candidateOriginalTitle = getText(result, "original_title");
+                String tmdbReleaseDate = normalizeDate(rawDate);
 
-                    if (!matchesTitle(title, titleEn, candidateTitle, candidateOriginalTitle)) {
-                        continue;
-                    }
+                // 제목과 개봉일이 모두 일치하면 우선 반환
+                if (!normalizedDate.isBlank()
+                        && normalizedDate.equals(tmdbReleaseDate)) {
 
-                    String posterUrl = extractPoster(result);
-                    if (posterUrl == null) {
-                        continue;
-                    }
+                    log.info(
+                            "TMDb 영화 포스터 정확 매칭 성공 - 제목: {}, 개봉일: {}",
+                            rawTitle, rawDate
+                    );
 
-                    String candidateDate = getText(result, "release_date");
-                    String verificationDate = candidateDate;
-                    String candidateDirector = "";
-                    String candidateYear = releaseYear(candidateDate);
-
-                    // 해외 개봉연도만 다르거나 개봉일이 없을 때 국내 개봉일과 감독을 추가 확인한다.
-                    boolean needDetail = kobisYear.isBlank()
-                            || candidateYear.isBlank()
-                            || !kobisYear.equals(candidateYear);
-
-                    if (needDetail) {
-                        long movieId = result.path("id").asLong(0);
-                        if (movieId > 0) {
-                            try {
-                                String detailJson = tmdbApiClient.getMovieDetail(movieId);
-                                if (detailJson != null && !detailJson.isBlank()) {
-                                    JsonNode detail = objectMapper.readTree(detailJson);
-                                    String koreanReleaseDate =
-                                            selectKoreanTheatricalReleaseDate(
-                                                    detail.path("release_dates"));
-                                    if (!koreanReleaseDate.isBlank()) {
-                                        verificationDate = koreanReleaseDate;
-                                    }
-
-                                    if (kobisYear.isBlank()) {
-                                        for (JsonNode crew : detail.path("credits").path("crew")) {
-                                            if ("Director".equalsIgnoreCase(getText(crew, "job"))) {
-                                                candidateDirector = getText(crew, "name");
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (Exception e) {
-                                log.debug("TMDb 추가 검증 정보 조회 실패 - ID: {}", movieId, e);
-                            }
-                        }
-                    }
-
-                    if (!MovieMatchVerifier.isSameMovie(
-                            title, titleEn, releaseDate, kobisDirector,
-                            candidateTitle, candidateOriginalTitle,
-                            verificationDate, candidateDirector)) {
-                        continue;
-                    }
-
-                    log.info("TMDb 영화 포스터 매칭 성공 - 검색어: {}, 제목: {}, 개봉일: {}",
-                            searchTitle, candidateTitle, verificationDate);
                     return posterUrl;
                 }
-            } catch (Exception e) {
-                // 한글 제목 검색이 실패해도 영문 제목 검색은 계속 진행한다.
-                log.warn("TMDb 포스터 검색 실패 - 검색어: {}", searchTitle, e);
-            }
-        }
 
-        log.warn("TMDb 포스터 검색 결과 없음 - 제목: {}, 영문 제목: {}, 개봉일: {}",
-                title, titleEn, releaseDate);
-        return null;
+                // 제목이 정확히 일치하는 포스터를 보조 후보로 저장
+                if (fallbackPosterUrl == null) {
+                    fallbackPosterUrl = posterUrl;
+                }
+            }
+
+            if (fallbackPosterUrl != null) {
+
+                log.info(
+                        "TMDb 영화 포스터 제목 매칭 성공 - 개봉일 차이 - 제목: {}",
+                        title
+                );
+
+                return fallbackPosterUrl;
+            }
+
+            log.warn(
+                    "TMDb 최종 검색 결과 없음 - 제목: {}, 개봉일: {}",
+                    title, releaseDate
+            );
+
+            return null;
+
+        } catch (Exception e) {
+
+            log.error(
+                    "TMDb 포스터 조회 중 예외 발생 - 제목: {}",
+                    title,
+                    e
+            );
+
+            return null;
+        }
     }
 
     // 4. 영화 줄거리 조회
@@ -431,56 +496,6 @@ public class TmdbService {
         }
     }
 
-    // 한글 제목과 영문 제목을 중복 없이 검색어로 사용
-    private List<String> searchTitles(String title, String titleEn) {
-        List<String> titles = new ArrayList<>();
-
-        if (title != null && !title.isBlank()) {
-            titles.add(title.trim());
-        }
-
-        if (titleEn != null && !titleEn.isBlank()
-                && titles.stream().noneMatch(value ->
-                normalizeTitle(value).equals(normalizeTitle(titleEn)))) {
-            titles.add(titleEn.trim());
-        }
-
-        return titles;
-    }
-
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return "";
-    }
-
-    private boolean matchesTitle(
-            String title,
-            String titleEn,
-            String candidateTitle,
-            String candidateOriginalTitle) {
-
-        String requestedTitle = normalizeTitle(title);
-        String requestedTitleEn = normalizeTitle(titleEn);
-        String foundTitle = normalizeTitle(candidateTitle);
-        String foundOriginalTitle = normalizeTitle(candidateOriginalTitle);
-
-        return (!requestedTitle.isBlank()
-                && (requestedTitle.equals(foundTitle)
-                || requestedTitle.equals(foundOriginalTitle)))
-                || (!requestedTitleEn.isBlank()
-                && (requestedTitleEn.equals(foundTitle)
-                || requestedTitleEn.equals(foundOriginalTitle)));
-    }
-
-    private String releaseYear(String date) {
-        String digits = normalizeDate(date);
-        return digits.length() >= 4 ? digits.substring(0, 4) : "";
-    }
-
     // 6. 공통 보조 메서드
 
     // TMDb 포스터 주소 생성
@@ -527,6 +542,6 @@ public class TmdbService {
         return title
                 .replaceAll("\\s+", "")
                 .replaceAll("[^\\p{L}\\p{N}]", "")
-                .toLowerCase(java.util.Locale.ROOT);
+                .toLowerCase();
     }
 }
