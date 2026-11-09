@@ -10,6 +10,7 @@ import com.momo.backend.entity.Review;
 import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
+import com.momo.backend.repository.MovieRatingRepository;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
@@ -33,6 +34,7 @@ public class AuthService {
     private final ReviewReactionRepository reviewReactionRepository;
     private final CommentReactionRepository commentReactionRepository;
     private final FirebaseStorageService firebaseStorageService;
+    private final MovieRatingRepository movieRatingRepository;
 
     // 회원가입
 
@@ -53,8 +55,7 @@ public class AuthService {
                 dto.getLoginId(),
                 passwordEncoder.encode(dto.getPassword()),
                 dto.getNickname(),
-                dto.getEmail()
-        );
+                dto.getEmail());
 
         return new UserResponse(userRepository.save(user));
     }
@@ -63,8 +64,7 @@ public class AuthService {
 
     public User login(String loginId, String password) {
         User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다."));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
@@ -76,8 +76,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public User getLoginUser(String loginId) {
         return userRepository.findByLoginId(loginId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
     }
 
     public boolean checkLoginIdExists(String loginId) {
@@ -94,8 +93,7 @@ public class AuthService {
             throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
         }
 
-        boolean changePassword =
-                (dto.currentPassword() != null && !dto.currentPassword().isEmpty())
+        boolean changePassword = (dto.currentPassword() != null && !dto.currentPassword().isEmpty())
                 || (dto.newPassword() != null && !dto.newPassword().isEmpty());
 
         if (changePassword) {
@@ -111,8 +109,7 @@ public class AuthService {
                 throw new IllegalArgumentException("새 비밀번호를 입력해 주세요.");
             }
 
-            String passwordPattern =
-                    "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*])[A-Za-z\\d!@#$%^&*]{8,20}$";
+            String passwordPattern = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*])[A-Za-z\\d!@#$%^&*]{8,20}$";
 
             if (!dto.newPassword().matches(passwordPattern)) {
                 throw new IllegalArgumentException(
@@ -132,13 +129,13 @@ public class AuthService {
     public long getMyLikeCount(String loginId) {
         User user = getLoginUser(loginId);
 
-        long reviewLikeCount =
-                reviewReactionRepository.countByUser_UserIdAndLiked(user.getUserId(), true);
-        long commentLikeCount =
-                commentReactionRepository.countByUser_UserIdAndLiked(user.getUserId(), true);
+        long reviewLikeCount = reviewReactionRepository.countByUser_UserIdAndLiked(user.getUserId(), true);
+        long commentLikeCount = commentReactionRepository.countByUser_UserIdAndLiked(user.getUserId(), true);
 
         return reviewLikeCount + commentLikeCount;
     }
+
+    // 회원 탈퇴
 
     // 회원 탈퇴
 
@@ -151,10 +148,12 @@ public class AuthService {
 
         Long userId = user.getUserId();
 
-        // 회원이 남긴 반응과 댓글부터 삭제
+        // 회원이 남긴 댓글 반응과 리뷰 반응 삭제
         commentReactionRepository.deleteByUser_UserId(userId);
         commentReactionRepository.deleteByComment_User_UserId(userId);
         reviewReactionRepository.deleteByUser_UserId(userId);
+
+        // 회원이 작성한 댓글 삭제
         commentRepository.deleteByUser_UserId(userId);
 
         // 회원이 작성한 리뷰에 연결된 댓글과 반응 삭제
@@ -168,7 +167,13 @@ public class AuthService {
             reviewReactionRepository.deleteByReview_ReviewId(reviewId);
         }
 
+        // 회원이 작성한 리뷰 삭제
         reviewRepository.deleteAll(reviews);
+
+        // 회원이 남긴 영화 좋아요 및 싫어요 삭제
+        movieRatingRepository.deleteByUser_UserId(userId);
+
+        // 마지막으로 회원 정보 삭제
         userRepository.delete(user);
     }
 
