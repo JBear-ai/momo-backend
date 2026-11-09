@@ -67,7 +67,7 @@ final class ExternalApiRetry {
                     if (seconds < 0) {
                         return DEFAULT_DELAY_MILLIS;
                     }
-                    return seconds * 1_000 > MAX_RETRY_AFTER_MILLIS
+                    return seconds > MAX_RETRY_AFTER_MILLIS / 1_000
                             ? -1
                             : seconds * 1_000;
                 } catch (NumberFormatException ignored) {
