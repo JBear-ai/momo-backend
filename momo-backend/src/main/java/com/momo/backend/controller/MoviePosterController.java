@@ -17,6 +17,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MoviePosterController {
 
+    private static final int MAX_STATUS_CODES = 20;
+
     private final MovieService movieService;
     private final MoviePosterCacheService posterCacheService;
 
@@ -24,20 +26,27 @@ public class MoviePosterController {
     public ResponseEntity<MoviePosterResponse> getMoviePoster(
             @PathVariable String movieCode) {
 
-        return ResponseEntity.ok(
-                movieService.getMoviePoster(movieCode));
+        return ResponseEntity.ok(movieService.getMoviePoster(movieCode));
     }
 
     @PostMapping("/posters/status")
     public ResponseEntity<List<MoviePosterStatusResponse>> getPosterStatuses(
-            @RequestBody List<String> movieCodes) {
+            @RequestBody(required = false) List<String> movieCodes) {
 
-        if (movieCodes == null || movieCodes.isEmpty()) {
+        if (movieCodes == null
+                || movieCodes.isEmpty()
+                || movieCodes.size() > MAX_STATUS_CODES
+                || movieCodes.stream().anyMatch(code ->
+                        code == null || !code.matches("\\d{8}"))) {
             return ResponseEntity.badRequest().build();
         }
 
-        List<MoviePosterStatusResponse> responses = posterCacheService.findPosterStatuses(movieCodes);
+        List<String> distinctMovieCodes = movieCodes.stream()
+                .distinct()
+                .toList();
 
-        return ResponseEntity.ok(responses);
+        return ResponseEntity.ok(
+                posterCacheService.findPosterStatuses(distinctMovieCodes)
+        );
     }
 }
