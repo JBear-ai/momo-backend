@@ -118,7 +118,7 @@ class MovieMetadataMatchingTest {
         TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
         ObjectMapper objectMapper = new ObjectMapper();
 
-        when(tmdbApiClient.searchMovie("한국 제목"))
+        when(tmdbApiClient.searchMovie("한국 제목", "ko-KR"))
                 .thenReturn("""
                         {"results":[{
                           "id":822653,
@@ -156,7 +156,7 @@ class MovieMetadataMatchingTest {
         TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
         ObjectMapper objectMapper = new ObjectMapper();
 
-        when(tmdbApiClient.searchMovie("한국 제목"))
+        when(tmdbApiClient.searchMovie("한국 제목", "ko-KR"))
                 .thenReturn("""
                         {"results":[{
                           "id":822654,
@@ -200,7 +200,8 @@ class MovieMetadataMatchingTest {
                           "id":822653,
                           "title":"Puella Magi Madoka Magica the Movie -Walpurgisnacht: Rising-",
                           "original_title":"Gekijouban Mahou Shoujo Madoka Magica: Walpurgis no Kaiten",
-                          "release_date":"2026-08-28"
+                          "release_date":"2026-08-28",
+                          "poster_path":"/madoka.jpg"
                         }]}
                         """);
         when(tmdbApiClient.getMovieDetail(822653L))
@@ -251,7 +252,18 @@ class MovieMetadataMatchingTest {
         verify(tmdbApiClient).searchMovie(
                 "Puella Magi Madoka Magica the Movie -Walpurgisnacht: Rising-", "en-US");
         verify(tmdbApiClient).getMovieDetail(822653L);
-    }
+
+        String posterUrl = service.findMoviePosterUrl(
+                "극장판 마법소녀 마도카☆마기카〈발푸르기스의 회천〉",
+                "Puella Magi Madoka Magica the Movie -Walpurgisnacht: Rising-",
+                "",
+                ""
+        );
+
+        assertEquals(
+                "https://image.tmdb.org/t/p/w500/madoka.jpg",
+                posterUrl
+        );
 
     @Test
     void retriesMissingMovieDetailsAfterSixHours() {
