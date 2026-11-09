@@ -1367,9 +1367,8 @@ public class MovieService {
             );
         }
 
-        // 전체 결과를 DB에 저장하고, 이미 보완된 상세정보를 목록에 반영한다.
+        // 전체 결과를 DB에 저장한다.
         saveSearchMoviesToDatabase(allMovies);
-        allMovies = mergeSavedMovieDetails(allMovies);
 
         // 페이지는 캐시된 전체 목록에서 분리
         int start = (page - 1) * GENRE_PAGE_SIZE;
@@ -1384,7 +1383,7 @@ public class MovieService {
         );
 
         List<MovieSearchResponse> pageMovies =
-                allMovies.subList(start, end);
+                mergeSavedMovieDetails(allMovies.subList(start, end));
 
         enqueuePosterSearches(pageMovies);
 
