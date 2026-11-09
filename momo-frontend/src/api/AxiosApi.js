@@ -7,8 +7,11 @@ axios.interceptors.request.use(
   (config) => {
     const accessToken = localStorage.getItem("accessToken");
     const isMomoApi = config.url?.startsWith(`${HM_DOMAIN}/api/`);
+    const isPublicAuthRequest =
+      config.url?.endsWith("/api/auth/login") ||
+      config.url?.endsWith("/api/auth/signup");
 
-    if (isMomoApi && accessToken) {
+    if (isMomoApi && accessToken && !isPublicAuthRequest) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
