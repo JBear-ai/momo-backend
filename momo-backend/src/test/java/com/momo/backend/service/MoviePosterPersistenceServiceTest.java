@@ -31,7 +31,7 @@ class MoviePosterPersistenceServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> persistenceService.saveSuccess(
-                        "12345678",
+                        "12345678", "claim-1",
                         "javascript:alert(1)"
                 )
         );
@@ -44,7 +44,7 @@ class MoviePosterPersistenceServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> persistenceService.saveSuccess(
-                        "12345678",
+                        "12345678", "claim-1",
                         "https://user:password@example.com/poster.jpg"
                 )
         );
