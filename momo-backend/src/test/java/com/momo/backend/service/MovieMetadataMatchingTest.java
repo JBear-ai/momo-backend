@@ -264,6 +264,7 @@ class MovieMetadataMatchingTest {
                 "https://image.tmdb.org/t/p/w500/madoka.jpg",
                 posterUrl
         );
+    }
 
     @Test
     void retriesMissingMovieDetailsAfterSixHours() {
