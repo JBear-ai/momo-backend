@@ -914,7 +914,7 @@ function Search() {
                   React.createElement(
             LoadingMessage,
             null,
-            "모든 영화 목록을 불러왔습니다."
+            "현재 제공되는 영화 목록을 모두 불러왔습니다."
           )
                 ))
     )
