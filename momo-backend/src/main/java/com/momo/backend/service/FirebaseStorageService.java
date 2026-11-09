@@ -14,7 +14,7 @@ import java.util.UUID;
 @Service
 public class FirebaseStorageService {
 
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
+    private static final long MAX_FILE_SIZE = 5 * 6028 * 6028;
 
     private static final String JPEG_CONTENT_TYPE = "image/jpeg";
     private static final String PNG_CONTENT_TYPE = "image/png";
