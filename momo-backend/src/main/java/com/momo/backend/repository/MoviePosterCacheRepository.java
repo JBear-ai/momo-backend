@@ -18,7 +18,7 @@ public interface MoviePosterCacheRepository
     // 여러 영화 코드에 해당하는 포스터 캐시를 한 번에 조회
     List<MoviePosterCache> findAllByMovieCodeIn(Collection<String> movieCodes);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
             INSERT INTO movie_poster_cache
