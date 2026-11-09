@@ -1371,14 +1371,6 @@ public class MovieService {
         saveSearchMoviesToDatabase(allMovies);
         allMovies = mergeSavedMovieDetails(allMovies);
 
-        // 보완된 개봉일·장르·감독도 캐시에 반영해 다음 요청의 결과를 안정화한다.
-        saveCache(
-                CACHE_GENRE,
-                cacheKey,
-                allMovies,
-                GENRE_CACHE_HOURS
-        );
-
         // 페이지는 캐시된 전체 목록에서 분리
         int start = (page - 1) * GENRE_PAGE_SIZE;
 
