@@ -37,7 +37,7 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET status = 'PROCESSING', updated_at = :now
+               SET status = 'PROCESSING', claim_token = :claimToken, updated_at = :now
              WHERE movie_code = :movieCode
                AND (status = 'PENDING'
                     OR (status = 'FAILED' AND updated_at < :failedBefore)
@@ -46,6 +46,7 @@ public interface MoviePosterCacheRepository
             """, nativeQuery = true)
     int tryClaim(
             @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
             @Param("now") LocalDateTime now,
             @Param("failedBefore") LocalDateTime failedBefore,
             @Param("processingBefore") LocalDateTime processingBefore
@@ -56,12 +57,47 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET status = 'PENDING', updated_at = :now
+               SET status = 'PENDING', claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
                AND status = 'PROCESSING'
+               AND claim_token = :claimToken
             """, nativeQuery = true)
     int releaseClaim(
             @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying
+    @Transactional
+    @Query(value = """
+            UPDATE movie_poster_cache
+               SET poster_url = :posterUrl, status = 'SUCCESS',
+                   claim_token = NULL, updated_at = :now
+             WHERE movie_code = :movieCode
+               AND status = 'PROCESSING'
+               AND claim_token = :claimToken
+            """, nativeQuery = true)
+    int completeClaim(
+            @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
+            @Param("posterUrl") String posterUrl,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying
+    @Transactional
+    @Query(value = """
+            UPDATE movie_poster_cache
+               SET poster_url = NULL, status = 'FAILED',
+                   claim_token = NULL, updated_at = :now
+             WHERE movie_code = :movieCode
+               AND status = 'PROCESSING'
+               AND claim_token = :claimToken
+            """, nativeQuery = true)
+    int failClaim(
+            @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
             @Param("now") LocalDateTime now
     );
 }
