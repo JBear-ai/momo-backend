@@ -128,7 +128,7 @@ function ReviewDetail() {
           const data = results[0].value.data;
 
           setComments(data.content || []);
-          setCommentsTotal(data.totalElements ?? data.content?.length ?? 0);
+          setCommentsTotal(data.page?.totalElements ?? data.totalElements ?? data.content?.length ?? 0);
         } else {
           console.error("댓글 조회 실패:", results[0].reason);
         }
