@@ -1,6 +1,12 @@
 package com.momo.backend;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.momo.backend.security.TokenProvider;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -15,7 +21,18 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class MomoBackendApplicationTests {
 
+    @Autowired
+    private TokenProvider tokenProvider;
+
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void createsAndValidatesJwtForLoginId() {
+        String token = tokenProvider.createToken("momo-test-user");
+
+        assertTrue(tokenProvider.validateToken(token));
+        assertEquals("momo-test-user", tokenProvider.getAuthentication(token).getName());
     }
 }
