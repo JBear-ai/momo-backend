@@ -31,6 +31,7 @@ function Login() {
         localStorage.setItem("username", loginId);
         localStorage.setItem("nickname", nickname);
         localStorage.setItem("accessToken", accessToken);
+        window.__momoAuthExpiredHandled = false;
 
         // 로그인 상태가 바뀌었다는 것을 Layout에 알린다.
         window.dispatchEvent(new Event("momo-auth-changed"));
