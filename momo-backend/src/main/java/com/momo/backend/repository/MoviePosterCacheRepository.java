@@ -33,7 +33,7 @@ public interface MoviePosterCacheRepository
             @Param("now") LocalDateTime now
     );
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
@@ -53,7 +53,7 @@ public interface MoviePosterCacheRepository
     );
 
     // 비동기 작업이 스레드 풀에 등록되지 못한 경우 작업 점유 상태를 해제한다.
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
@@ -68,7 +68,7 @@ public interface MoviePosterCacheRepository
             @Param("now") LocalDateTime now
     );
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
@@ -85,7 +85,7 @@ public interface MoviePosterCacheRepository
             @Param("now") LocalDateTime now
     );
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
