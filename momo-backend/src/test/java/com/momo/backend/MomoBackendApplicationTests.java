@@ -1,19 +1,19 @@
 package com.momo.backend;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.momo.backend.security.TokenProvider;
 import com.momo.backend.entity.MoviePosterCache;
 import com.momo.backend.repository.MoviePosterCacheRepository;
-import java.time.LocalDateTime;
-import java.util.UUID;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import com.momo.backend.security.TokenProvider;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:momo;DB_CLOSE_DELAY=-1;MODE=MySQL",
@@ -22,6 +22,28 @@ import org.springframework.test.context.ActiveProfiles;
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "JWT_SECRET=TW9tb1Rlc3RPbmx5U2VjcmV0S2V5Rm9ySlZUVGVzdHMxMjM0NQ==",
+})
+@ActiveProfiles("test")
+class MomoBackendApplicationTests {
+
+    @Autowired
+    private TokenProvider tokenProvider;
+
+    @Autowired
+    private MoviePosterCacheRepository posterCacheRepository;
+
+    @Test
+    void contextLoads() {
+    }
+
+    @Test
+    void createsAndValidatesJwtForLoginId() {
+        String token = tokenProvider.createToken("momo-test-user");
+
+        assertTrue(tokenProvider.validateToken(token));
+        assertEquals("momo-test-user", tokenProvider.getAuthentication(token).getName());
+    }
+
     @Test
     void stalePosterWorkerCannotOverwriteOrReleaseNewerClaim() {
         String movieCode = "20990001";
@@ -80,27 +102,5 @@ import org.springframework.test.context.ActiveProfiles;
         MoviePosterCache saved = posterCacheRepository.findById(movieCode).orElseThrow();
         assertEquals("FAILED", saved.getStatus().name());
         assertNull(saved.getClaimToken());
-    }
-
-})
-@ActiveProfiles("test")
-class MomoBackendApplicationTests {
-
-    @Autowired
-    private TokenProvider tokenProvider;
-
-    @Autowired
-    private MoviePosterCacheRepository posterCacheRepository;
-
-    @Test
-    void contextLoads() {
-    }
-
-    @Test
-    void createsAndValidatesJwtForLoginId() {
-        String token = tokenProvider.createToken("momo-test-user");
-
-        assertTrue(tokenProvider.validateToken(token));
-        assertEquals("momo-test-user", tokenProvider.getAuthentication(token).getName());
     }
 }
