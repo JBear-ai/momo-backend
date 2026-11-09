@@ -2,6 +2,57 @@ import axios from "axios";
 
 const HM_DOMAIN = "http://localhost:8111";
 
+// MOMO API 요청에 저장된 JWT를 자동으로 전달한다.
+axios.interceptors.request.use(
+  (config) => {
+    const accessToken = localStorage.getItem("accessToken");
+    const isMomoApi = config.url?.startsWith(`${HM_DOMAIN}/api/`);
+
+    if (isMomoApi && accessToken) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+// 인증 토큰이 만료되면 로그인 상태를 정리한다.
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const requestUrl = error.config?.url || "";
+    const sentHeaders = error.config?.headers;
+    const sentAuthorization =
+      sentHeaders?.Authorization || sentHeaders?.get?.("Authorization");
+    const accessToken = localStorage.getItem("accessToken");
+
+    if (
+      status === 401 &&
+      requestUrl.startsWith(`${HM_DOMAIN}/api/`) &&
+      accessToken &&
+      sentAuthorization === `Bearer ${accessToken}` &&
+      !window.__momoAuthExpiredHandled
+    ) {
+      window.__momoAuthExpiredHandled = true;
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("username");
+      localStorage.removeItem("nickname");
+      window.dispatchEvent(new Event("momo-auth-changed"));
+      alert("로그인 인증이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.");
+
+      if (window.location.pathname !== "/login") {
+        window.location.replace("/login");
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+
 const AxiosApi = {
   // 1. 회원 아이디 중복 확인
   memberIdExist: async (loginId) => {
