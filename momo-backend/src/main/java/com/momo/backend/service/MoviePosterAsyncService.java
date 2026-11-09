@@ -1,6 +1,8 @@
 package com.momo.backend.service;
 
 
+import com.momo.backend.entity.Movie;
+import com.momo.backend.repository.MovieRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,6 +17,7 @@ public class MoviePosterAsyncService {
     private final KmdbService kmdbService;
     private final MoviePosterCacheService posterCacheService;
     private final MoviePosterPersistenceService posterPersistenceService;
+    private final MovieRepository movieRepository;
 
     @Async("posterTaskExecutor")
     public void searchPosterAsync(
@@ -26,10 +29,16 @@ public class MoviePosterAsyncService {
 
             log.info("포스터 검색 시작: {}", movieCode);
 
+            Movie movie = movieRepository.findById(movieCode).orElse(null);
+            String titleEn = movie == null ? "" : movie.getTitleEn();
+            String director = movie == null ? "" : movie.getDirector();
+
             String posterUrl = kmdbService.findPosterUrl(
                     movieCode,
                     title,
-                    releaseDate
+                    titleEn,
+                    releaseDate,
+                    director
             );
 
             if (posterUrl == null || posterUrl.isBlank()) {
