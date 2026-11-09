@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
+import java.time.LocalDateTime;
 import java.net.URISyntaxException;
 import java.util.Locale;
 
@@ -18,13 +19,18 @@ public class MoviePosterPersistenceService {
     private final MovieRepository movieRepository;
 
     @Transactional
-    public void saveSuccess(String movieCode, String posterUrl) {
+    public boolean saveSuccess(String movieCode, String claimToken, String posterUrl) {
         String normalizedPosterUrl = validatePosterUrl(posterUrl);
 
-        posterCacheRepository.findById(movieCode)
-                .ifPresent(cache -> cache.updatePoster(normalizedPosterUrl));
+        int completed = posterCacheRepository.completeClaim(
+                movieCode, claimToken, normalizedPosterUrl, LocalDateTime.now());
+        if (completed != 1) {
+            return false;
+        }
+
         movieRepository.findById(movieCode)
                 .ifPresent(movie -> movie.updatePosterUrl(normalizedPosterUrl));
+        return true;
     }
 
     // 외부 공급원 응답에 이미지 주소가 아닌 값이나 위험한 URI가 섞이는 것을 방지한다.
