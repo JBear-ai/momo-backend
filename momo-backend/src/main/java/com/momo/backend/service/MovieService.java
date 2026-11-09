@@ -1367,8 +1367,17 @@ public class MovieService {
             );
         }
 
-        // 전체 결과를 DB에 저장
+        // 전체 결과를 DB에 저장하고, 이미 보완된 상세정보를 목록에 반영한다.
         saveSearchMoviesToDatabase(allMovies);
+        allMovies = mergeSavedMovieDetails(allMovies);
+
+        // 보완된 개봉일·장르·감독도 캐시에 반영해 다음 요청의 결과를 안정화한다.
+        saveCache(
+                CACHE_GENRE,
+                cacheKey,
+                allMovies,
+                GENRE_CACHE_HOURS
+        );
 
         // 페이지는 캐시된 전체 목록에서 분리
         int start = (page - 1) * GENRE_PAGE_SIZE;
@@ -1388,6 +1397,47 @@ public class MovieService {
         enqueuePosterSearches(pageMovies);
 
         return pageMovies;
+    }
+
+    // KOBIS 장르 목록의 누락 항목을 이미 저장된 상세정보로 보완한다.
+    private List<MovieSearchResponse> mergeSavedMovieDetails(
+            List<MovieSearchResponse> movies
+    ) {
+        if (movies == null || movies.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> movieCodes = movies.stream()
+                .map(MovieSearchResponse::movieCode)
+                .filter(code -> !isBlank(code))
+                .distinct()
+                .toList();
+
+        Map<String, Movie> savedMovies = new HashMap<>();
+        movieRepository.findAllById(movieCodes)
+                .forEach(movie -> savedMovies.put(movie.getMovieCode(), movie));
+
+        return movies.stream()
+                .map(item -> {
+                    Movie savedMovie = savedMovies.get(item.movieCode());
+
+                    if (savedMovie == null) {
+                        return item;
+                    }
+
+                    return new MovieSearchResponse(
+                            item.movieCode(),
+                            item.title(),
+                            firstNonBlank(item.releaseDate(), savedMovie.getReleaseDate()),
+                            firstNonBlank(item.genre(), savedMovie.getGenre()),
+                            firstNonBlank(item.director(), savedMovie.getDirector())
+                    );
+                })
+                .toList();
+    }
+
+    private String firstNonBlank(String primary, String fallback) {
+        return !isBlank(primary) ? primary : (fallback == null ? "" : fallback);
     }
 
     // 포스터 조회 API
