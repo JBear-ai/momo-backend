@@ -46,9 +46,28 @@ final class MovieMatchVerifier {
         // 감독이 함께 일치할 때만 동명 영화 오매칭 위험을 감수할 수 있다.
         boolean originalTitleMatches = !requestedTitleEn.isBlank()
                 && matches(requestedTitleEn, foundTitle, foundOriginalTitle);
-        boolean directorMatches = !normalizeTitle(kobisDirector).isBlank()
-                && normalizeTitle(kobisDirector).equals(normalizeTitle(candidateDirector));
+        boolean directorMatches = matchesDirector(kobisDirector, candidateDirector);
         return originalTitleMatches || directorMatches;
+    }
+
+    // 외부 API가 여러 감독을 반환해도 KOBIS 감독 한 명과 비교할 수 있도록 처리
+    private static boolean matchesDirector(String requestedDirector, String candidateDirector) {
+        String requested = normalizeTitle(requestedDirector);
+        if (requested.isBlank() || candidateDirector == null || candidateDirector.isBlank()) {
+            return false;
+        }
+
+        if (requested.equals(normalizeTitle(candidateDirector))) {
+            return true;
+        }
+
+        for (String name : candidateDirector.split("[,|]")) {
+            if (requested.equals(normalizeTitle(name))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // 비교 대상 중 일치하는 문자열이 있는지 확인
