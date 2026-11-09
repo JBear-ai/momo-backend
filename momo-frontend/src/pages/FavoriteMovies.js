@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
 import FavoriteStar from "../components/common/FavoriteStar";
-import "../App.css";
 
 function FavoriteMovies() {
   const navigate = useNavigate();

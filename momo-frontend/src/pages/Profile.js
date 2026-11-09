@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
-import "../App.css";
 import AxiosApi from "../api/AxiosApi";
 import stdLogo from "../image/std_logo.png";
 

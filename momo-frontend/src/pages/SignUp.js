@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import "../App.css";
 import logoImage from "../textlogo.png";
 import AxiosApi from "../api/AxiosApi";
 

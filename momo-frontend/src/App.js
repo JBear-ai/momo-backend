@@ -1,5 +1,5 @@
 import React from "react";
-import "./App.css";
+import GlobalStyles from "./styles/GlobalStyles";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
@@ -24,6 +24,7 @@ import PersonDetail from "./pages/PersonDetail";
 function App() {
   return (
     <BrowserRouter>
+      <GlobalStyles />
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
