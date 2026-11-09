@@ -108,12 +108,18 @@ function MovieDetail() {
         setError("");
         setMovie(null);
 
-        const detailResponse = await AxiosApi.movieDetail(id, controller.signal);
+        const detailResponse = await AxiosApi.movieDetail(
+          id,
+          controller.signal,
+        );
         const detailData = detailResponse.data;
 
         let posterUrl = "";
         try {
-          const posterResponse = await AxiosApi.moviePoster(id, controller.signal);
+          const posterResponse = await AxiosApi.moviePoster(
+            id,
+            controller.signal,
+          );
           posterUrl = posterResponse.data?.posterUrl || "";
         } catch (posterError) {
           if (posterError.code === "ERR_CANCELED") throw posterError;
@@ -131,8 +137,8 @@ function MovieDetail() {
         console.error("영화 상세정보 조회 실패:", requestError);
         setError(
           requestError.response?.data?.message ||
-          requestError.message ||
-          "영화 정보를 불러오지 못했습니다.",
+            requestError.message ||
+            "영화 정보를 불러오지 못했습니다.",
         );
       } finally {
         if (active) setLoading(false);
@@ -298,7 +304,9 @@ function MovieDetail() {
         await refreshMovieRating();
       } catch (refreshError) {
         console.error("평가 저장 후 최신 집계 조회 실패:", refreshError);
-        setRatingError("평가는 저장됐지만 최신 집계를 불러오지 못했습니다. 새로고침해 주세요.");
+        setRatingError(
+          "평가는 저장됐지만 최신 집계를 불러오지 못했습니다. 새로고침해 주세요.",
+        );
       }
     } catch (error) {
       console.error("영화 평가 처리 실패:", error);
@@ -395,16 +403,10 @@ function MovieDetail() {
   // =========================================================
 
   if (loading) {
-    return (
-      React.createElement(
-  "main",
-  {"className":"movie-detail-page"},
-  React.createElement(
-      "p",
-      null,
-      "영화 정보를 불러오는 중입니다."
-    )
-)
+    return React.createElement(
+      "main",
+      { className: "movie-detail-page" },
+      React.createElement("p", null, "영화 정보를 불러오는 중입니다."),
     );
   }
 
@@ -413,21 +415,15 @@ function MovieDetail() {
   // =========================================================
 
   if (error || !movie) {
-    return (
+    return React.createElement(
+      "main",
+      { className: "movie-detail-page" },
       React.createElement(
-  "main",
-  {"className":"movie-detail-page"},
-  React.createElement(
-      "button",
-      {"className":"detail-back-button","onClick":() => navigate("/")},
-      "← 메인으로 돌아가기"
-    ),
-  React.createElement(
-      "p",
-      null,
-      (error || "영화 정보를 찾을 수 없습니다.")
-    )
-)
+        "button",
+        { className: "detail-back-button", onClick: () => navigate("/") },
+        "← 메인으로 돌아가기",
+      ),
+      React.createElement("p", null, error || "영화 정보를 찾을 수 없습니다."),
     );
   }
 
@@ -442,388 +438,323 @@ function MovieDetail() {
   // 14. 화면 출력
   // =========================================================
 
-  return (
+  return React.createElement(
+    "main",
+    { className: "movie-detail-page" },
     React.createElement(
-  "main",
-  {"className":"movie-detail-page"},
-  React.createElement(
       "button",
-      {"className":"detail-back-button","onClick":() => navigate("/")},
-      "← 메인으로 돌아가기"
+      { className: "detail-back-button", onClick: () => navigate("/") },
+      "← 메인으로 돌아가기",
     ),
-  React.createElement(
+    React.createElement(
       "section",
-      {"className":"movie-detail-header"},
+      { className: "movie-detail-header" },
       React.createElement(
+        "div",
+        { className: "movie-detail-poster" },
+        movie.posterUrl
+          ? React.createElement("img", {
+              src: movie.posterUrl,
+              alt: movie.title,
+            })
+          : React.createElement(
+              "div",
+              { className: "poster-placeholder" },
+              React.createElement("span", null, "🎬"),
+              React.createElement("p", null, movie.title),
+            ),
+      ),
+      React.createElement(
+        "div",
+        { className: "movie-detail-info" },
+        React.createElement(
+          "span",
+          { className: "detail-rank" },
+          "영화 상세정보",
+        ),
+        React.createElement("h1", null, movie.title),
+        React.createElement(
+          "p",
+          null,
+          "영문 제목: ",
+          movie.titleEn || "정보 없음",
+        ),
+        React.createElement(
+          "p",
+          null,
+          "개봉일: ",
+          formatReleaseDate(movie.releaseDate),
+        ),
+        React.createElement(
+          "p",
+          null,
+          "상영시간:",
+          " ",
+          movie.runningTime
+            ? `${formatNumber(movie.runningTime)}분`
+            : "정보 없음",
+        ),
+        React.createElement("p", null, "장르: ", movie.genre || "정보 없음"),
+        React.createElement(
+          "p",
+          null,
+          "관람등급: ",
+          movie.watchGrade || "정보 없음",
+        ),
+      ),
+    ),
+    React.createElement(
+      "section",
+      { className: "movie-rating-panel" },
+      React.createElement("h2", { className: "rating-label" }, "관객 평점"),
+      React.createElement(
+        "div",
+        { className: "movie-score-display" },
+        React.createElement(
+          "div",
+          { className: "movie-score-value" },
+          React.createElement("strong", null, movieScore),
+          React.createElement("span", null, "/ 5.00"),
+        ),
+        React.createElement(
+          "p",
+          null,
+          "총 ",
+          formatNumber(totalCount),
+          "명이 평가했습니다.",
+        ),
+      ),
+      React.createElement(
+        "div",
+        { className: "detail-reaction-counts" },
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            className: `detail-reaction-count ${
+              myRating === true ? "selected-like" : ""
+            }`,
+            onClick: () => handleMovieRating(true),
+            disabled: isRatingSubmitting,
+            "aria-pressed": myRating === true,
+          },
+          React.createElement("span", null, "👍 좋아요"),
+          React.createElement("strong", null, formatNumber(likeCount)),
+        ),
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            className: `detail-reaction-count ${
+              myRating === false ? "selected-dislike" : ""
+            }`,
+            onClick: () => handleMovieRating(false),
+            disabled: isRatingSubmitting,
+            "aria-pressed": myRating === false,
+          },
+          React.createElement("span", null, "👎 싫어요"),
+          React.createElement("strong", null, formatNumber(dislikeCount)),
+        ),
+      ),
+      React.createElement(
+        "p",
+        { className: "detail-total-count" },
+        "전체 평가 수: ",
+        React.createElement("strong", null, formatNumber(totalCount)),
+      ),
+      isRatingSubmitting &&
+        React.createElement(
+          "p",
+          { className: "rating-status" },
+          "평가를 저장하고 있습니다.",
+        ),
+      ratingError &&
+        React.createElement("p", { className: "people-empty" }, ratingError),
+    ),
+    React.createElement(
+      "section",
+      { className: "detail-content-section" },
+      React.createElement("h2", null, "감독"),
+      directors.length > 0
+        ? React.createElement(
             "div",
-            {"className":"movie-detail-poster"},
-            (movie.posterUrl ? (
-                        React.createElement(
-                    "img",
-                    {"src":movie.posterUrl,"alt":movie.title}
-                  )
-                      ) : (
-                        React.createElement(
-                    "div",
-                    {"className":"poster-placeholder"},
-                    React.createElement(
-                              "span",
-                              null,
-                              "🎬"
-                            ),
-                    React.createElement(
-                              "p",
-                              null,
-                              (movie.title)
-                            )
-                  )
-                      ))
+            { className: "people-list" },
+            directors.map((person, index) =>
+              React.createElement(
+                "button",
+                {
+                  type: "button",
+                  className: "person-chip",
+                  key: `${person.name}-${index}`,
+                  onClick: () => moveToPersonDetail(person, "director"),
+                },
+                person.name,
+              ),
+            ),
+          )
+        : React.createElement(
+            "p",
+            { className: "people-empty" },
+            "감독 정보가 아직 연결되지 않았습니다.",
           ),
-      React.createElement(
+    ),
+    React.createElement(
+      "section",
+      { className: "detail-content-section" },
+      React.createElement("h2", null, "출연 배우"),
+      actors.length > 0
+        ? React.createElement(
             "div",
-            {"className":"movie-detail-info"},
-            React.createElement(
+            { className: "people-list" },
+            actors.map((person, index) =>
+              React.createElement(
+                "button",
+                {
+                  type: "button",
+                  className: "person-chip",
+                  key: `${person.name}-${index}`,
+                  onClick: () => moveToPersonDetail(person, "actor"),
+                },
+                person.name,
+                person.role &&
+                  React.createElement(
                     "span",
-                    {"className":"detail-rank"},
-                    "영화 상세정보"
+                    { className: "person-role" },
+                    " (",
+                    person.role,
+                    ")",
                   ),
-            React.createElement(
-                    "h1",
-                    null,
-                    (movie.title)
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "영문 제목: ",
-                    (movie.titleEn || "정보 없음")
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "개봉일: ",
-                    (formatReleaseDate(movie.releaseDate))
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "상영시간:",
-                    (" "),
-                    (movie.runningTime
-                                  ? `${formatNumber(movie.runningTime)}분`
-                                  : "정보 없음")
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "장르: ",
-                    (movie.genre || "정보 없음")
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "관람등급: ",
-                    (movie.watchGrade || "정보 없음")
-                  )
+              ),
+            ),
           )
+        : React.createElement(
+            "p",
+            { className: "people-empty" },
+            "배우 정보가 아직 연결되지 않았습니다.",
+          ),
     ),
-  React.createElement(
+    React.createElement(
       "section",
-      {"className":"movie-rating-panel"},
+      { className: "detail-content-section" },
+      React.createElement("h2", null, "영화 메모"),
+      reviewError &&
+        React.createElement("p", { className: "people-empty" }, reviewError),
       React.createElement(
-            "h2",
-            {"className":"rating-label"},
-            "관객 평점"
-          ),
-      React.createElement(
-            "div",
-            {"className":"movie-score-display"},
-            React.createElement(
-                    "div",
-                    {"className":"movie-score-value"},
-                    React.createElement(
-                              "strong",
-                              null,
-                              (movieScore)
-                            ),
-                    React.createElement(
-                              "span",
-                              null,
-                              "/ 5.00"
-                            )
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "총 ",
-                    (formatNumber(totalCount)),
-                    "명이 평가했습니다."
-                  )
-          ),
-      React.createElement(
-            "div",
-            {"className":"detail-reaction-counts"},
-            React.createElement(
-                    "button",
-                    {"type":"button","className":`detail-reaction-count ${
-                                  myRating === true ? "selected-like" : ""
-                                }`,"onClick":() => handleMovieRating(true),"disabled":isRatingSubmitting,"aria-pressed":myRating === true},
-                    React.createElement(
-                              "span",
-                              null,
-                              "👍 좋아요"
-                            ),
-                    React.createElement(
-                              "strong",
-                              null,
-                              (formatNumber(likeCount))
-                            )
-                  ),
-            React.createElement(
-                    "button",
-                    {"type":"button","className":`detail-reaction-count ${
-                                  myRating === false ? "selected-dislike" : ""
-                                }`,"onClick":() => handleMovieRating(false),"disabled":isRatingSubmitting,"aria-pressed":myRating === false},
-                    React.createElement(
-                              "span",
-                              null,
-                              "👎 싫어요"
-                            ),
-                    React.createElement(
-                              "strong",
-                              null,
-                              (formatNumber(dislikeCount))
-                            )
-                  )
-          ),
-      React.createElement(
-            "p",
-            {"className":"detail-total-count"},
-            "전체 평가 수: ",
-            React.createElement(
-                    "strong",
-                    null,
-                    (formatNumber(totalCount))
-                  )
-          ),
-      (isRatingSubmitting && (
-                React.createElement(
-            "p",
-            {"className":"rating-status"},
-            "평가를 저장하고 있습니다."
-          )
-              )),
-      (ratingError && React.createElement(
-            "p",
-            {"className":"people-empty"},
-            (ratingError)
-          ))
-    ),
-  React.createElement(
-      "section",
-      {"className":"detail-content-section"},
-      React.createElement(
-            "h2",
+        "div",
+        { className: "review-write-section" },
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            className: "review-write-toggle",
+            onClick: () => setIsReviewOpen((prev) => !prev),
+          },
+          React.createElement(
+            "span",
             null,
-            "감독"
+            "✏️ ",
+            movie.title,
+            " 영화 메모 작성하기",
           ),
-      (directors.length > 0 ? (
-                React.createElement(
-            "div",
-            {"className":"people-list"},
-            (directors.map((person, index) => (
-                          React.createElement(
-                    "button",
-                    {"type":"button","className":"person-chip","key":`${person.name}-${index}`,"onClick":() => moveToPersonDetail(person, "director")},
-                    (person.name)
-                  )
-                        )))
-          )
-              ) : (
-                React.createElement(
-            "p",
-            {"className":"people-empty"},
-            "감독 정보가 아직 연결되지 않았습니다."
-          )
-              ))
-    ),
-  React.createElement(
-      "section",
-      {"className":"detail-content-section"},
-      React.createElement(
-            "h2",
-            null,
-            "출연 배우"
+          React.createElement(
+            "span",
+            { className: "review-toggle-arrow" },
+            isReviewOpen ? "▲" : "▼",
           ),
-      (actors.length > 0 ? (
-                React.createElement(
+        ),
+        isReviewOpen &&
+          React.createElement(
             "div",
-            {"className":"people-list"},
-            (actors.map((person, index) => (
-                          React.createElement(
-                    "button",
-                    {"type":"button","className":"person-chip","key":`${person.name}-${index}`,"onClick":() => moveToPersonDetail(person, "actor")},
-                    (person.name),
-                    (person.role && (
-                                      React.createElement(
-                              "span",
-                              {"className":"person-role"},
-                              " (",
-                              (person.role),
-                              ")"
-                            )
-                                    ))
-                  )
-                        )))
-          )
-              ) : (
-                React.createElement(
-            "p",
-            {"className":"people-empty"},
-            "배우 정보가 아직 연결되지 않았습니다."
-          )
-              ))
-    ),
-  React.createElement(
-      "section",
-      {"className":"detail-content-section"},
-      React.createElement(
-            "h2",
-            null,
-            "영화 메모"
-          ),
-      (reviewError && React.createElement(
-            "p",
-            {"className":"people-empty"},
-            (reviewError)
-          )),
-      React.createElement(
-            "div",
-            {"className":"review-write-section"},
+            { className: "review-write-content" },
+            React.createElement("h3", null, "✏️ 이 영화, 어떻게 기억하시나요?"),
             React.createElement(
-                    "button",
-                    {"type":"button","className":"review-write-toggle","onClick":() => setIsReviewOpen((prev) => !prev)},
-                    React.createElement(
-                              "span",
-                              null,
-                              "✏️ ",
-                              (movie.title),
-                              " 영화 메모 작성하기"
-                            ),
-                    React.createElement(
-                              "span",
-                              {"className":"review-toggle-arrow"},
-                              (isReviewOpen ? "▲" : "▼")
-                            )
-                  ),
-            (isReviewOpen && (
-                        React.createElement(
-                    "div",
-                    {"className":"review-write-content"},
-                    React.createElement(
-                              "h3",
-                              null,
-                              "✏️ 이 영화, 어떻게 기억하시나요?"
-                            ),
-                    React.createElement(
-                              "div",
-                              {"className":"review-title-field"},
-                              React.createElement(
-                                          "div",
-                                          {"className":"review-field-heading"},
-                                          React.createElement(
-                                                        "label",
-                                                        {"htmlFor":"reviewTitle"},
-                                                        "메모 제목"
-                                                      ),
-                                          React.createElement(
-                                                        "span",
-                                                        null,
-                                                        (reviewTitle.length),
-                                                        "/100"
-                                                      )
-                                        ),
-                              React.createElement(
-                                          "input",
-                                          {"id":"reviewTitle","type":"text","value":reviewTitle,"onChange":(e) => setReviewTitle(e.target.value),"placeholder":"영화 메모의 제목을 입력해 주세요.","maxLength":100}
-                                        )
-                            ),
-                    React.createElement(
-                              "div",
-                              {"className":"review-content-field"},
-                              React.createElement(
-                                          "div",
-                                          {"className":"review-field-heading"},
-                                          React.createElement(
-                                                        "label",
-                                                        {"htmlFor":"reviewContent"},
-                                                        "영화 메모"
-                                                      ),
-                                          React.createElement(
-                                                        "span",
-                                                        null,
-                                                        (reviewText.length),
-                                                        "/2000"
-                                                      )
-                                        ),
-                              React.createElement(
-                                          "textarea",
-                                          {"id":"reviewContent","value":reviewText,"onChange":(e) => setReviewText(e.target.value),"placeholder":"영화를 보고 느낀 생각을 자유롭게 기록해 보세요.","maxLength":2000}
-                                        )
-                            ),
-                    React.createElement(
-                              "div",
-                              {"className":"review-form-actions"},
-                              React.createElement(
-                                          "button",
-                                          {"type":"button","onClick":addReview,"disabled":isReviewSubmitting},
-                                          (isReviewSubmitting ? "저장 중..." : "✏️ 메모 저장")
-                                        )
-                            )
-                  )
-                      ))
+              "div",
+              { className: "review-title-field" },
+              React.createElement(
+                "div",
+                { className: "review-field-heading" },
+                React.createElement(
+                  "label",
+                  { htmlFor: "reviewTitle" },
+                  "메모 제목",
+                ),
+                React.createElement("span", null, reviewTitle.length, "/100"),
+              ),
+              React.createElement("input", {
+                id: "reviewTitle",
+                type: "text",
+                value: reviewTitle,
+                onChange: (e) => setReviewTitle(e.target.value),
+                placeholder: "영화 메모의 제목을 입력해 주세요.",
+                maxLength: 100,
+              }),
+            ),
+            React.createElement(
+              "div",
+              { className: "review-content-field" },
+              React.createElement(
+                "div",
+                { className: "review-field-heading" },
+                React.createElement(
+                  "label",
+                  { htmlFor: "reviewContent" },
+                  "영화 메모",
+                ),
+                React.createElement("span", null, reviewText.length, "/2000"),
+              ),
+              React.createElement("textarea", {
+                id: "reviewContent",
+                value: reviewText,
+                onChange: (e) => setReviewText(e.target.value),
+                placeholder: "영화를 보고 느낀 생각을 자유롭게 기록해 보세요.",
+                maxLength: 2000,
+              }),
+            ),
+            React.createElement(
+              "div",
+              { className: "review-form-actions" },
+              React.createElement(
+                "button",
+                {
+                  type: "button",
+                  onClick: addReview,
+                  disabled: isReviewSubmitting,
+                },
+                isReviewSubmitting ? "저장 중..." : "✏️ 기록하기",
+              ),
+            ),
           ),
-      (reviews.length > 0 ? (
-                React.createElement(
+      ),
+      reviews.length > 0
+        ? React.createElement(
             "div",
-            {"className":"detail-review-list"},
-            (reviews.map((review) => (
-                          React.createElement(
-                    "article",
-                    {"className":"detail-review-card","key":review.reviewId},
-                    React.createElement(
-                              "div",
-                              null,
-                              React.createElement(
-                                          "strong",
-                                          null,
-                                          (review.title)
-                                        ),
-                              React.createElement(
-                                          "span",
-                                          null,
-                                          (review.createdAt
-                                                                ? new Date(review.createdAt).toLocaleDateString("ko-KR")
-                                                                : "")
-                                        )
-                            ),
-                    React.createElement(
-                              "p",
-                              null,
-                              (review.content)
-                            )
-                  )
-                        )))
-          )
-              ) : (
+            { className: "detail-review-list" },
+            reviews.map((review) =>
+              React.createElement(
+                "article",
+                { className: "detail-review-card", key: review.reviewId },
                 React.createElement(
-            "p",
-            {"className":"people-empty"},
-            "아직 작성된 영화 메모가 없습니다."
+                  "div",
+                  null,
+                  React.createElement("strong", null, review.title),
+                  React.createElement(
+                    "span",
+                    null,
+                    review.createdAt
+                      ? new Date(review.createdAt).toLocaleDateString("ko-KR")
+                      : "",
+                  ),
+                ),
+                React.createElement("p", null, review.content),
+              ),
+            ),
           )
-              ))
-    )
-)
+        : React.createElement(
+            "p",
+            { className: "people-empty" },
+            "아직 작성된 영화 메모가 없습니다.",
+          ),
+    ),
   );
 }
 
