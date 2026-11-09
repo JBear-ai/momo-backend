@@ -5,25 +5,11 @@ const FoundationAndProfileStyles = createGlobalStyle`
 /* ========================================
    MOMO Design System - "영화를 메모하다, 가볍고 따뜻한 기록"
 ======================================== */
-:root {
-  --momo-surface: #FFFFFF;
-  --momo-bg: #F5F2EB;              /* 은은한 인디 아이보리 베이스 톤 */
-  --momo-border: #E2DBD0;          /* 손으로 그린 듯 부드러운 경계선 */
-  --momo-text: #1C1A17;            /* 가독성이 돋보이는 딥 잉크 톤 */
-  --momo-muted: #787062;           /* 차분한 서브 텍스트 그레이 */
-  --momo-accent: #FFD43B;          /* 선명하고 따뜻한 시그니처 메모지 옐로우 */
-  --momo-accent-ink: #594400;      /* 포인트 텍스트 및 강조 잉크 컬러 */
-  --momo-note: #FFFAEC;            /* 실제 메모지 배경색 (미색) */
-  --momo-note-border: #EFE6D0;     /* 메모지 테두리선 */
-  --momo-shadow: 0 10px 30px -6px rgba(45, 38, 26, 0.08); /* 깊이감 있는 세련된 그림자 */
-  --momo-radius: 14px;
-}
-
 /* 전체 바디 및 공통 설정 */
 body {
   background-color: var(--momo-bg);
   color: var(--momo-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   letter-spacing: -0.01em;
 }
 
