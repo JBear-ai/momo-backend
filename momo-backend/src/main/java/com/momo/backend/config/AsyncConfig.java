@@ -1,4 +1,3 @@
-
 package com.momo.backend.config;
 
 import org.springframework.context.annotation.Bean;
@@ -18,8 +17,8 @@ public class AsyncConfig {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
         // 동시에 처리할 포스터 검색 작업
-        executor.setCorePoolSize(8);
-        executor.setMaxPoolSize(8);
+        executor.setCorePoolSize(3);
+        executor.setMaxPoolSize(3);
 
         // 대기 작업
         executor.setQueueCapacity(100);
