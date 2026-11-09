@@ -303,6 +303,16 @@ function Layout() {
     let active = true;
 
     const checkLogin = async () => {
+      const accessToken = localStorage.getItem("accessToken");
+
+      if (!accessToken) {
+        if (active) {
+          setNickname("");
+          setAuthLoading(false);
+        }
+        return;
+      }
+
       try {
         // 현재 서버에 로그인된 사용자 정보 요청
         const response = await AxiosApi.memberMe();
@@ -364,6 +374,8 @@ function Layout() {
       // 로그아웃 성공 후 브라우저 사용자 정보 삭제
       localStorage.removeItem("username");
       localStorage.removeItem("nickname");
+      localStorage.removeItem("accessToken");
+      window.dispatchEvent(new Event("momo-auth-changed"));
 
       // 화면을 로그아웃 상태로 변경
       setNickname("");
