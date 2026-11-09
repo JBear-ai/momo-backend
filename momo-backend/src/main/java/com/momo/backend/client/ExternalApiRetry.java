@@ -3,6 +3,11 @@ package com.momo.backend.client;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.function.Supplier;
 
 /**
@@ -27,7 +32,11 @@ final class ExternalApiRetry {
                     throw exception;
                 }
 
-                sleep(resolveDelay(exception));
+                long delayMillis = resolveDelay(exception);
+                if (delayMillis < 0) {
+                    throw exception;
+                }
+                sleep(delayMillis);
             }
         }
 
@@ -55,12 +64,29 @@ final class ExternalApiRetry {
             if (retryAfter != null) {
                 try {
                     long seconds = Long.parseLong(retryAfter.trim());
-                    return Math.min(
-                            Math.max(seconds * 1_000, 0),
-                            MAX_RETRY_AFTER_MILLIS
-                    );
+                    if (seconds < 0) {
+                        return DEFAULT_DELAY_MILLIS;
+                    }
+                    return seconds * 1_000 > MAX_RETRY_AFTER_MILLIS
+                            ? -1
+                            : seconds * 1_000;
                 } catch (NumberFormatException ignored) {
-                    // 날짜 형식 등 초 단위 숫자가 아닌 값은 기본 대기 시간을 사용한다.
+                    try {
+                        long delayMillis = Duration.between(
+                                Instant.now(),
+                                ZonedDateTime.parse(
+                                        retryAfter,
+                                        DateTimeFormatter.RFC_1123_DATE_TIME
+                                ).toInstant()
+                        ).toMillis();
+
+                        // 서버가 더 긴 대기 시간을 요구하면 조기 재시도하지 않는다.
+                        return delayMillis > MAX_RETRY_AFTER_MILLIS
+                                ? -1
+                                : Math.max(delayMillis, 0);
+                    } catch (DateTimeParseException ignoredDate) {
+                        // 해석할 수 없는 Retry-After 값은 기본 대기 시간을 사용한다.
+                    }
                 }
             }
         }
