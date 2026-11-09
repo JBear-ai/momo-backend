@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import "../App.css";
 import AxiosApi from "../api/AxiosApi";
 import stdLogo from "../image/std_logo.png";
 
