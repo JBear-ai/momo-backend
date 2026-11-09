@@ -276,12 +276,24 @@ public class TmdbService {
                                     }
 
                                     if (kobisYear.isBlank() || candidateYear.isBlank()) {
+                                        List<String> directors = new ArrayList<>();
+
                                         for (JsonNode crew : detail.path("credits").path("crew")) {
-                                            if ("Director".equalsIgnoreCase(getText(crew, "job"))) {
-                                                candidateDirector = getText(crew, "name");
+                                            if (!"Director".equalsIgnoreCase(getText(crew, "job"))) {
+                                                continue;
+                                            }
+
+                                            String name = getText(crew, "name");
+                                            if (!name.isBlank() && !directors.contains(name)) {
+                                                directors.add(name);
+                                            }
+
+                                            if (directors.size() >= 5) {
                                                 break;
                                             }
                                         }
+
+                                        candidateDirector = String.join(", ", directors);
                                     }
                                 }
                             } catch (Exception e) {
