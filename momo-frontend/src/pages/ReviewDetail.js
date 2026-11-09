@@ -69,7 +69,7 @@ function ReviewDetail() {
 
       setComments(response.data.content || []);
       setCommentsTotal(
-        response.data.totalElements ?? response.data.content?.length ?? 0,
+        response.data.page?.totalElements ?? response.data.totalElements ?? response.data.content?.length ?? 0,
       );
     } catch (err) {
       console.error("댓글 목록 조회 실패:", err);
