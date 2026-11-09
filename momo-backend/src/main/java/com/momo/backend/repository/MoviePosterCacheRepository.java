@@ -16,9 +16,7 @@ public interface MoviePosterCacheRepository
         extends JpaRepository<MoviePosterCache, String> {
 
     // 여러 영화 코드에 해당하는 포스터 캐시를 한 번에 조회
-    List<MoviePosterCache> findAllByMovieCodeIn(
-            Collection<String> movieCodes
-    );
+    List<MoviePosterCache> findAllByMovieCodeIn(Collection<String> movieCodes);
 
     @Modifying
     @Transactional
@@ -51,5 +49,19 @@ public interface MoviePosterCacheRepository
             @Param("now") LocalDateTime now,
             @Param("failedBefore") LocalDateTime failedBefore,
             @Param("processingBefore") LocalDateTime processingBefore
+    );
+
+    // 비동기 작업이 스레드 풀에 등록되지 못한 경우 작업 점유 상태를 해제한다.
+    @Modifying
+    @Transactional
+    @Query(value = """
+            UPDATE movie_poster_cache
+               SET status = 'PENDING', updated_at = :now
+             WHERE movie_code = :movieCode
+               AND status = 'PROCESSING'
+            """, nativeQuery = true)
+    int releaseClaim(
+            @Param("movieCode") String movieCode,
+            @Param("now") LocalDateTime now
     );
 }
