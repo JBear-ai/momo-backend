@@ -903,11 +903,17 @@ public class MovieService {
                 return;
             }
 
-            posterAsyncService.searchPosterAsync(
-                    movieCode,
-                    title,
-                    releaseDate
-            );
+            try {
+                posterAsyncService.searchPosterAsync(
+                        movieCode,
+                        title,
+                        releaseDate
+                );
+            } catch (RuntimeException schedulingException) {
+                // 작업 등록에 실패한 영화는 즉시 재등록할 수 있도록 점유 상태를 해제한다.
+                posterCacheService.releaseProcessingClaim(movieCode);
+                throw schedulingException;
+            }
 
         } catch (Exception e) {
 
