@@ -10,7 +10,6 @@ import org.springframework.test.context.ActiveProfiles;
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false"
 })
 @ActiveProfiles("test")
 class MomoBackendApplicationTests {
