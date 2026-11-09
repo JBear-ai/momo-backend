@@ -56,11 +56,6 @@ public class MoviePosterCacheService {
     }
 
     @Transactional
-    public void updatePoster(String movieCode, String posterUrl) {
-        posterCacheRepository.findById(movieCode).ifPresent(cache -> cache.updatePoster(posterUrl));
-    }
-
-    @Transactional
     public void markAsFailed(String movieCode, String claimToken) {
         if (claimToken != null) {
             posterCacheRepository.failClaim(movieCode, claimToken, LocalDateTime.now());
