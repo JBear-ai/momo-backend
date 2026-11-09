@@ -3881,3 +3881,100 @@ body {
     font-size: 12px;
   }
 }
+
+
+/* 전체 리뷰 - 영화 포스터 */
+
+.all-review-movie-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.all-review-poster {
+  flex-shrink: 0;
+  width: 48px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #f0f0f0;
+}
+
+.all-review-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.all-review-poster-placeholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.review-movie-title {
+  display: block;
+}
+
+.all-review-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #777;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.review-stats-cell {
+  min-width: 100px;
+}
+
+/* 전체 리뷰 - 모바일 */
+
+.all-review-mobile-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.all-review-mobile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.all-review-mobile-info .mobile-review-movie {
+  margin: 0 0 7px;
+}
+
+.all-review-mobile-info .mobile-review-meta {
+  margin-top: 8px;
+}
+
+.all-review-mobile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  color: #777;
+  font-size: 12px;
+}
+
+.all-review-mobile-stats strong {
+  color: #333;
+}
+
+@media (max-width: 600px) {
+  .all-review-poster {
+    width: 62px;
+  }
+
+  .all-review-mobile-stats {
+    gap: 10px;
+  }
+}
