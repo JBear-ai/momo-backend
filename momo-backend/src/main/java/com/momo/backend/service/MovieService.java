@@ -452,9 +452,12 @@ public class MovieService {
                     log.info("KOBIS 상세정보 API 요청. movieCode: {}", movieCode);
                     supplementFromKobis(savedMovie);
                 } catch (Exception e) {
-                    log.warn("KOBIS 상세정보 보완 실패. KMDb/TMDb 보완은 계속 진행합니다. movieCode: {}",
+                    log.warn("KOBIS 상세정보 보완 실패. KOBIS 검색 결과와 외부 API로 추가 보완합니다. movieCode: {}",
                             movieCode, e);
                 }
+
+                // 상세 API에 누락된 개봉일·감독은 KOBIS 영화 목록에서 같은 영화 코드로 재확인한다.
+                supplementFromKobisSearch(savedMovie);
             }
             supplementMissingDetails(savedMovie);
             supplementOverview(savedMovie);
@@ -468,12 +471,83 @@ public class MovieService {
         log.info("KOBIS 상세정보 API 요청. movieCode: {}", movieCode);
         Movie newMovie = fetchMovieDetailFromKobis(movieCode);
         newMovie.markKobisDetailAttempted(LocalDateTime.now());
+        supplementFromKobisSearch(newMovie);
         supplementMissingDetails(newMovie);
         supplementOverview(newMovie);
 
         movieRepository.save(newMovie);
 
         return toDetailResponse(newMovie);
+    }
+
+    // KOBIS 상세 API에 일부 항목이 없으면 영화 목록 API에서 같은 영화 코드를 다시 확인한다.
+    private void supplementFromKobisSearch(Movie movie) {
+
+        if (movie == null
+                || (!isBlank(movie.getReleaseDate())
+                && !isBlank(movie.getDirector())
+                && !isBlank(movie.getGenre()))) {
+            return;
+        }
+
+        List<String> searchTitles = new ArrayList<>();
+
+        if (!isBlank(movie.getTitle())) {
+            searchTitles.add(movie.getTitle());
+        }
+
+        if (!isBlank(movie.getTitleEn())
+                && !searchTitles.contains(movie.getTitleEn())) {
+            searchTitles.add(movie.getTitleEn());
+        }
+
+        for (String searchTitle : searchTitles) {
+            try {
+                String json = kobisApiClient.searchMovies(searchTitle, 1, 100);
+                JsonNode movieList = readRequiredArray(
+                        json,
+                        "movieListResult",
+                        "movieList",
+                        "KOBIS 영화 목록 보완 응답이 올바르지 않습니다."
+                );
+
+                for (JsonNode candidate : movieList) {
+                    if (!movie.getMovieCode().equals(
+                            candidate.path("movieCd").asText(""))) {
+                        continue;
+                    }
+
+                    String director = StreamSupport.stream(
+                                    candidate.path("directors").spliterator(),
+                                    false
+                            )
+                            .map(node -> node.path("peopleNm").asText(""))
+                            .filter(value -> !value.isBlank())
+                            .distinct()
+                            .limit(5)
+                            .reduce((a, b) -> a + ", " + b)
+                            .orElse("");
+
+                    movie.supplementMissingDetails(
+                            candidate.path("movieNmEn").asText(""),
+                            candidate.path("openDt").asText(""),
+                            "",
+                            candidate.path("genreAlt").asText(""),
+                            director,
+                            "",
+                            "",
+                            "KOBIS_SEARCH"
+                    );
+
+                    log.info("KOBIS 영화 목록으로 상세정보 보완 완료. movieCode: {}, searchTitle: {}",
+                            movie.getMovieCode(), searchTitle);
+                    return;
+                }
+            } catch (Exception e) {
+                log.warn("KOBIS 영화 목록 보완 조회 실패. movieCode: {}, searchTitle: {}",
+                        movie.getMovieCode(), searchTitle, e);
+            }
+        }
     }
 
     // KOBIS 상세정보 조회 및 DB 항목 보완
