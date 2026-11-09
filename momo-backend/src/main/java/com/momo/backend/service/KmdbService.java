@@ -219,8 +219,8 @@ public class KmdbService {
             String releaseDate,
             String director) {
 
-        String requestedDate = normalizeDate(releaseDate);
-        String fallbackPosterUrl = null;
+        String bestPosterUrl = null;
+        int bestMatchScore = -1;
 
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
@@ -253,12 +253,14 @@ public class KmdbService {
                                 result.path("directors").path("director"),
                                 "directorNm", 5));
 
-                        // 제목만 비교하지 않고 KOBIS 개봉연도와 감독 정보까지 함께 검증한다.
+                        String verificationDate = firstNonBlank(
+                                candidateReleaseDate, candidateYear);
+
+                        // 제목·개봉연도 검증을 통과한 후보만 포스터 대상으로 인정한다.
                         if (!MovieMatchVerifier.isSameMovie(
                                 title, titleEn, releaseDate, director,
                                 candidateTitle, candidateTitleEn,
-                                firstNonBlank(candidateReleaseDate, candidateYear),
-                                candidateDirector)) {
+                                verificationDate, candidateDirector)) {
                             continue;
                         }
 
@@ -267,14 +269,15 @@ public class KmdbService {
                             continue;
                         }
 
-                        // 정확한 개봉일 후보를 우선한다. 날짜의 일자 차이는 같은 연도라면 허용한다.
-                        if (!requestedDate.isBlank()
-                                && requestedDate.equals(normalizeDate(candidateReleaseDate))) {
-                            return posterUrl;
-                        }
+                        // 같은 영화 후보가 여러 개면 개봉일과 감독까지 더 정확히 일치하는 결과를 선택한다.
+                        int matchScore = MovieMatchVerifier.matchScore(
+                                title, titleEn, releaseDate, director,
+                                candidateTitle, candidateTitleEn,
+                                verificationDate, candidateDirector);
 
-                        if (fallbackPosterUrl == null) {
-                            fallbackPosterUrl = posterUrl;
+                        if (matchScore > bestMatchScore) {
+                            bestMatchScore = matchScore;
+                            bestPosterUrl = posterUrl;
                         }
                     }
                 }
@@ -284,7 +287,7 @@ public class KmdbService {
             }
         }
 
-        return fallbackPosterUrl;
+        return bestPosterUrl;
     }
 
     /**
