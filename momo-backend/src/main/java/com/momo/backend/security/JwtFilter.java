@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 
-=======
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
 package com.momo.backend.security;
 
 import jakarta.servlet.FilterChain;
@@ -20,15 +17,10 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
 
-<<<<<<< HEAD
     // JWT 생성 및 검증을 담당하는 클래스
     private final TokenProvider tokenProvider;
 
     // 1. HTTP 요청이 들어오면 JWT 인증 처리
-=======
-    private final TokenProvider tokenProvider;
-
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -36,7 +28,6 @@ public class JwtFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-<<<<<<< HEAD
         // 2. Authorization 요청 헤더 가져오기
         String header = request.getHeader(
                 HttpHeaders.AUTHORIZATION
@@ -60,20 +51,6 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         // 6. 다음 Spring Security 필터로 요청 전달
-=======
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7);
-
-            if (tokenProvider.validateToken(token)) {
-                SecurityContextHolder.getContext().setAuthentication(
-                        tokenProvider.getAuthentication(token)
-                );
-            }
-        }
-
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
         filterChain.doFilter(request, response);
     }
 }
