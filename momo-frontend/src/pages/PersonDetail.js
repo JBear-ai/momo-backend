@@ -186,7 +186,7 @@ function PersonDetail() {
                   ),
             React.createElement(
                     "div",
-                    {"className":"person-meta-details","style":{ margin: "12px 0", lineHeight: "1.6" }},
+                    {"className":"person-meta-details"},
                     (person.placeOfBirth && React.createElement(
                               "p",
                               null,
@@ -239,70 +239,42 @@ function PersonDetail() {
             null,
             React.createElement(
                     "div",
-                    {"className":"people-list","style":{
-                                    display: "grid",
-                                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-                                    gap: "20px",
-                                  }},
+                    {"className":"people-list"},
                     (filmography.slice(0, visibleCount).map((movie) => (
                                     React.createElement(
                               "article",
-                              {"className":"person-chip","key":movie.tmdbId,"style":{
-                                                  display: "flex",
-                                                  flexDirection: "column",
-                                                  alignItems: "stretch",
-                                                  padding: "12px",
-                                                  borderRadius: "8px",
-                                                  backgroundColor: "#fff",
-                                                  border: "1px solid #eaeaea",
-                                                  boxShadow: "0 2px 4px rgba(0,0,0,0.04)",
-                                                  gap: "10px",
-                                                }},
+                              {"className":"person-chip","key":movie.tmdbId},
                               (movie.posterUrl ? (
                                                   React.createElement(
                                           "img",
-                                          {"src":movie.posterUrl,"alt":movie.title || "작품 포스터","loading":"lazy","style":{
-                                                                  width: "100%",
-                                                                  height: "250px",
-                                                                  objectFit: "cover",
-                                                                  borderRadius: "6px",
-                                                                }}
+                                          {"src":movie.posterUrl,"alt":movie.title || "작품 포스터","loading":"lazy"}
                                         )
                                                 ) : (
                                                   React.createElement(
                                           "div",
-                                          {"style":{
-                                                                  width: "100%",
-                                                                  height: "250px",
-                                                                  display: "flex",
-                                                                  alignItems: "center",
-                                                                  justifyContent: "center",
-                                                                  backgroundColor: "#f0f0f0",
-                                                                  borderRadius: "6px",
-                                                                  fontSize: "32px",
-                                                                }},
+                                          null,
                                           "🎬"
                                         )
                                                 )),
                               React.createElement(
                                           "div",
-                                          {"style":{ display: "flex", flexDirection: "column", gap: "4px" }},
+                                          null,
                                           React.createElement(
                                                         "strong",
-                                                        {"style":{ fontSize: "15px", lineHeight: "1.3" }},
+                                                        null,
                                                         (movie.title || "제목 없음")
                                                       ),
                                           (movie.releaseDate && (
                                                                 React.createElement(
                                                         "span",
-                                                        {"style":{ fontSize: "13px", color: "#666" }},
+                                                        null,
                                                         (formatReleaseDate(movie.releaseDate))
                                                       )
                                                               )),
                                           (movie.role && (
                                                                 React.createElement(
                                                         "span",
-                                                        {"className":"person-role","style":{ fontSize: "13px", color: "#444" }},
+                                                        {"className":"person-role"},
                                                         "배역: ",
                                                         (movie.role)
                                                       )
@@ -314,18 +286,10 @@ function PersonDetail() {
             (visibleCount < filmography.length && (
                           React.createElement(
                     "div",
-                    {"style":{ textAlign: "center", marginTop: "30px" }},
+                    null,
                     React.createElement(
                               "button",
-                              {"type":"button","onClick":() => setVisibleCount((count) => count + 10),"style":{
-                                                  padding: "12px 24px",
-                                                  cursor: "pointer",
-                                                  borderRadius: "6px",
-                                                  border: "1px solid #ccc",
-                                                  backgroundColor: "#f9f9f9",
-                                                  fontSize: "15px",
-                                                  fontWeight: "600",
-                                                }},
+                              {"type":"button","onClick":() => setVisibleCount((count) => count + 10)},
                               "더보기 (",
                               (Math.min(visibleCount, filmography.length)),
                               " / ",
