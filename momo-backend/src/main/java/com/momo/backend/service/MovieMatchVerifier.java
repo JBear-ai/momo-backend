@@ -37,7 +37,20 @@ final class MovieMatchVerifier {
 
         // 양쪽 개봉연도가 확인되면 반드시 같은 연도여야 한다.
         if (!kobisYear.isBlank() && !candidateYear.isBlank()) {
-            return kobisYear.equals(candidateYear);
+            if (!kobisYear.equals(candidateYear)) {
+                return false;
+            }
+
+            // 두 공급원의 감독명이 같은 문자 체계로 제공되었는데 다르면 동명 영화 오매칭을 막는다.
+            boolean directorsProvided = kobisDirector != null && !kobisDirector.isBlank()
+                    && candidateDirector != null && !candidateDirector.isBlank();
+            if (directorsProvided
+                    && sameNameScript(kobisDirector, candidateDirector)
+                    && !matchesDirector(kobisDirector, candidateDirector)) {
+                return false;
+            }
+
+            return true;
         }
 
         // 개봉연도가 없으면 영문 원제 또는 감독까지 일치해야 한다.
@@ -98,6 +111,15 @@ final class MovieMatchVerifier {
         }
 
         return score;
+    }
+
+    private static boolean sameNameScript(String first, String second) {
+        return containsHangul(first) == containsHangul(second);
+    }
+
+    private static boolean containsHangul(String value) {
+        return value != null && value.codePoints()
+                .anyMatch(codePoint -> codePoint >= 0xAC00 && codePoint <= 0xD7A3);
     }
 
     // 외부 API가 여러 감독을 반환해도 KOBIS 감독 한 명과 비교할 수 있도록 처리
