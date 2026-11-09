@@ -1,6 +1,12 @@
 package com.momo.backend;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.momo.backend.security.TokenProvider;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -10,11 +16,23 @@ import org.springframework.test.context.ActiveProfiles;
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
+        "JWT_SECRET=TW9tb1Rlc3RPbmx5U2VjcmV0S2V5Rm9ySlZUVGVzdHMxMjM0NQ==",
 })
 @ActiveProfiles("test")
 class MomoBackendApplicationTests {
 
+    @Autowired
+    private TokenProvider tokenProvider;
+
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void createsAndValidatesJwtForLoginId() {
+        String token = tokenProvider.createToken("momo-test-user");
+
+        assertTrue(tokenProvider.validateToken(token));
+        assertEquals("momo-test-user", tokenProvider.getAuthentication(token).getName());
     }
 }

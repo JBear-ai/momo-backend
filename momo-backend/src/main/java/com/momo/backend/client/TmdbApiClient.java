@@ -21,13 +21,24 @@ public class TmdbApiClient {
     }
 
     public String searchMovie(String title) {
+        return searchMovie(title, "ko-KR");
+    }
+
+    // 검색어 언어에 맞춰 TMDb 결과 제목을 조회한다.
+    public String searchMovie(String title, String language) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
+
+        String safeLanguage = (language == null || language.isBlank())
+                ? "ko-KR"
+                : language;
+
         return metrics.record("TMDB", "searchMovie", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/movie")
                         .queryParam("api_key", apiKey).queryParam("query", title.trim())
-                        .queryParam("language", "ko-KR").queryParam("include_adult", false).build())
+                        .queryParam("language", safeLanguage)
+                        .queryParam("include_adult", false).build())
                 .retrieve().body(String.class));
     }
 

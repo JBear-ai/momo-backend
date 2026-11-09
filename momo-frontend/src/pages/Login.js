@@ -21,9 +21,17 @@ function Login() {
       if (response.status === 200 && response.data) {
         const loginId = response.data.loginId || inputId.trim();
         const nickname = response.data.nickname || "회원";
+        const accessToken = response.data.accessToken;
+
+        if (!accessToken) {
+          alert("로그인 토큰을 발급받지 못했습니다.");
+          return;
+        }
 
         localStorage.setItem("username", loginId);
         localStorage.setItem("nickname", nickname);
+        localStorage.setItem("accessToken", accessToken);
+        window.__momoAuthExpiredHandled = false;
 
         // 로그인 상태가 바뀌었다는 것을 Layout에 알린다.
         window.dispatchEvent(new Event("momo-auth-changed"));

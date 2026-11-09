@@ -33,7 +33,7 @@ function AllReviews() {
         const reviewList = data.content || [];
 
         setReviews(reviewList);
-        setTotalPages(data.totalPages || 0);
+        setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
 
         // 리뷰별 포스터, 댓글 수, 좋아요 및 싫어요 수 조회
         const results = await Promise.all(
@@ -85,7 +85,7 @@ function AllReviews() {
               reviewId: review.reviewId,
               posterUrl: poster?.posterUrl || "",
               commentCount:
-                comments?.totalElements ?? comments?.content?.length ?? 0,
+                comments?.page?.totalElements ?? comments?.totalElements ?? comments?.content?.length ?? 0,
               likeCount: reactions?.likeCount ?? 0,
               dislikeCount: reactions?.dislikeCount ?? 0,
             };
