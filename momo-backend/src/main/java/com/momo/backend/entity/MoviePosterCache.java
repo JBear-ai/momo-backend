@@ -53,25 +53,5 @@ public class MoviePosterCache {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // 포스터 조회 성공
-    public void updatePoster(String posterUrl) {
-        this.posterUrl = posterUrl;
-        this.status = PosterStatus.SUCCESS;
-        this.claimToken = null;
-        this.updatedAt = LocalDateTime.now();
-    }
 
-    // 포스터 조회 실패
-    public void markAsFailed() {
-        this.posterUrl = null;
-        this.status = PosterStatus.FAILED;
-        this.claimToken = null;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    // 포스터 조회 시작
-    public void markAsProcessing() {
-        this.status = PosterStatus.PROCESSING;
-        this.updatedAt = LocalDateTime.now();
-    }
 }
