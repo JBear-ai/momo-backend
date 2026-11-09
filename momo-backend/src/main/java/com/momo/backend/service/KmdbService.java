@@ -28,64 +28,85 @@ public class KmdbService {
     public Optional<MovieSupplement> findMovieSupplement(
             String title, String titleEn, String releaseDate, String director) {
 
-        if (title == null || title.isBlank()) {
+        if ((title == null || title.isBlank())
+                && (titleEn == null || titleEn.isBlank())) {
             return Optional.empty();
         }
 
-        try {
-            String json = kmdbApiClient.searchMovie(title);
-            JsonNode dataList = objectMapper.readTree(json).path("Data");
+        for (String searchTitle : searchTitles(title, titleEn)) {
+            try {
+                String json = kmdbApiClient.searchMovie(searchTitle);
 
-            for (JsonNode data : dataList) {
-                for (JsonNode result : data.path("Result")) {
-
-                    // KMDb 검색 결과에서 영화 제목, 개봉일, 감독 정보 추출
-                    String candidateTitle = getText(result, "title");
-
-                    String candidateTitleEn = firstNonBlank(
-                            getText(result, "titleEng"),
-                            getText(result, "titleOrg"));
-
-                    String candidateReleaseDate = validDate(
-                            getText(result, "repRlsDate"));
-
-                    String candidateYear = getText(result, "prodYear");
-
-                    String candidateDirector = String.join(",", nestedNames(
-                            result.path("directors").path("director"),
-                            "directorNm", 5));
-
-                    // KOBIS 영화와 동일한 작품인지 검증
-                    if (!MovieMatchVerifier.isSameMovie(
-                            title, titleEn, releaseDate, director,
-                            candidateTitle, candidateTitleEn,
-                            firstNonBlank(candidateReleaseDate, candidateYear),
-                            candidateDirector)) {
-                        continue;
-                    }
-
-                    List<String> actors = nestedNames(
-                            result.path("actors").path("actor"),
-                            "actorNm", 10);
-
-                    return Optional.of(new MovieSupplement(
-                            candidateTitleEn,
-                            candidateReleaseDate,
-                            getText(result, "runtime"),
-                            getText(result, "genre"),
-                            candidateDirector,
-                            actors,
-                            getText(result, "rating"),
-                            "KMDb"
-                    ));
+                if (json == null || json.isBlank()) {
+                    continue;
                 }
-            }
 
-        } catch (Exception e) {
-            log.warn("KMDb 상세정보 보완 실패 - 제목: {}", title, e);
+                JsonNode dataList = objectMapper.readTree(json).path("Data");
+                if (!dataList.isArray()) {
+                    continue;
+                }
+
+                for (JsonNode data : dataList) {
+                    for (JsonNode result : data.path("Result")) {
+                        String candidateTitle = getText(result, "title");
+                        String candidateTitleEn = firstNonBlank(
+                                getText(result, "titleEng"),
+                                getText(result, "titleOrg"));
+                        String candidateReleaseDate = validDate(
+                                getText(result, "repRlsDate"));
+                        String candidateYear = getText(result, "prodYear");
+                        String candidateDirector = String.join(",", nestedNames(
+                                result.path("directors").path("director"),
+                                "directorNm", 5));
+
+                        if (!MovieMatchVerifier.isSameMovie(
+                                title, titleEn, releaseDate, director,
+                                candidateTitle, candidateTitleEn,
+                                firstNonBlank(candidateReleaseDate, candidateYear),
+                                candidateDirector)) {
+                            continue;
+                        }
+
+                        List<String> actors = nestedNames(
+                                result.path("actors").path("actor"),
+                                "actorNm", 10);
+
+                        return Optional.of(new MovieSupplement(
+                                candidateTitleEn,
+                                candidateReleaseDate,
+                                getText(result, "runtime"),
+                                getText(result, "genre"),
+                                candidateDirector,
+                                actors,
+                                getText(result, "rating"),
+                                "KMDb"
+                        ));
+                    }
+                }
+            } catch (Exception e) {
+                // 한글 제목 검색이 실패해도 영문 제목 검색은 계속 진행한다.
+                log.warn("KMDb 상세정보 검색 실패 - 검색어: {}", searchTitle, e);
+            }
         }
 
         return Optional.empty();
+    }
+
+    // 한글 제목과 영문 제목을 중복 없이 검색어로 사용
+    private List<String> searchTitles(String title, String titleEn) {
+        List<String> titles = new ArrayList<>();
+
+        if (title != null && !title.isBlank()) {
+            titles.add(title.trim());
+        }
+
+        if (titleEn != null && !titleEn.isBlank()
+                && titles.stream().noneMatch(value ->
+                normalizeTitle(value).equals(normalizeTitle(titleEn)))) {
+            titles.add(titleEn.trim());
+        }
+
+        return titles;
     }
 
     // 숫자 8자리 형식의 개봉일만 허용
@@ -131,58 +152,54 @@ public class KmdbService {
     /**
      * 영화 코드, 제목, 개봉일로 포스터 검색
      *
-     * 1. KMDb 검색
-     * 2. TMDb 검색
-     * 3. 모두 실패하면 null 반환
+     * 기존 호출부 호환을 위해 기존 함수명과 매개변수는 유지한다.
      */
     public String findPosterUrl(
             String movieCode,
             String title,
             String releaseDate) {
+        return findPosterUrl(movieCode, title, "", releaseDate, "");
+    }
 
-        if (title == null || title.isBlank()) {
-            log.warn("포스터 검색 실패 - 영화 제목이 비어 있습니다.");
+    /**
+     * 영화의 한글 제목, 영문 제목, 개봉일, 감독 정보를 활용해 포스터 검색
+     */
+    public String findPosterUrl(
+            String movieCode,
+            String title,
+            String titleEn,
+            String releaseDate,
+            String director) {
+
+        if ((title == null || title.isBlank())
+                && (titleEn == null || titleEn.isBlank())) {
+            log.warn("포스터 검색 실패 - 영화 제목이 비어 있습니다. movieCode: {}", movieCode);
             return null;
         }
 
-        log.info(
-                "포스터 검색 요청 - 영화 코드: {}, 제목: {}, 개봉일: {}",
-                movieCode, title, releaseDate
-        );
+        log.info("포스터 검색 요청 - 영화 코드: {}, 제목: {}, 영문 제목: {}, 개봉일: {}",
+                movieCode, title, titleEn, releaseDate);
 
-        // 1. KMDb 검색
-        String kmdbPosterUrl = findKmdbPosterUrl(title, releaseDate);
+        String kmdbPosterUrl = findKmdbPosterUrl(
+                title, titleEn, releaseDate, director);
 
         if (kmdbPosterUrl != null) {
             log.info("KMDb 포스터 검색 성공 - 영화 코드: {}", movieCode);
             return kmdbPosterUrl;
         }
 
-        log.warn(
-                "KMDb 포스터 검색 실패 - TMDb로 전환 - 영화 코드: {}, 제목: {}",
-                movieCode, title
-        );
+        log.info("KMDb 포스터 검색 결과 없음. TMDb 검색으로 전환 - 영화 코드: {}", movieCode);
 
-        // 2. TMDb 검색
         String tmdbPosterUrl = tmdbService.findMoviePosterUrl(
-                title,
-                releaseDate
-        );
+                title, titleEn, releaseDate, director);
 
-        if (tmdbPosterUrl != null) {
-            log.info(
-                    "TMDb 포스터 사용 - 영화 코드: {}, 제목: {}",
-                    movieCode, title
-            );
+        if (tmdbPosterUrl != null && !tmdbPosterUrl.isBlank()) {
+            log.info("TMDb 포스터 사용 - 영화 코드: {}", movieCode);
             return tmdbPosterUrl;
         }
 
-        // 3. 포스터 검색 실패
-        log.warn(
-                "포스터 검색 최종 실패 - 영화 코드: {}, 제목: {}, 개봉일: {}",
-                movieCode, title, releaseDate
-        );
-
+        log.warn("포스터 검색 최종 실패 - 영화 코드: {}, 제목: {}, 개봉일: {}",
+                movieCode, title, releaseDate);
         return null;
     }
 
@@ -190,14 +207,7 @@ public class KmdbService {
      * 기존 메서드 호환용
      */
     public String findPosterUrl(String title, String releaseDate) {
-
-        String kmdbPosterUrl = findKmdbPosterUrl(title, releaseDate);
-
-        if (kmdbPosterUrl != null) {
-            return kmdbPosterUrl;
-        }
-
-        return tmdbService.findMoviePosterUrl(title, releaseDate);
+        return findPosterUrl("", title, "", releaseDate, "");
     }
 
     /**
@@ -205,136 +215,76 @@ public class KmdbService {
      */
     private String findKmdbPosterUrl(
             String title,
-            String releaseDate) {
+            String titleEn,
+            String releaseDate,
+            String director) {
 
-        if (title == null || title.isBlank()) {
-            return null;
-        }
+        String requestedDate = normalizeDate(releaseDate);
+        String fallbackPosterUrl = null;
 
-        try {
-            String normalizedTitle = normalizeTitle(title);
-            String normalizedDate = normalizeDate(releaseDate);
+        for (String searchTitle : searchTitles(title, titleEn)) {
+            try {
+                String json = kmdbApiClient.searchMovie(searchTitle);
 
-            log.info(
-                    "KMDb API 요청 - 원본 제목: {}, 정규화 제목: {}, 개봉일: {}",
-                    title, normalizedTitle, normalizedDate
-            );
-
-            String json = kmdbApiClient.searchMovie(title);
-
-            if (json == null || json.isBlank()) {
-                log.warn("KMDb API 응답이 비어 있습니다. 제목: {}", title);
-                return null;
-            }
-
-            JsonNode dataList = objectMapper.readTree(json).path("Data");
-
-            if (!dataList.isArray() || dataList.isEmpty()) {
-                log.warn(
-                        "KMDb Data 검색 결과 없음 - 제목: {}, Data: {}",
-                        title, dataList
-                );
-                return null;
-            }
-
-            log.info(
-                    "KMDb Data 결과 개수: {}",
-                    dataList.size()
-            );
-
-            for (JsonNode data : dataList) {
-
-                JsonNode results = data.path("Result");
-
-                if (!results.isArray() || results.isEmpty()) {
-                    log.warn("KMDb Result 배열이 비어 있습니다.");
+                if (json == null || json.isBlank()) {
                     continue;
                 }
 
-                log.info(
-                        "KMDb 영화 후보 개수: {}",
-                        results.size()
-                );
+                JsonNode dataList = objectMapper.readTree(json).path("Data");
+                if (!dataList.isArray()) {
+                    continue;
+                }
 
-                for (JsonNode result : results) {
-
-                    String rawTitle = getText(result, "title");
-                    String rawDate = getText(result, "repRlsDate");
-                    String rawPosters = getText(result, "posters");
-
-                    String kmdbTitle = normalizeTitle(rawTitle);
-                    String kmdbReleaseDate = normalizeDate(rawDate);
-
-                    log.info(
-                            "KMDb 후보 - 제목: [{}], 정규화 제목: [{}], " +
-                                    "개봉일: [{}], 정규화 개봉일: [{}], 포스터 존재: {}",
-                            rawTitle,
-                            kmdbTitle,
-                            rawDate,
-                            kmdbReleaseDate,
-                            !rawPosters.isBlank()
-                    );
-
-                    // 제목 일치 여부 확인
-                    if (!normalizedTitle.equals(kmdbTitle)) {
-                        log.info(
-                                "KMDb 제목 불일치 - 요청: [{}], 검색: [{}]",
-                                normalizedTitle, kmdbTitle
-                        );
+                for (JsonNode data : dataList) {
+                    JsonNode results = data.path("Result");
+                    if (!results.isArray()) {
                         continue;
                     }
 
-                    String posterUrl = extractPoster(result);
+                    for (JsonNode result : results) {
+                        String candidateTitle = getText(result, "title");
+                        String candidateTitleEn = firstNonBlank(
+                                getText(result, "titleEng"),
+                                getText(result, "titleOrg"));
+                        String candidateReleaseDate = validDate(
+                                getText(result, "repRlsDate"));
+                        String candidateYear = getText(result, "prodYear");
+                        String candidateDirector = String.join(",", nestedNames(
+                                result.path("directors").path("director"),
+                                "directorNm", 5));
 
-                    if (posterUrl == null) {
-                        log.info(
-                                "KMDb 제목 일치했으나 포스터 URL 없음 - 제목: {}",
-                                rawTitle
-                        );
-                        continue;
-                    }
+                        // 제목만 비교하지 않고 KOBIS 개봉연도와 감독 정보까지 함께 검증한다.
+                        if (!MovieMatchVerifier.isSameMovie(
+                                title, titleEn, releaseDate, director,
+                                candidateTitle, candidateTitleEn,
+                                firstNonBlank(candidateReleaseDate, candidateYear),
+                                candidateDirector)) {
+                            continue;
+                        }
 
-                    // 제목과 개봉일 모두 일치
-                    if (!normalizedDate.isBlank()
-                            && normalizedDate.equals(kmdbReleaseDate)) {
+                        String posterUrl = extractPoster(result);
+                        if (posterUrl == null) {
+                            continue;
+                        }
 
-                        log.info(
-                                "KMDb 포스터 정확 매칭 성공 - 제목: {}, 개봉일: {}",
-                                rawTitle, rawDate
-                        );
+                        // 정확한 개봉일 후보를 우선한다. 날짜의 일자 차이는 같은 연도라면 허용한다.
+                        if (!requestedDate.isBlank()
+                                && requestedDate.equals(normalizeDate(candidateReleaseDate))) {
+                            return posterUrl;
+                        }
 
-                        return posterUrl;
-                    }
-
-                    // KOBIS 개봉일이 있으면 날짜가 다른 동명 영화의 포스터를
-                    // 임의로 사용하지 않는다. 개봉일이 없는 경우에만 제목 일치를
-                    // 근거로 포스터를 허용한다.
-                    if (normalizedDate.isBlank()) {
-                        log.info(
-                                "KMDb 포스터 제목 매칭 성공 - KOBIS 개봉일 없음 - 제목: {}",
-                                rawTitle
-                        );
-                        return posterUrl;
+                        if (fallbackPosterUrl == null) {
+                            fallbackPosterUrl = posterUrl;
+                        }
                     }
                 }
+            } catch (Exception e) {
+                // KMDb 한글 제목 검색에 실패해도 영문 제목 검색은 계속한다.
+                log.warn("KMDb 포스터 검색 실패 - 검색어: {}", searchTitle, e);
             }
-
-            log.warn(
-                    "KMDb 최종 검색 결과 없음 - 제목: {}, 개봉일: {}",
-                    title, releaseDate
-            );
-
-            return null;
-
-        } catch (Exception e) {
-
-            log.error(
-                    "KMDb 포스터 조회 중 예외 발생 - 제목: {}, 개봉일: {}",
-                    title, releaseDate, e
-            );
-
-            return null;
         }
+
+        return fallbackPosterUrl;
     }
 
     /**
