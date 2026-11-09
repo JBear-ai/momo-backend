@@ -16,7 +16,7 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class MoviePosterCacheService {
     private final MoviePosterCacheRepository posterCacheRepository;
-    private static final long FAILED_RETRY_HOURS = 24;
+    private static final long FAILED_RETRY_HOURS = 6;
     private static final long PROCESSING_TIMEOUT_MINUTES = 10;
 
     public Optional<MoviePosterCache> findCache(String movieCode) {

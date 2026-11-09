@@ -67,7 +67,7 @@ class MoviePosterAsyncServiceTest {
     }
 
     @Test
-    void keepsProcessingCacheWhenAnUnexpectedErrorOccurs() {
+    void marksCacheFailedWhenAnUnexpectedErrorOccurs() {
         KmdbService kmdbService = mock(KmdbService.class);
         MoviePosterCacheService cacheService = mock(MoviePosterCacheService.class);
         MoviePosterPersistenceService persistenceService =
@@ -83,7 +83,7 @@ class MoviePosterAsyncServiceTest {
 
         service.searchPosterAsync("20260003", "오류 테스트", "20260101");
 
-        verify(cacheService, never()).markAsFailed("20260003");
+        verify(cacheService).markAsFailed("20260003");
         verifyNoInteractions(persistenceService);
     }
 }

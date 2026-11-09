@@ -264,7 +264,7 @@ public class TmdbService {
                                         verificationDate = koreanReleaseDate;
                                     }
 
-                                    if (kobisYear.isBlank()) {
+                                    if (kobisYear.isBlank() || candidateYear.isBlank()) {
                                         for (JsonNode crew : detail.path("credits").path("crew")) {
                                             if ("Director".equalsIgnoreCase(getText(crew, "job"))) {
                                                 candidateDirector = getText(crew, "name");
