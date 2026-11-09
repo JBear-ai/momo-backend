@@ -163,10 +163,10 @@ public class Movie {
         return true;
     }
 
-    // 마지막 보완 시도로부터 24시간이 지났는지 확인
+    // 상세정보가 남아 있으면 6시간 후 외부 API 재조회가 가능하다.
     public boolean canAttemptSupplement(LocalDateTime now) {
         return supplementAttemptedAt == null
-                || supplementAttemptedAt.isBefore(now.minusHours(24));
+                || supplementAttemptedAt.isBefore(now.minusHours(6));
     }
 
     // KMDb/TMDb 외부 보완 시도 시각
@@ -176,7 +176,7 @@ public class Movie {
 
     public boolean canAttemptKobisDetail(LocalDateTime now) {
         return kobisDetailAttemptedAt == null
-                || kobisDetailAttemptedAt.isBefore(now.minusHours(24));
+                || kobisDetailAttemptedAt.isBefore(now.minusHours(6));
     }
 
     public void markKobisDetailAttempted(LocalDateTime attemptedAt) {

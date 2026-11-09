@@ -40,7 +40,7 @@ public class TmdbService {
 
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
-                String json = tmdbApiClient.searchMovie(searchTitle);
+                String json = searchMovie(searchTitle, titleEn);
                 if (json == null || json.isBlank()) {
                     continue;
                 }
@@ -69,15 +69,26 @@ public class TmdbService {
                     }
 
                     JsonNode detail = objectMapper.readTree(detailJson);
-                    String director = "";
+                    List<String> directors = new ArrayList<>();
                     List<String> actors = new ArrayList<>();
 
+                    // 공동 감독이 있는 작품도 누락하지 않도록 모든 감독을 수집한다.
                     for (JsonNode crew : detail.path("credits").path("crew")) {
-                        if ("Director".equalsIgnoreCase(getText(crew, "job"))) {
-                            director = getText(crew, "name");
+                        if (!"Director".equalsIgnoreCase(getText(crew, "job"))) {
+                            continue;
+                        }
+
+                        String name = getText(crew, "name");
+                        if (!name.isBlank() && !directors.contains(name)) {
+                            directors.add(name);
+                        }
+
+                        if (directors.size() >= 5) {
                             break;
                         }
                     }
+
+                    String director = String.join(", ", directors);
 
                     for (JsonNode cast : detail.path("credits").path("cast")) {
                         String name = getText(cast, "name");
@@ -217,7 +228,7 @@ public class TmdbService {
 
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
-                String json = tmdbApiClient.searchMovie(searchTitle);
+                String json = searchMovie(searchTitle, titleEn);
                 if (json == null || json.isBlank()) {
                     continue;
                 }
@@ -265,12 +276,24 @@ public class TmdbService {
                                     }
 
                                     if (kobisYear.isBlank() || candidateYear.isBlank()) {
+                                        List<String> directors = new ArrayList<>();
+
                                         for (JsonNode crew : detail.path("credits").path("crew")) {
-                                            if ("Director".equalsIgnoreCase(getText(crew, "job"))) {
-                                                candidateDirector = getText(crew, "name");
+                                            if (!"Director".equalsIgnoreCase(getText(crew, "job"))) {
+                                                continue;
+                                            }
+
+                                            String name = getText(crew, "name");
+                                            if (!name.isBlank() && !directors.contains(name)) {
+                                                directors.add(name);
+                                            }
+
+                                            if (directors.size() >= 5) {
                                                 break;
                                             }
                                         }
+
+                                        candidateDirector = String.join(", ", directors);
                                     }
                                 }
                             } catch (Exception e) {
@@ -429,6 +452,16 @@ public class TmdbService {
 
             return null;
         }
+    }
+
+    // 한글 제목은 한국어, 영문 제목은 영어 검색 결과로 조회한다.
+    private String searchMovie(String searchTitle, String titleEn) {
+        String language = !normalizeTitle(titleEn).isBlank()
+                && normalizeTitle(searchTitle).equals(normalizeTitle(titleEn))
+                ? "en-US"
+                : "ko-KR";
+
+        return tmdbApiClient.searchMovie(searchTitle, language);
     }
 
     // 한글 제목과 영문 제목을 중복 없이 검색어로 사용

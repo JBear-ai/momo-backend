@@ -9,10 +9,9 @@ import com.momo.backend.dto.auth.UserDeleteRequest;
 
 import com.momo.backend.entity.User;
 import com.momo.backend.service.AuthService;
+import com.momo.backend.dto.auth.LoginResponse;
+import com.momo.backend.security.TokenProvider;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
@@ -30,13 +29,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.springframework.security.core.Authentication;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
-import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -45,8 +40,8 @@ public class AuthController {
 
         private final AuthService authService;
 
-        // Spring Security 인증 정보를 세션에 저장하는 저장소
-        private final SecurityContextRepository securityContextRepository;
+        // 로그인 성공 시 Access Token을 발급한다.
+        private final TokenProvider tokenProvider;
 
         // 1. 회원가입
 
@@ -61,44 +56,18 @@ public class AuthController {
                                 .body(response);
         }
 
-        // 2. 로그인
-
+        // 2. 로그인 및 JWT 발급
         @PostMapping("/login")
-        public ResponseEntity<UserResponse> login(
-                        @Valid @RequestBody LoginRequest dto,
-                        HttpServletRequest request,
-                        HttpServletResponse response) {
+        public ResponseEntity<LoginResponse> login(
+                        @Valid @RequestBody LoginRequest dto) {
 
-                // 1. 회원 인증
                 User user = authService.login(
                                 dto.getLoginId(),
                                 dto.getPassword());
 
-                // 2. 인증 객체 생성
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                user.getLoginId(),
-                                null,
-                                Collections.emptyList());
+                String accessToken = tokenProvider.createToken(user.getLoginId());
 
-                // 3. SecurityContext 생성
-                SecurityContext context = SecurityContextHolder.createEmptyContext();
-
-                context.setAuthentication(authentication);
-
-                // 4. 현재 요청의 인증 정보 설정
-                SecurityContextHolder.setContext(context);
-
-                // 5. 세션 생성 및 세션 ID 변경
-                request.getSession(true);
-                request.changeSessionId();
-
-                // 6. SecurityContext를 세션에 저장
-                securityContextRepository.saveContext(
-                                context,
-                                request,
-                                response);
-
-                return ResponseEntity.ok(new UserResponse(user));
+                return ResponseEntity.ok(new LoginResponse(user, accessToken));
         }
 
         // 3. 로그인한 회원 정보 조회
@@ -132,20 +101,12 @@ public class AuthController {
         @DeleteMapping("/me")
         public ResponseEntity<String> deleteMyAccount(
                         @Valid @RequestBody UserDeleteRequest dto,
-                        Authentication authentication,
-                        HttpServletRequest request) {
+                        Authentication authentication) {
 
                 // 회원 탈퇴 처리
                 authService.deleteMyAccount(
                                 authentication.getName(),
                                 dto.password());
-
-                // 세션 종료
-                HttpSession session = request.getSession(false);
-
-                if (session != null) {
-                        session.invalidate();
-                }
 
                 // 인증 정보 제거
                 SecurityContextHolder.clearContext();
@@ -154,22 +115,10 @@ public class AuthController {
         }
 
         // 6. 로그아웃
-
         @PostMapping("/logout")
-        public ResponseEntity<Void> logout(
-                        HttpServletRequest request) {
-
-                // 현재 세션 조회
-                HttpSession session = request.getSession(false);
-
-                // 세션 종료
-                if (session != null) {
-                        session.invalidate();
-                }
-
-                // 인증 정보 제거
+        public ResponseEntity<Void> logout() {
+                // JWT는 서버 세션에 저장하지 않으므로 클라이언트에서 토큰을 삭제한다.
                 SecurityContextHolder.clearContext();
-
                 return ResponseEntity.noContent().build();
         }
 
