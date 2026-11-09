@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -34,19 +35,24 @@ public class MoviePosterCacheService {
     }
 
     @Transactional
-    public boolean tryMarkAsProcessing(String movieCode) {
+    public String tryMarkAsProcessing(String movieCode) {
         LocalDateTime now = LocalDateTime.now();
-        return posterCacheRepository.tryClaim(
+        String claimToken = UUID.randomUUID().toString();
+        int claimed = posterCacheRepository.tryClaim(
                 movieCode,
+                claimToken,
                 now,
                 now.minusHours(FAILED_RETRY_HOURS),
                 now.minusMinutes(PROCESSING_TIMEOUT_MINUTES)
-        ) == 1;
+        );
+        return claimed == 1 ? claimToken : null;
     }
 
     @Transactional
-    public void releaseProcessingClaim(String movieCode) {
-        posterCacheRepository.releaseClaim(movieCode, LocalDateTime.now());
+    public void releaseProcessingClaim(String movieCode, String claimToken) {
+        if (claimToken != null) {
+            posterCacheRepository.releaseClaim(movieCode, claimToken, LocalDateTime.now());
+        }
     }
 
     @Transactional
@@ -55,8 +61,10 @@ public class MoviePosterCacheService {
     }
 
     @Transactional
-    public void markAsFailed(String movieCode) {
-        posterCacheRepository.findById(movieCode).ifPresent(MoviePosterCache::markAsFailed);
+    public void markAsFailed(String movieCode, String claimToken) {
+        if (claimToken != null) {
+            posterCacheRepository.failClaim(movieCode, claimToken, LocalDateTime.now());
+        }
     }
 
     public List<MoviePosterStatusResponse> findPosterStatuses(Collection<String> movieCodes) {
