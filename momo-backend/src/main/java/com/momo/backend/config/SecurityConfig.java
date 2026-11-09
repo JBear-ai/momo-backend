@@ -8,6 +8,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import com.momo.backend.repository.UserRepository;
+import org.springframework.data.web.config.EnableSpringDataWebSupport;
+import org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode;
 import org.springframework.security.web.SecurityFilterChain;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,6 +26,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
+@EnableSpringDataWebSupport(pageSerializationMode = PageSerializationMode.VIA_DTO)
 public class SecurityConfig {
 
     // 1. 비밀번호 암호화 설정
@@ -28,6 +34,19 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    // DB 회원 정보를 사용하는 인증 사용자 조회 설정
+    // 현재 로그인 API의 세션 처리 방식은 유지하고 기본 임시 계정 생성을 방지한다.
+    @Bean
+    public UserDetailsService userDetailsService(UserRepository userRepository) {
+        return loginId -> userRepository.findByLoginId(loginId)
+                .map(user -> org.springframework.security.core.userdetails.User
+                        .withUsername(user.getLoginId())
+                        .password(user.getPasswordHash())
+                        .authorities("USER")
+                        .build())
+                .orElseThrow(() -> new UsernameNotFoundException("회원 정보를 찾을 수 없습니다."));
     }
 
     // 2. SecurityContextRepository 설정
