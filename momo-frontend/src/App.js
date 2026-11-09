@@ -1,4 +1,5 @@
 import React from "react";
+import "./App.css";
 import GlobalStyles from "./styles/GlobalStyles";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
