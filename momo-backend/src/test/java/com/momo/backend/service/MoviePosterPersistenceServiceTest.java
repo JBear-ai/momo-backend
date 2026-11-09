@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,14 +54,36 @@ class MoviePosterPersistenceServiceTest {
 
     @Test
     void acceptsHttpAndHttpsPosterAddresses() {
-        assertDoesNotThrow(() ->
-                persistenceService.saveSuccess(
-                        "12345678",
-                        "https://image.tmdb.org/t/p/w500/poster.jpg"
-                )
-        );
+        when(posterCacheRepository.completeClaim(
+                org.mockito.ArgumentMatchers.eq("12345678"),
+                org.mockito.ArgumentMatchers.eq("claim-1"),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(1);
 
-        verify(posterCacheRepository).findById("12345678");
+        assertDoesNotThrow(() -> persistenceService.saveSuccess(
+                "12345678", "claim-1", "https://image.tmdb.org/t/p/w500/poster.jpg"));
+
+        verify(posterCacheRepository).completeClaim(
+                org.mockito.ArgumentMatchers.eq("12345678"),
+                org.mockito.ArgumentMatchers.eq("claim-1"),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any());
         verify(movieRepository).findById("12345678");
     }
+    @Test
+    void doesNotUpdateMovieWhenClaimIsNoLongerOwned() {
+        when(posterCacheRepository.completeClaim(
+                org.mockito.ArgumentMatchers.eq("12345678"),
+                org.mockito.ArgumentMatchers.eq("old-claim"),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(0);
+
+        org.junit.jupiter.api.Assertions.assertFalse(persistenceService.saveSuccess(
+                "12345678", "old-claim", "https://image.tmdb.org/t/p/w500/poster.jpg"));
+
+        verifyNoInteractions(movieRepository);
+    }
+
 }
