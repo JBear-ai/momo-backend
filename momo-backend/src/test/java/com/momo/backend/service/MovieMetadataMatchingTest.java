@@ -281,4 +281,102 @@ class MovieMetadataMatchingTest {
         assertTrue(movie.canAttemptKobisDetail(now));
     }
 
+
+    @Test
+    void supplementsMissingReleaseDateAndDirectorFromKobisMovieList() {
+        com.momo.backend.client.KobisApiClient kobisApiClient =
+                mock(com.momo.backend.client.KobisApiClient.class);
+        KmdbService kmdbService = mock(KmdbService.class);
+        TmdbService tmdbService = mock(TmdbService.class);
+        com.momo.backend.repository.MovieRepository movieRepository =
+                mock(com.momo.backend.repository.MovieRepository.class);
+
+        com.momo.backend.entity.Movie movie = new com.momo.backend.entity.Movie(
+                "20267412",
+                "극장판 마법소녀 마도카☆마기카〈발푸르기스의 회천〉",
+                "Puella Magi Madoka Magica the Movie -Walpurgisnacht: Rising-",
+                "",
+                "119",
+                "애니메이션",
+                "",
+                "",
+                "15세이상관람가"
+        );
+
+        when(movieRepository.findById("20267412"))
+                .thenReturn(java.util.Optional.of(movie));
+        when(kobisApiClient.getMovieDetail("20267412"))
+                .thenReturn("""
+                        {"movieInfoResult":{"movieInfo":{
+                          "movieCd":"20267412",
+                          "movieNm":"극장판 마법소녀 마도카☆마기카〈발푸르기스의 회천〉",
+                          "movieNmEn":"Puella Magi Madoka Magica the Movie -Walpurgisnacht: Rising-",
+                          "openDt":"",
+                          "showTm":"119",
+                          "directors":[],
+                          "genres":[{"genreNm":"애니메이션"}],
+                          "actors":[],
+                          "audits":[{"watchGradeNm":"15세이상관람가"}]
+                        }}}
+                        """);
+        when(kobisApiClient.searchMovies(
+                "극장판 마법소녀 마도카☆마기카〈발푸르기스의 회천〉", 1, 100))
+                .thenReturn("""
+                        {"movieListResult":{"movieList":[{
+                          "movieCd":"20267412",
+                          "movieNm":"극장판 마법소녀 마도카☆마기카〈발푸르기스의 회천〉",
+                          "movieNmEn":"Puella Magi Madoka Magica the Movie -Walpurgisnacht: Rising-",
+                          "openDt":"20261104",
+                          "genreAlt":"애니메이션",
+                          "directors":[{"peopleNm":"신보 아키유키"}]
+                        }]}}
+                        """);
+
+        when(kmdbService.findMovieSupplement(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.empty());
+        when(tmdbService.findMovieSupplement(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.of(
+                        new com.momo.backend.entity.MovieSupplement(
+                                "",
+                                "",
+                                "",
+                                "",
+                                "",
+                                java.util.List.of("아오이 유키", "사이토 치와"),
+                                "",
+                                "TMDb"
+                        )
+                ));
+        when(tmdbService.findMovieOverview(anyString(), anyString()))
+                .thenReturn(java.util.Optional.empty());
+
+        MovieService service = new MovieService(
+                mock(MoviePosterAsyncService.class),
+                kobisApiClient,
+                kmdbService,
+                tmdbService,
+                new ObjectMapper(),
+                movieRepository,
+                mock(com.momo.backend.repository.MovieCacheRepository.class),
+                mock(MoviePosterCacheService.class),
+                mock(MoviePersistenceService.class),
+                mock(com.momo.backend.repository.MoviePosterCacheRepository.class)
+        );
+
+        com.momo.backend.dto.movie.MovieDetailResponse response =
+                service.getMovieDetail("20267412");
+
+        assertEquals("20261104", response.releaseDate());
+        assertEquals("신보 아키유키", response.director());
+        assertEquals(
+                java.util.List.of("아오이 유키", "사이토 치와"),
+                response.actors()
+        );
+
+        verify(kobisApiClient).searchMovies(
+                "극장판 마법소녀 마도카☆마기카〈발푸르기스의 회천〉", 1, 100);
+    }
+
 }
