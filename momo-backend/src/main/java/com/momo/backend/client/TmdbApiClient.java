@@ -48,7 +48,7 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "searchMovie", () -> restClient.get()
+        return metrics.record("TMDB", "searchMovie", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/movie")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", title.trim())
@@ -56,7 +56,7 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 
     public String getMovieDetail(long movieId) {
@@ -64,14 +64,14 @@ public class TmdbApiClient {
             throw new IllegalArgumentException("올바르지 않은 TMDb 영화 ID입니다.");
         }
 
-        return metrics.record("TMDB", "getMovieDetail", () -> restClient.get()
+        return metrics.record("TMDB", "getMovieDetail", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/movie/{movieId}")
                         .queryParam("api_key", apiKey)
                         .queryParam("language", "ko-KR")
                         .queryParam("append_to_response", "credits,release_dates")
                         .build(movieId))
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 
     public String searchTv(String title) {
