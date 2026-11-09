@@ -226,10 +226,10 @@ public class TmdbService {
 
         String bestPosterUrl = null;
         int bestMatchScore = -1;
-        int detailChecks = 0;
-        final int maxDetailChecks = 5;
+        final int maxDetailChecksPerLanguage = 5;
 
         for (String searchTitle : searchTitles(title, titleEn)) {
+            int detailChecks = 0;
             try {
                 String json = searchMovie(searchTitle, titleEn);
                 if (json == null || json.isBlank()) {
@@ -259,7 +259,7 @@ public class TmdbService {
                     String candidateDirector = "";
 
                     // 상위 후보의 국내 개봉일과 감독을 확인해 동명 영화 오매칭을 줄인다.
-                    if (detailChecks < maxDetailChecks) {
+                    if (detailChecks < maxDetailChecksPerLanguage) {
                         detailChecks++;
 
                         long movieId = result.path("id").asLong(0);
