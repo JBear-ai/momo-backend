@@ -16,11 +16,9 @@ public interface MoviePosterCacheRepository
         extends JpaRepository<MoviePosterCache, String> {
 
     // 여러 영화 코드에 해당하는 포스터 캐시를 한 번에 조회
-    List<MoviePosterCache> findAllByMovieCodeIn(
-            Collection<String> movieCodes
-    );
+    List<MoviePosterCache> findAllByMovieCodeIn(Collection<String> movieCodes);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
             INSERT INTO movie_poster_cache
@@ -35,11 +33,11 @@ public interface MoviePosterCacheRepository
             @Param("now") LocalDateTime now
     );
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET status = 'PROCESSING', updated_at = :now
+               SET status = 'PROCESSING', claim_token = :claimToken, updated_at = :now
              WHERE movie_code = :movieCode
                AND (status = 'PENDING'
                     OR (status = 'FAILED' AND updated_at < :failedBefore)
@@ -48,8 +46,58 @@ public interface MoviePosterCacheRepository
             """, nativeQuery = true)
     int tryClaim(
             @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
             @Param("now") LocalDateTime now,
             @Param("failedBefore") LocalDateTime failedBefore,
             @Param("processingBefore") LocalDateTime processingBefore
+    );
+
+    // 비동기 작업이 스레드 풀에 등록되지 못한 경우 작업 점유 상태를 해제한다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(value = """
+            UPDATE movie_poster_cache
+               SET status = 'PENDING', claim_token = NULL, updated_at = :now
+             WHERE movie_code = :movieCode
+               AND status = 'PROCESSING'
+               AND claim_token = :claimToken
+            """, nativeQuery = true)
+    int releaseClaim(
+            @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(value = """
+            UPDATE movie_poster_cache
+               SET poster_url = :posterUrl, status = 'SUCCESS',
+                   claim_token = NULL, updated_at = :now
+             WHERE movie_code = :movieCode
+               AND status = 'PROCESSING'
+               AND claim_token = :claimToken
+            """, nativeQuery = true)
+    int completeClaim(
+            @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
+            @Param("posterUrl") String posterUrl,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(value = """
+            UPDATE movie_poster_cache
+               SET poster_url = NULL, status = 'FAILED',
+                   claim_token = NULL, updated_at = :now
+             WHERE movie_code = :movieCode
+               AND status = 'PROCESSING'
+               AND claim_token = :claimToken
+            """, nativeQuery = true)
+    int failClaim(
+            @Param("movieCode") String movieCode,
+            @Param("claimToken") String claimToken,
+            @Param("now") LocalDateTime now
     );
 }

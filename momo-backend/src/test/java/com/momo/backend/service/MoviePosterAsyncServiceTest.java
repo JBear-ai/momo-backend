@@ -32,15 +32,19 @@ class MoviePosterAsyncServiceTest {
                 kmdbService, cacheService, persistenceService, movieRepository
         );
 
-        service.searchPosterAsync("20260001", "테스트 영화", "20260101");
+        when(persistenceService.saveSuccess(
+                "20260001", "claim-1", "https://example.com/poster.jpg"
+        )).thenReturn(true);
+
+        service.searchPosterAsync("20260001", "테스트 영화", "20260101", "claim-1");
 
         verify(kmdbService).findPosterUrl(
                 "20260001", "테스트 영화", "Test Movie", "20260101", "홍길동"
         );
         verify(persistenceService).saveSuccess(
-                "20260001", "https://example.com/poster.jpg"
+                "20260001", "claim-1", "https://example.com/poster.jpg"
         );
-        verify(cacheService, never()).markAsFailed("20260001");
+        verify(cacheService, never()).markAsFailed("20260001", "claim-1");
     }
 
     @Test
@@ -60,9 +64,9 @@ class MoviePosterAsyncServiceTest {
                 kmdbService, cacheService, persistenceService, movieRepository
         );
 
-        service.searchPosterAsync("20260002", "포스터 없는 영화", "20260101");
+        service.searchPosterAsync("20260002", "포스터 없는 영화", "20260101", "claim-2");
 
-        verify(cacheService).markAsFailed("20260002");
+        verify(cacheService).markAsFailed("20260002", "claim-2");
         verifyNoInteractions(persistenceService);
     }
 
@@ -81,9 +85,35 @@ class MoviePosterAsyncServiceTest {
                 kmdbService, cacheService, persistenceService, movieRepository
         );
 
-        service.searchPosterAsync("20260003", "오류 테스트", "20260101");
+        service.searchPosterAsync("20260003", "오류 테스트", "20260101", "claim-3");
 
-        verify(cacheService).markAsFailed("20260003");
+        verify(cacheService).markAsFailed("20260003", "claim-3");
         verifyNoInteractions(persistenceService);
     }
+    @Test
+    void ignoresPosterResultWhenClaimWasTakenOverByAnotherWorker() {
+        KmdbService kmdbService = mock(KmdbService.class);
+        MoviePosterCacheService cacheService = mock(MoviePosterCacheService.class);
+        MoviePosterPersistenceService persistenceService = mock(MoviePosterPersistenceService.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+
+        when(movieRepository.findById("20260004")).thenReturn(Optional.empty());
+        when(kmdbService.findPosterUrl("20260004", "오래된 작업", "", "20260101", ""))
+                .thenReturn("https://example.com/old-poster.jpg");
+        when(persistenceService.saveSuccess(
+                "20260004", "old-claim", "https://example.com/old-poster.jpg"
+        )).thenReturn(false);
+
+        MoviePosterAsyncService service = new MoviePosterAsyncService(
+                kmdbService, cacheService, persistenceService, movieRepository
+        );
+
+        service.searchPosterAsync("20260004", "오래된 작업", "20260101", "old-claim");
+
+        verify(persistenceService).saveSuccess(
+                "20260004", "old-claim", "https://example.com/old-poster.jpg"
+        );
+        verify(cacheService, never()).markAsFailed(anyString(), anyString());
+    }
+
 }

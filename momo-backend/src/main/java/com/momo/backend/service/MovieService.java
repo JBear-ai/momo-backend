@@ -399,18 +399,24 @@ public class MovieService {
                         releaseDate
                 );
 
-                boolean started =
-                        posterCacheService.tryMarkAsProcessing(movieCode);
+                String claimToken = posterCacheService.tryMarkAsProcessing(movieCode);
 
-                if (!started) {
+                if (claimToken == null) {
                     continue;
                 }
 
-                posterAsyncService.searchPosterAsync(
-                        movieCode,
-                        title,
-                        releaseDate
-                );
+                try {
+                    posterAsyncService.searchPosterAsync(
+                            movieCode,
+                            title,
+                            releaseDate,
+                            claimToken
+                    );
+                } catch (RuntimeException schedulingException) {
+                    // 스레드 풀 포화 등으로 작업 등록에 실패하면 PROCESSING 점유를 즉시 해제한다.
+                    posterCacheService.releaseProcessingClaim(movieCode, claimToken);
+                    throw schedulingException;
+                }
 
             } catch (Exception e) {
 
@@ -890,18 +896,24 @@ public class MovieService {
                     releaseDate
             );
 
-            boolean started =
-                    posterCacheService.tryMarkAsProcessing(movieCode);
+            String claimToken = posterCacheService.tryMarkAsProcessing(movieCode);
 
-            if (!started) {
+            if (claimToken == null) {
                 return;
             }
 
-            posterAsyncService.searchPosterAsync(
-                    movieCode,
-                    title,
-                    releaseDate
-            );
+            try {
+                posterAsyncService.searchPosterAsync(
+                        movieCode,
+                        title,
+                        releaseDate,
+                        claimToken
+                );
+            } catch (RuntimeException schedulingException) {
+                // 작업 등록에 실패한 영화는 즉시 재등록할 수 있도록 점유 상태를 해제한다.
+                posterCacheService.releaseProcessingClaim(movieCode, claimToken);
+                throw schedulingException;
+            }
 
         } catch (Exception e) {
 
@@ -952,8 +964,18 @@ public class MovieService {
         if (isBlank(movieCode) || isBlank(title)) return;
         try {
             posterCacheService.createCache(movieCode, title, releaseDate);
-            if (posterCacheService.tryMarkAsProcessing(movieCode)) {
-                posterAsyncService.searchPosterAsync(movieCode, title, releaseDate);
+
+            String claimToken = posterCacheService.tryMarkAsProcessing(movieCode);
+            if (claimToken == null) {
+                return;
+            }
+
+            try {
+                posterAsyncService.searchPosterAsync(movieCode, title, releaseDate, claimToken);
+            } catch (RuntimeException schedulingException) {
+                // 박스오피스 경로도 스레드 풀 등록 실패 시 PROCESSING 점유를 즉시 해제한다.
+                posterCacheService.releaseProcessingClaim(movieCode, claimToken);
+                throw schedulingException;
             }
         } catch (Exception e) {
             log.error("박스오피스 포스터 검색 등록 실패. movieCode: {}", movieCode, e);

@@ -6,16 +6,20 @@ import com.momo.backend.repository.MoviePosterCacheRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MoviePosterCacheService {
+
     private final MoviePosterCacheRepository posterCacheRepository;
+
     private static final long FAILED_RETRY_HOURS = 6;
     private static final long PROCESSING_TIMEOUT_MINUTES = 10;
 
@@ -31,28 +35,45 @@ public class MoviePosterCacheService {
     }
 
     @Transactional
-    public boolean tryMarkAsProcessing(String movieCode) {
+    public String tryMarkAsProcessing(String movieCode) {
         LocalDateTime now = LocalDateTime.now();
-        return posterCacheRepository.tryClaim(movieCode, now,
+        String claimToken = UUID.randomUUID().toString();
+        int claimed = posterCacheRepository.tryClaim(
+                movieCode,
+                claimToken,
+                now,
                 now.minusHours(FAILED_RETRY_HOURS),
-                now.minusMinutes(PROCESSING_TIMEOUT_MINUTES)) == 1;
+                now.minusMinutes(PROCESSING_TIMEOUT_MINUTES)
+        );
+        return claimed == 1 ? claimToken : null;
     }
 
     @Transactional
-    public void updatePoster(String movieCode, String posterUrl) {
-        posterCacheRepository.findById(movieCode).ifPresent(cache -> cache.updatePoster(posterUrl));
+    public void releaseProcessingClaim(String movieCode, String claimToken) {
+        if (claimToken != null) {
+            posterCacheRepository.releaseClaim(movieCode, claimToken, LocalDateTime.now());
+        }
     }
 
     @Transactional
-    public void markAsFailed(String movieCode) {
-        posterCacheRepository.findById(movieCode).ifPresent(MoviePosterCache::markAsFailed);
+    public void markAsFailed(String movieCode, String claimToken) {
+        if (claimToken != null) {
+            posterCacheRepository.failClaim(movieCode, claimToken, LocalDateTime.now());
+        }
     }
 
     public List<MoviePosterStatusResponse> findPosterStatuses(Collection<String> movieCodes) {
-        if (movieCodes == null || movieCodes.isEmpty()) return List.of();
+        if (movieCodes == null || movieCodes.isEmpty()) {
+            return List.of();
+        }
+
         return posterCacheRepository.findAllByMovieCodeIn(movieCodes).stream()
-                .map(cache -> new MoviePosterStatusResponse(cache.getMovieCode(), cache.getStatus(),
-                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl())).toList();
+                .map(cache -> new MoviePosterStatusResponse(
+                        cache.getMovieCode(),
+                        cache.getStatus(),
+                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl()
+                ))
+                .toList();
     }
 
     public Optional<MoviePosterStatusResponse> findPosterStatus(String movieCode) {

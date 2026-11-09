@@ -23,7 +23,8 @@ public class MoviePosterAsyncService {
     public void searchPosterAsync(
             String movieCode,
             String title,
-            String releaseDate
+            String releaseDate,
+            String claimToken
     ) {
         try {
 
@@ -43,19 +44,22 @@ public class MoviePosterAsyncService {
 
             if (posterUrl == null || posterUrl.isBlank()) {
 
-                posterCacheService.markAsFailed(movieCode);
+                posterCacheService.markAsFailed(movieCode, claimToken);
 
                 log.warn("포스터 검색 결과 없음: {}", movieCode);
                 return;
             }
 
-            posterPersistenceService.saveSuccess(movieCode, posterUrl);
-
-            log.info("포스터 저장 성공: {}", movieCode);
+            boolean saved = posterPersistenceService.saveSuccess(movieCode, claimToken, posterUrl);
+            if (saved) {
+                log.info("포스터 저장 성공: {}", movieCode);
+            } else {
+                log.info("이전 포스터 작업 결과 무시: {}", movieCode);
+            }
 
         } catch (Exception e) {
 
-            posterCacheService.markAsFailed(movieCode);
+            posterCacheService.markAsFailed(movieCode, claimToken);
 
             log.error(
                     "포스터 검색 실패: {}",
