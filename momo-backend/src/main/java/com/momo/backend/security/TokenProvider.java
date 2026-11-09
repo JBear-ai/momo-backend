@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 
-=======
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
 package com.momo.backend.security;
 
 import io.jsonwebtoken.Claims;
@@ -26,7 +23,6 @@ import java.util.Date;
 @Component
 public class TokenProvider {
 
-<<<<<<< HEAD
     // JWT 서명에 사용할 비밀키
     private final SecretKey key;
 
@@ -56,27 +52,6 @@ public class TokenProvider {
         Date expiration = new Date(now + accessExpMs);
 
         // 로그인 아이디와 만료시간을 포함한 JWT 생성
-=======
-    private final SecretKey key;
-    private final long accessExpMs;
-
-    public TokenProvider(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.access-exp-ms:1800000}") long accessExpMs
-    ) {
-        if (secret == null || secret.isBlank()) {
-            throw new IllegalArgumentException("JWT_SECRET 환경 변수가 필요합니다.");
-        }
-
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
-        this.accessExpMs = accessExpMs;
-    }
-
-    public String createToken(String loginId) {
-        long now = System.currentTimeMillis();
-        Date expiration = new Date(now + accessExpMs);
-
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
         return Jwts.builder()
                 .subject(loginId)
                 .issuedAt(new Date(now))
@@ -85,7 +60,6 @@ public class TokenProvider {
                 .compact();
     }
 
-<<<<<<< HEAD
     // 3. 전달받은 JWT의 서명과 만료 여부 검증
     public boolean validateToken(String token) {
 
@@ -96,14 +70,6 @@ public class TokenProvider {
         } catch (ExpiredJwtException e) {
             log.info("만료된 JWT입니다.");
 
-=======
-    public boolean validateToken(String token) {
-        try {
-            parseClaims(token);
-            return true;
-        } catch (ExpiredJwtException e) {
-            log.info("만료된 JWT입니다.");
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
         } catch (JwtException | IllegalArgumentException e) {
             log.info("유효하지 않은 JWT입니다.");
         }
@@ -111,7 +77,6 @@ public class TokenProvider {
         return false;
     }
 
-<<<<<<< HEAD
     // 4. JWT에서 로그인 사용자 인증 정보 생성
     public Authentication getAuthentication(String token) {
 
@@ -123,12 +88,6 @@ public class TokenProvider {
         String loginId = claims.getSubject();
 
         // 검증된 사용자의 인증 객체 생성
-=======
-    public Authentication getAuthentication(String token) {
-        Claims claims = parseClaims(token);
-        String loginId = claims.getSubject();
-
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
         return new UsernamePasswordAuthenticationToken(
                 loginId,
                 null,
@@ -136,13 +95,9 @@ public class TokenProvider {
         );
     }
 
-<<<<<<< HEAD
     // 5. JWT 서명을 검증하고 저장된 정보 추출
     private Claims parseClaims(String token) {
 
-=======
-    private Claims parseClaims(String token) {
->>>>>>> cc695ef64281b4668a67faa322b58ba90af5d552
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
