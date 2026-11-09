@@ -406,11 +406,17 @@ public class MovieService {
                     continue;
                 }
 
-                posterAsyncService.searchPosterAsync(
-                        movieCode,
-                        title,
-                        releaseDate
-                );
+                try {
+                    posterAsyncService.searchPosterAsync(
+                            movieCode,
+                            title,
+                            releaseDate
+                    );
+                } catch (RuntimeException schedulingException) {
+                    // 스레드 풀 포화 등으로 작업 등록에 실패하면 PROCESSING 점유를 즉시 해제한다.
+                    posterCacheService.releaseProcessingClaim(movieCode);
+                    throw schedulingException;
+                }
 
             } catch (Exception e) {
 
