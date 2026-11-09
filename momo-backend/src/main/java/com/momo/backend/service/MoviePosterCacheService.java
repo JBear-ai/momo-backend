@@ -6,6 +6,7 @@ import com.momo.backend.repository.MoviePosterCacheRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -15,7 +16,9 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MoviePosterCacheService {
+
     private final MoviePosterCacheRepository posterCacheRepository;
+
     private static final long FAILED_RETRY_HOURS = 6;
     private static final long PROCESSING_TIMEOUT_MINUTES = 10;
 
@@ -33,9 +36,17 @@ public class MoviePosterCacheService {
     @Transactional
     public boolean tryMarkAsProcessing(String movieCode) {
         LocalDateTime now = LocalDateTime.now();
-        return posterCacheRepository.tryClaim(movieCode, now,
+        return posterCacheRepository.tryClaim(
+                movieCode,
+                now,
                 now.minusHours(FAILED_RETRY_HOURS),
-                now.minusMinutes(PROCESSING_TIMEOUT_MINUTES)) == 1;
+                now.minusMinutes(PROCESSING_TIMEOUT_MINUTES)
+        ) == 1;
+    }
+
+    @Transactional
+    public void releaseProcessingClaim(String movieCode) {
+        posterCacheRepository.releaseClaim(movieCode, LocalDateTime.now());
     }
 
     @Transactional
@@ -49,10 +60,17 @@ public class MoviePosterCacheService {
     }
 
     public List<MoviePosterStatusResponse> findPosterStatuses(Collection<String> movieCodes) {
-        if (movieCodes == null || movieCodes.isEmpty()) return List.of();
+        if (movieCodes == null || movieCodes.isEmpty()) {
+            return List.of();
+        }
+
         return posterCacheRepository.findAllByMovieCodeIn(movieCodes).stream()
-                .map(cache -> new MoviePosterStatusResponse(cache.getMovieCode(), cache.getStatus(),
-                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl())).toList();
+                .map(cache -> new MoviePosterStatusResponse(
+                        cache.getMovieCode(),
+                        cache.getStatus(),
+                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl()
+                ))
+                .toList();
     }
 
     public Optional<MoviePosterStatusResponse> findPosterStatus(String movieCode) {
