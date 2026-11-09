@@ -6,15 +6,6 @@ import { createGlobalStyle } from "styled-components";
  * 영화 상세 페이지의 공통 스타일과 충돌하지 않도록 필모그래피 영역을 직접 지정합니다.
  */
 const PersonDetailStyles = createGlobalStyle`
-.movie-detail-page .detail-rank {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: var(--momo-accent-ink);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .movie-detail-page .person-meta-details {
   display: grid;
   gap: 4px;
@@ -29,7 +20,7 @@ const PersonDetailStyles = createGlobalStyle`
   line-height: 1.6;
 }
 
-.movie-detail-page .movie-detail-info > p {
+.movie-detail-page .person-meta-details + p {
   margin: 0;
   color: var(--momo-muted);
   font-size: 14px;
@@ -136,7 +127,7 @@ const PersonDetailStyles = createGlobalStyle`
 }
 
 @media (max-width: 600px) {
-  .movie-detail-page > .detail-content-section {
+  .movie-detail-page > .detail-content-section:has(> .people-list) {
     padding: 22px 16px;
   }
 
