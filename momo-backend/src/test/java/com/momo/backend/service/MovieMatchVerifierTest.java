@@ -130,4 +130,18 @@ class MovieMatchVerifierTest {
         ));
     }
 
+    @Test
+    void rejectsSameTitleAndYearWhenKoreanDirectorConflicts() {
+        assertFalse(MovieMatchVerifier.isSameMovie(
+                "동명 영화",
+                "Same Title",
+                "20261109",
+                "홍길동",
+                "동명 영화",
+                "Same Title",
+                "2026-11-09",
+                "김철수"
+        ));
+    }
+
 }
