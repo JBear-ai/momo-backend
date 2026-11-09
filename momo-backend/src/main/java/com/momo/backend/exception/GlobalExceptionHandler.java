@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Slf4j
 @RestControllerAdvice // 모든 Controller에서 발생하는 예외를 공통으로 처리
@@ -132,4 +134,21 @@ public class GlobalExceptionHandler {
                         error.getName() + " 파라미터의 자료형이 올바르지 않습니다."
                 ));
     }
+
+    // 8. 파일 업로드 용량 초과 처리
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException error) {
+
+        log.warn("파일 업로드 용량 초과: {}", error.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatusCode.valueOf(413))
+                .body(new ErrorResponse(
+                        "FILE_SIZE_EXCEEDED",
+                        "업로드 가능한 파일 크기는 최대 5MB입니다."
+                ));
+    }
+
+
 }

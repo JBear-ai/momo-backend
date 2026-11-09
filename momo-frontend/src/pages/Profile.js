@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
 import "../App.css";
 import AxiosApi from "../api/AxiosApi";
+import stdLogo from "../image/std_logo.png";
 
 function Profile() {
   const [userId, setUserId] = useState("");
@@ -68,249 +69,210 @@ function Profile() {
     };
   }, []);
 
-  return (
+  return React.createElement(
+    "main",
+    { className: "profile-page" },
     React.createElement(
-  "main",
-  {"className":"profile-page"},
-  React.createElement(
       "div",
-      {"className":"profile-container"},
+      { className: "profile-container" },
       React.createElement(
-            "header",
-            {"className":"profile-heading"},
+        "header",
+        { className: "profile-heading" },
+        React.createElement("h1", null, "마이페이지"),
+        React.createElement(
+          "p",
+          null,
+          "나의 계정 정보와 영화 활동을 확인해 보세요.",
+        ),
+      ),
+      React.createElement(
+        "section",
+        { className: "profile-card" },
+        React.createElement(
+          "div",
+          { className: "profile-card-heading" },
+          React.createElement(
+            "div",
+            null,
+            React.createElement("h2", null, "내 프로필"),
             React.createElement(
-                    "h1",
-                    null,
-                    "마이페이지"
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "나의 계정 정보와 영화 활동을 확인해 보세요."
-                  )
+              "p",
+              null,
+              "나의 회원 정보를 확인할 수 있어요.",
+            ),
           ),
-      React.createElement(
-            "section",
-            {"className":"profile-card"},
+          React.createElement(
+            "div",
+            { className: "profile-card-actions" },
             React.createElement(
-                    "div",
-                    {"className":"profile-card-heading"},
-                    React.createElement(
-                              "div",
-                              null,
-                              React.createElement(
-                                          "h2",
-                                          null,
-                                          "내 프로필"
-                                        ),
-                              React.createElement(
-                                          "p",
-                                          null,
-                                          "나의 회원 정보를 확인할 수 있어요."
-                                        )
-                            ),
-                    React.createElement(
-                              "div",
-                              {"className":"profile-card-actions"},
-                              React.createElement(
-                                          Link,
-                                          {"to":"/profile/edit","className":"profile-button"},
-                                          "프로필 수정"
-                                        )
-                            )
-                  ),
-            React.createElement(
-                    "div",
-                    {"className":"profile-user"},
-                    React.createElement(
-                              "div",
-                              {"className":"profile-avatar"},
-                              (profileImageUrl ? (
-                                              React.createElement(
-                                          "img",
-                                          {"src":profileImageUrl,"alt":"프로필"}
-                                        )
-                                            ) : (
-                                              (nickname || userId || "M").charAt(0).toUpperCase()
-                                            ))
-                            ),
-                    React.createElement(
-                              "div",
-                              {"className":"profile-user-info"},
-                              React.createElement(
-                                          "h3",
-                                          null,
-                                          (nickname || userId || "로그인 사용자")
-                                        ),
-                              React.createElement(
-                                          "p",
-                                          null,
-                                          React.createElement(
-                                                        "span",
-                                                        null,
-                                                        "아이디"
-                                                      ),
-                                          (userId || "정보 없음")
-                                        ),
-                              React.createElement(
-                                          "p",
-                                          null,
-                                          React.createElement(
-                                                        "span",
-                                                        null,
-                                                        "닉네임"
-                                                      ),
-                                          (nickname || "정보 없음")
-                                        ),
-                              React.createElement(
-                                          "p",
-                                          null,
-                                          React.createElement(
-                                                        "span",
-                                                        null,
-                                                        "이메일"
-                                                      ),
-                                          (email || "등록된 이메일 정보 없음")
-                                        )
-                            )
-                  )
+              Link,
+              { to: "/profile/edit", className: "profile-button" },
+              "프로필 수정",
+            ),
           ),
-      React.createElement(
-            "section",
-            {"className":"profile-card"},
-            React.createElement(
-                    "div",
-                    {"className":"profile-card-heading"},
-                    React.createElement(
-                              "div",
-                              null,
-                              React.createElement(
-                                          "h2",
-                                          null,
-                                          "나의 영화 활동"
-                                        ),
-                              React.createElement(
-                                          "p",
-                                          null,
-                                          "내가 남긴 영화 기록을 모아볼 수 있어요."
-                                        )
-                            )
-                  ),
-            React.createElement(
-                    "div",
-                    {"className":"profile-activity"},
-                    React.createElement(
-                              "article",
-                              {"className":"profile-activity-item"},
-                              React.createElement(
-                                          "span",
-                                          {"className":"profile-activity-icon"},
-                                          "✎"
-                                        ),
-                              React.createElement(
-                                          "div",
-                                          null,
-                                          React.createElement(
-                                                        "h3",
-                                                        null,
-                                                        "작성한 리뷰"
-                                                      ),
-                                          React.createElement(
-                                                        "p",
-                                                        null,
-                                                        "내가 작성한 영화 리뷰를 확인할 수 있어요."
-                                                      )
-                                        ),
-                              React.createElement(
-                                          "span",
-                                          {"className":"profile-coming"},
-                                          "준비 중"
-                                        )
-                            ),
-                    React.createElement(
-                              "article",
-                              {"className":"profile-activity-item"},
-                              React.createElement(
-                                          "span",
-                                          {"className":"profile-activity-icon"},
-                                          "♥"
-                                        ),
-                              React.createElement(
-                                          "div",
-                                          null,
-                                          React.createElement(
-                                                        "h3",
-                                                        null,
-                                                        "좋아요한 리뷰"
-                                                      ),
-                                          React.createElement(
-                                                        "p",
-                                                        null,
-                                                        "마음에 들었던 리뷰를 모아볼 수 있어요."
-                                                      )
-                                        ),
-                              React.createElement(
-                                          "span",
-                                          {"className":"profile-coming"},
-                                          "준비 중"
-                                        )
-                            ),
-                    React.createElement(
-                              Link,
-                              {"to":"/profile/favorites","className":"profile-activity-item profile-favorites-link"},
-                              React.createElement(
-                                          "span",
-                                          {"className":"profile-activity-icon"},
-                                          "★"
-                                        ),
-                              React.createElement(
-                                          "div",
-                                          null,
-                                          React.createElement(
-                                                        "h3",
-                                                        null,
-                                                        "관심 영화"
-                                                      ),
-                                          React.createElement(
-                                                        "p",
-                                                        null,
-                                                        "관심 있는 영화를 관리할 수 있어요."
-                                                      )
-                                        ),
-                              React.createElement(
-                                          "span",
-                                          {"className":"profile-favorites-count"},
-                                          (favoriteCount),
-                                          "개 보기 →"
-                                        )
-                            )
-                  )
+        ),
+        React.createElement(
+          "div",
+          { className: "profile-user" },
+          React.createElement(
+            "div",
+            { className: "profile-avatar" },
+            React.createElement("img", {
+              src: profileImageUrl || stdLogo,
+              alt: "프로필 이미지",
+            }),
           ),
+          React.createElement(
+            "div",
+            { className: "profile-user-info" },
+            React.createElement(
+              "h3",
+              null,
+              nickname || userId || "로그인 사용자",
+            ),
+            React.createElement(
+              "p",
+              null,
+              React.createElement("span", null, "아이디"),
+              userId || "정보 없음",
+            ),
+            React.createElement(
+              "p",
+              null,
+              React.createElement("span", null, "닉네임"),
+              nickname || "정보 없음",
+            ),
+            React.createElement(
+              "p",
+              null,
+              React.createElement("span", null, "이메일"),
+              email || "등록된 이메일 정보 없음",
+            ),
+          ),
+        ),
+      ),
       React.createElement(
-            "section",
-            {"className":"profile-card profile-delete-section"},
+        "section",
+        { className: "profile-card" },
+        React.createElement(
+          "div",
+          { className: "profile-card-heading" },
+          React.createElement(
+            "div",
+            null,
+            React.createElement("h2", null, "나의 영화 활동"),
             React.createElement(
-                    "div",
-                    null,
-                    React.createElement(
-                              "h2",
-                              null,
-                              "회원 탈퇴"
-                            ),
-                    React.createElement(
-                              "p",
-                              null,
-                              "회원 탈퇴를 진행하면 계정 이용에 제한이 생길 수 있습니다."
-                            )
-                  ),
+              "p",
+              null,
+              "내가 남긴 영화 기록을 모아볼 수 있어요.",
+            ),
+          ),
+        ),
+        React.createElement(
+          "div",
+          { className: "profile-activity" },
+          React.createElement(
+            "article",
+            { className: "profile-activity-item" },
             React.createElement(
-                    Link,
-                    {"to":"/profile/delete","className":"profile-button profile-delete-button","style":{ textDecoration: "none" }},
-                    "회원 탈퇴"
-                  )
-          )
-    )
-)
+              "span",
+              { className: "profile-activity-icon" },
+              "✎",
+            ),
+            React.createElement(
+              "div",
+              null,
+              React.createElement("h3", null, "작성한 리뷰"),
+              React.createElement(
+                "p",
+                null,
+                "내가 작성한 영화 리뷰를 확인할 수 있어요.",
+              ),
+            ),
+            React.createElement(
+              "span",
+              { className: "profile-coming" },
+              "준비 중",
+            ),
+          ),
+          React.createElement(
+            "article",
+            { className: "profile-activity-item" },
+            React.createElement(
+              "span",
+              { className: "profile-activity-icon" },
+              "♥",
+            ),
+            React.createElement(
+              "div",
+              null,
+              React.createElement("h3", null, "좋아요한 리뷰"),
+              React.createElement(
+                "p",
+                null,
+                "마음에 들었던 리뷰를 모아볼 수 있어요.",
+              ),
+            ),
+            React.createElement(
+              "span",
+              { className: "profile-coming" },
+              "준비 중",
+            ),
+          ),
+          React.createElement(
+            Link,
+            {
+              to: "/profile/favorites",
+              className: "profile-activity-item profile-favorites-link",
+            },
+            React.createElement(
+              "span",
+              { className: "profile-activity-icon" },
+              "★",
+            ),
+            React.createElement(
+              "div",
+              null,
+              React.createElement("h3", null, "관심 영화"),
+              React.createElement(
+                "p",
+                null,
+                "관심 있는 영화를 관리할 수 있어요.",
+              ),
+            ),
+            React.createElement(
+              "span",
+              { className: "profile-favorites-count" },
+              favoriteCount,
+              "개 보기 →",
+            ),
+          ),
+        ),
+      ),
+      React.createElement(
+        "section",
+        { className: "profile-card profile-delete-section" },
+        React.createElement(
+          "div",
+          null,
+          React.createElement("h2", null, "회원 탈퇴"),
+          React.createElement(
+            "p",
+            null,
+            "회원 탈퇴를 진행하면 계정 이용에 제한이 생길 수 있습니다.",
+          ),
+        ),
+        React.createElement(
+          Link,
+          {
+            to: "/profile/delete",
+            className: "profile-button profile-delete-button",
+            style: { textDecoration: "none" },
+          },
+          "회원 탈퇴",
+        ),
+      ),
+    ),
   );
 }
 

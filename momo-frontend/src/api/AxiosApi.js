@@ -239,7 +239,6 @@ const AxiosApi = {
   profileImageUpload: async (file) => {
     const formData = new FormData();
 
-    // 선택한 이미지 파일을 multipart 형식으로 전달
     formData.append("file", file);
 
     return await axios.post(
@@ -247,9 +246,6 @@ const AxiosApi = {
       formData,
       {
         withCredentials: true,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
       },
     );
   },

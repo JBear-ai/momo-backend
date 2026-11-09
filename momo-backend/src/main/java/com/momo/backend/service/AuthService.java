@@ -14,6 +14,9 @@ import com.momo.backend.repository.MovieRatingRepository;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import lombok.extern.slf4j.Slf4j;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -135,9 +139,6 @@ public class AuthService {
         return reviewLikeCount + commentLikeCount;
     }
 
-    // 회원 탈퇴
-
-    // 회원 탈퇴
 
     public void deleteMyAccount(String loginId, String password) {
         User user = getLoginUser(loginId);
@@ -147,6 +148,9 @@ public class AuthService {
         }
 
         Long userId = user.getUserId();
+
+        // Firebase에서 삭제할 기존 프로필 이미지 경로 보관
+        String profileImage = user.getProfileImage();
 
         // 회원이 남긴 댓글 반응과 리뷰 반응 삭제
         commentReactionRepository.deleteByUser_UserId(userId);
@@ -175,7 +179,27 @@ public class AuthService {
 
         // 마지막으로 회원 정보 삭제
         userRepository.delete(user);
+
+        // DB 트랜잭션이 성공적으로 커밋된 후 Firebase 이미지 삭제
+        if (profileImage != null && !profileImage.isBlank()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            try {
+                                firebaseStorageService.deleteProfileImage(profileImage);
+                            } catch (Exception e) {
+                                log.error(
+                                        "회원 탈퇴 후 Firebase 프로필 이미지 삭제에 실패했습니다.",
+                                        e
+                                );
+                            }
+                        }
+                    }
+            );
+        }
     }
+
 
     @Transactional(readOnly = true)
     public boolean checkCurrentPassword(String loginId, String currentPassword) {
@@ -186,23 +210,76 @@ public class AuthService {
 
     // 프로필 이미지
 
+
     public UserResponse updateProfileImage(String loginId, MultipartFile file)
             throws IOException {
+
         User user = getLoginUser(loginId);
+
         String oldProfileImage = user.getProfileImage();
 
+        // 새 이미지 Firebase 업로드
         String newProfileImage = firebaseStorageService.uploadProfileImage(file);
+
+        // 이미지 경로 DB 반영
         user.updateProfileImage(newProfileImage);
 
-        firebaseStorageService.deleteProfileImage(oldProfileImage);
+        // DB 트랜잭션 결과에 따라 Firebase 이미지 정리
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+
+                    @Override
+                    public void afterCommit() {
+                        // DB 커밋 성공: 기존 이미지 삭제
+                        if (oldProfileImage != null && !oldProfileImage.isBlank()) {
+                            try {
+                                firebaseStorageService.deleteProfileImage(oldProfileImage);
+                            } catch (Exception e) {
+                                log.error("기존 프로필 이미지 삭제 실패: {}", oldProfileImage, e);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void afterCompletion(int status) {
+                        // DB 롤백: 새 이미지 삭제
+                        if (status == STATUS_ROLLED_BACK) {
+                            try {
+                                firebaseStorageService.deleteProfileImage(newProfileImage);
+                            } catch (Exception e) {
+                                log.error("롤백 후 새 프로필 이미지 삭제 실패: {}", newProfileImage, e);
+                            }
+                        }
+                    }
+                }
+        );
+
         return new UserResponse(user);
     }
 
-    public UserResponse removeProfileImage(String loginId) {
-        User user = getLoginUser(loginId);
 
-        firebaseStorageService.deleteProfileImage(user.getProfileImage());
+    public UserResponse removeProfileImage(String loginId) {
+
+        User user = getLoginUser(loginId);
+        String oldProfileImage = user.getProfileImage();
+
         user.removeProfileImage();
+
+        // DB 커밋 성공 후 기존 이미지 삭제
+        if (oldProfileImage != null && !oldProfileImage.isBlank()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            try {
+                                firebaseStorageService.deleteProfileImage(oldProfileImage);
+                            } catch (Exception e) {
+                                log.error("프로필 이미지 삭제 실패: {}", oldProfileImage, e);
+                            }
+                        }
+                    }
+            );
+        }
 
         return new UserResponse(user);
     }

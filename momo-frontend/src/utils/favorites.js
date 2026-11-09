@@ -5,7 +5,13 @@ export function getFavoriteMovies() {
   try {
     const favorites = localStorage.getItem(FAVORITES_KEY);
 
-    return favorites ? JSON.parse(favorites) : [];
+    if (!favorites) {
+      return [];
+    }
+
+    const parsedFavorites = JSON.parse(favorites);
+
+    return Array.isArray(parsedFavorites) ? parsedFavorites : [];
   } catch (error) {
     console.error("관심 영화 조회 실패:", error);
     return [];
