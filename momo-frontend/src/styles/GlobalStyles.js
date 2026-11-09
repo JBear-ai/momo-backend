@@ -1,4 +1,5 @@
 import React from "react";
+import GlobalResetStyles from "./legacy/GlobalReset.styles";
 import FoundationAndProfileStyles from "./legacy/FoundationAndProfile.styles";
 import HomeAndMovieStyles from "./legacy/HomeAndMovie.styles";
 import ReviewComposerAuthRecommendStyles from "./legacy/ReviewComposerAuthRecommend.styles";
@@ -18,6 +19,7 @@ import ResponsiveAndPosterOverridesStyles from "./legacy/ResponsiveAndPosterOver
 function GlobalStyles() {
   return (
     <>
+      <GlobalResetStyles />
       <FoundationAndProfileStyles />
       <HomeAndMovieStyles />
       <ReviewComposerAuthRecommendStyles />
