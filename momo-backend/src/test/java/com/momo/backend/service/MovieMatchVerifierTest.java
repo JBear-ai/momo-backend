@@ -89,4 +89,45 @@ class MovieMatchVerifierTest {
                 "김철수"
         ));
     }
+    @Test
+    void prefersExactReleaseDateAndDirectorWhenRankingPosterCandidates() {
+        int exactMatchScore = MovieMatchVerifier.matchScore(
+                "테스트 영화",
+                "Test Movie",
+                "20261109",
+                "홍길동",
+                "테스트 영화",
+                "Test Movie",
+                "2026-11-09",
+                "홍길동"
+        );
+
+        int weakerMatchScore = MovieMatchVerifier.matchScore(
+                "테스트 영화",
+                "Test Movie",
+                "20261109",
+                "홍길동",
+                "테스트 영화",
+                "Test Movie",
+                "2026-11-08",
+                ""
+        );
+
+        assertTrue(exactMatchScore > weakerMatchScore);
+    }
+
+    @Test
+    void rejectsPosterCandidateWhenReleaseYearDoesNotMatch() {
+        assertEquals(-1, MovieMatchVerifier.matchScore(
+                "테스트 영화",
+                "Test Movie",
+                "20260101",
+                "홍길동",
+                "테스트 영화",
+                "Test Movie",
+                "2025-12-31",
+                "홍길동"
+        ));
+    }
+
 }
