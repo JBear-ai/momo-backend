@@ -964,8 +964,17 @@ public class MovieService {
         if (isBlank(movieCode) || isBlank(title)) return;
         try {
             posterCacheService.createCache(movieCode, title, releaseDate);
-            if (posterCacheService.tryMarkAsProcessing(movieCode)) {
+
+            if (!posterCacheService.tryMarkAsProcessing(movieCode)) {
+                return;
+            }
+
+            try {
                 posterAsyncService.searchPosterAsync(movieCode, title, releaseDate);
+            } catch (RuntimeException schedulingException) {
+                // 박스오피스 경로도 스레드 풀 등록 실패 시 PROCESSING 점유를 즉시 해제한다.
+                posterCacheService.releaseProcessingClaim(movieCode);
+                throw schedulingException;
             }
         } catch (Exception e) {
             log.error("박스오피스 포스터 검색 등록 실패. movieCode: {}", movieCode, e);
