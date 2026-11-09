@@ -39,7 +39,7 @@ public class KmdbApiClient {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
 
-        return metrics.record("KMDB", "searchMovie", () -> restClient.get()
+        return metrics.record("KMDB", "searchMovie", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search_api/search_json2.jsp")
                         .queryParam("ServiceKey", apiKey)
                         .queryParam("collection", "kmdb_new2")
@@ -48,6 +48,6 @@ public class KmdbApiClient {
                         .queryParam("query", title.trim())
                         .build())
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 }
