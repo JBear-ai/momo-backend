@@ -224,7 +224,10 @@ public class TmdbService {
             return null;
         }
 
-        String kobisYear = releaseYear(releaseDate);
+        String bestPosterUrl = null;
+        int bestMatchScore = -1;
+        int detailChecks = 0;
+        final int maxDetailChecks = 5;
 
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
@@ -254,50 +257,49 @@ public class TmdbService {
                     String candidateDate = getText(result, "release_date");
                     String verificationDate = candidateDate;
                     String candidateDirector = "";
-                    String candidateYear = releaseYear(candidateDate);
 
-                    // 해외 개봉연도만 다르거나 개봉일이 없을 때 국내 개봉일과 감독을 추가 확인한다.
-                    boolean needDetail = kobisYear.isBlank()
-                            || candidateYear.isBlank()
-                            || !kobisYear.equals(candidateYear);
+                    // 상위 후보의 국내 개봉일과 감독을 확인해 동명 영화 오매칭을 줄인다.
+                    if (detailChecks < maxDetailChecks) {
+                        detailChecks++;
 
-                    if (needDetail) {
                         long movieId = result.path("id").asLong(0);
                         if (movieId > 0) {
                             try {
                                 String detailJson = tmdbApiClient.getMovieDetail(movieId);
+
                                 if (detailJson != null && !detailJson.isBlank()) {
                                     JsonNode detail = objectMapper.readTree(detailJson);
+
                                     String koreanReleaseDate =
                                             selectKoreanTheatricalReleaseDate(
                                                     detail.path("release_dates"));
+
                                     if (!koreanReleaseDate.isBlank()) {
                                         verificationDate = koreanReleaseDate;
                                     }
 
-                                    if (kobisYear.isBlank() || candidateYear.isBlank()) {
-                                        List<String> directors = new ArrayList<>();
+                                    List<String> directors = new ArrayList<>();
 
-                                        for (JsonNode crew : detail.path("credits").path("crew")) {
-                                            if (!"Director".equalsIgnoreCase(getText(crew, "job"))) {
-                                                continue;
-                                            }
-
-                                            String name = getText(crew, "name");
-                                            if (!name.isBlank() && !directors.contains(name)) {
-                                                directors.add(name);
-                                            }
-
-                                            if (directors.size() >= 5) {
-                                                break;
-                                            }
+                                    for (JsonNode crew : detail.path("credits").path("crew")) {
+                                        if (!"Director".equalsIgnoreCase(getText(crew, "job"))) {
+                                            continue;
                                         }
 
-                                        candidateDirector = String.join(", ", directors);
+                                        String name = getText(crew, "name");
+                                        if (!name.isBlank() && !directors.contains(name)) {
+                                            directors.add(name);
+                                        }
+
+                                        if (directors.size() >= 5) {
+                                            break;
+                                        }
                                     }
+
+                                    candidateDirector = String.join(", ", directors);
                                 }
                             } catch (Exception e) {
-                                log.debug("TMDb 추가 검증 정보 조회 실패 - ID: {}", movieId, e);
+                                // 상세정보 조회가 실패해도 검색 결과의 개봉연도로 검증을 계속한다.
+                                log.debug("TMDb 포스터 후보 상세 검증 실패 - ID: {}", movieId, e);
                             }
                         }
                     }
@@ -309,14 +311,26 @@ public class TmdbService {
                         continue;
                     }
 
-                    log.info("TMDb 영화 포스터 매칭 성공 - 검색어: {}, 제목: {}, 개봉일: {}",
-                            searchTitle, candidateTitle, verificationDate);
-                    return posterUrl;
+                    int matchScore = MovieMatchVerifier.matchScore(
+                            title, titleEn, releaseDate, kobisDirector,
+                            candidateTitle, candidateOriginalTitle,
+                            verificationDate, candidateDirector);
+
+                    if (matchScore > bestMatchScore) {
+                        bestMatchScore = matchScore;
+                        bestPosterUrl = posterUrl;
+                    }
                 }
             } catch (Exception e) {
-                // 한글 제목 검색이 실패해도 영문 제목 검색은 계속 진행한다.
+                // 한글 제목 검색이 실패해도 영문 제목 검색은 계속한다.
                 log.warn("TMDb 포스터 검색 실패 - 검색어: {}", searchTitle, e);
             }
+        }
+
+        if (bestPosterUrl != null) {
+            log.info("TMDb 영화 포스터 최종 후보 선택 - 제목: {}, 개봉일: {}, 일치 점수: {}",
+                    title, releaseDate, bestMatchScore);
+            return bestPosterUrl;
         }
 
         log.warn("TMDb 포스터 검색 결과 없음 - 제목: {}, 영문 제목: {}, 개봉일: {}",
