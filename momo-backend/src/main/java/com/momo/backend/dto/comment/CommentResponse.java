@@ -18,6 +18,14 @@ public class CommentResponse {
     private final Long userId;
     private final String nickname;
 
+    // 작성자의 프로필 이미지 등록 여부
+    private final boolean profileImageAvailable;
+
+    // 댓글 반응 정보
+    private final long likeCount;
+    private final long dislikeCount;
+    private final Boolean myReaction;
+
     // 댓글 내용
     private final String content;
 
@@ -26,11 +34,20 @@ public class CommentResponse {
     private final LocalDateTime updatedAt;
 
     // Comment Entity를 응답 DTO로 변환
-    public CommentResponse(Comment comment) {
+    public CommentResponse(
+            Comment comment,
+            boolean profileImageAvailable,
+            long likeCount,
+            long dislikeCount,
+            Boolean myReaction) {
         this.commentId = comment.getCommentId();
         this.reviewId = comment.getReview().getReviewId();
         this.userId = comment.getUser().getUserId();
         this.nickname = comment.getUser().getNickname();
+        this.profileImageAvailable = profileImageAvailable;
+        this.likeCount = likeCount;
+        this.dislikeCount = dislikeCount;
+        this.myReaction = myReaction;
         this.content = comment.getContent();
         this.createdAt = comment.getCreatedAt();
         this.updatedAt = comment.getUpdatedAt();
