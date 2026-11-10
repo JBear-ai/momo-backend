@@ -86,7 +86,7 @@ public class KobisApiClient {
     }
 
     public String getMovieDetail(String movieCode) {
-        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
         return metrics.record("KOBIS", "getMovieDetail", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieInfo.json")
                         .queryParam("key", apiKey)
