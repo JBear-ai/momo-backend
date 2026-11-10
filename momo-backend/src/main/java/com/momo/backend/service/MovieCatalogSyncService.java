@@ -75,7 +75,15 @@ public class MovieCatalogSyncService {
                 throw new IllegalStateException("KOBIS 영화 카탈로그 응답 형식이 올바르지 않습니다.");
             }
 
+            int reportedPages = (int) Math.ceil((double) totalNode.asLong() / PAGE_SIZE);
+            if (list.isEmpty() && state.getNextPage() <= reportedPages) {
+                throw new IllegalStateException("KOBIS 응답의 총건수와 현재 페이지 데이터가 일치하지 않습니다.");
+            }
+
             List<MovieSearchResponse> movies = parseMovies(list);
+            if (!list.isEmpty() && movies.isEmpty()) {
+                throw new IllegalStateException("KOBIS 페이지에 유효한 영화 항목이 없습니다.");
+            }
             if (!movies.isEmpty()) {
                 moviePersistenceService.saveSearchMovies(movies);
                 movieService.enqueueCatalogPosterSearches(movies);
