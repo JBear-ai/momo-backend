@@ -31,6 +31,19 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                  or movie.kobisDetailAttemptedAt < :retryBefore)
              order by movie.movieCode asc
             """)
+    @Query("""
+            select movie
+              from Movie movie
+             where movie.posterUrl like 'http%'
+               and (movie.posterMigrationAttemptedAt is null
+                 or movie.posterMigrationAttemptedAt < :retryBefore)
+             order by movie.movieCode asc
+            """)
+    List<Movie> findMoviesNeedingPosterMigration(
+            @Param("retryBefore") LocalDateTime retryBefore,
+            Pageable pageable
+    );
+
     List<Movie> findMoviesNeedingMetadata(
             @Param("retryBefore") LocalDateTime retryBefore,
             Pageable pageable
