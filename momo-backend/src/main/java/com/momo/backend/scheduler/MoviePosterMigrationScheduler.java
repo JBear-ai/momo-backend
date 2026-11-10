@@ -6,6 +6,7 @@ import com.momo.backend.repository.MovieRepository;
 import com.momo.backend.service.PosterFileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "momo.poster.migration.enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
 public class MoviePosterMigrationScheduler {
 
