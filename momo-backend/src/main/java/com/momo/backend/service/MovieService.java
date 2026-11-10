@@ -1372,37 +1372,40 @@ public class MovieService {
         }
 
         String normalizedGenre = normalizeGenre(genre);
+        org.springframework.data.domain.Page<Movie> databasePage = movieRepository
+                .findByGenreContainingIgnoreCaseOrderByReleaseDateDescMovieCodeAsc(
+                        normalizedGenre,
+                        org.springframework.data.domain.PageRequest.of(page - 1, GENRE_PAGE_SIZE)
+                );
 
-        // 전체 카탈로그 수집 데이터가 있으면 외부 API 대신 MySQL 전체 결과를 사용한다.
-        List<MovieSearchResponse> allMovies = movieRepository
-                .findByGenreContainingIgnoreCaseOrderByReleaseDateDescMovieCodeAsc(normalizedGenre)
-                .stream()
-                .map(movie -> new MovieSearchResponse(
-                        movie.getMovieCode(),
-                        movie.getTitle(),
-                        movie.getReleaseDate() == null ? "" : movie.getReleaseDate(),
-                        movie.getGenre() == null ? "" : movie.getGenre(),
-                        movie.getDirector() == null ? "" : movie.getDirector()
-                ))
-                .toList();
-
-        // DB에 아직 해당 장르가 없을 때만 KOBIS 전체 페이지를 조회해 초기 데이터를 채운다.
-        if (allMovies.isEmpty()) {
-            allMovies = fetchAllMoviesByGenre(normalizedGenre);
-            saveSearchMoviesToDatabase(allMovies);
+        if (!databasePage.isEmpty()) {
+            List<MovieSearchResponse> pageMovies = databasePage.getContent().stream()
+                    .map(movie -> new MovieSearchResponse(
+                            movie.getMovieCode(),
+                            movie.getTitle(),
+                            movie.getReleaseDate() == null ? "" : movie.getReleaseDate(),
+                            movie.getGenre() == null ? "" : movie.getGenre(),
+                            movie.getDirector() == null ? "" : movie.getDirector()
+                    ))
+                    .toList();
+            enqueuePosterSearches(pageMovies);
+            return pageMovies;
         }
 
-        int start = (page - 1) * GENRE_PAGE_SIZE;
-        if (start >= allMovies.size()) {
+        // DB에 해당 장르가 아직 없을 때만 KOBIS 전체 페이지를 조회해 초기 데이터를 채운다.
+        if (page > 1) {
             return List.of();
         }
 
-        int end = Math.min(start + GENRE_PAGE_SIZE, allMovies.size());
-        List<MovieSearchResponse> pageMovies = mergeSavedMovieDetails(
-                allMovies.subList(start, end));
+        List<MovieSearchResponse> allMovies = fetchAllMoviesByGenre(normalizedGenre);
+        saveSearchMoviesToDatabase(allMovies);
 
-        enqueuePosterSearches(pageMovies);
-        return pageMovies;
+        List<MovieSearchResponse> firstPage = allMovies.stream()
+                .limit(GENRE_PAGE_SIZE)
+                .toList();
+        List<MovieSearchResponse> mergedPage = mergeSavedMovieDetails(firstPage);
+        enqueuePosterSearches(mergedPage);
+        return mergedPage;
     }
 
     // KOBIS 장르 목록의 누락 항목을 이미 저장된 상세정보로 보완한다.
