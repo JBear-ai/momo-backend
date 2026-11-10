@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { formatReleaseDate } from "../utils/releaseDate";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 // 숫자에 천 단위 쉼표 추가
 function formatNumber(value) {
@@ -454,7 +455,7 @@ function MovieDetail() {
         { className: "movie-detail-poster" },
         movie.posterUrl
           ? React.createElement("img", {
-              src: movie.posterUrl,
+              src: resolvePosterUrl(movie.posterUrl),
               alt: movie.title,
             })
           : React.createElement(
