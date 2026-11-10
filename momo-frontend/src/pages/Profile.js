@@ -138,7 +138,10 @@ function Profile() {
           </Link>
 
           {/* 좋아요한 리뷰 */}
-          <article className="profile-activity-item">
+          <Link
+            to="/profile/liked-reviews"
+            className="profile-activity-item profile-liked-reviews-link"
+          >
             <span className="profile-activity-icon">♥</span>
 
             <div>
@@ -146,8 +149,8 @@ function Profile() {
               <p>마음에 들었던 리뷰를 모아볼 수 있어요.</p>
             </div>
 
-            <span className="profile-coming">준비 중</span>
-          </article>
+            <span className="profile-liked-reviews-count">리뷰 보기 →</span>
+          </Link>
 
           {/* 관심 영화 */}
           <Link

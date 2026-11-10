@@ -18,7 +18,7 @@ import Search from "./pages/Search";
 import AllReviews from "./pages/AllReviews";
 import ReviewDetail from "./pages/ReviewDetail";
 import MyReviews from "./pages/MyReviews";
-
+import LikedReviews from "./pages/LikedReviews";
 import FavoriteMovies from "./pages/FavoriteMovies";
 import PersonDetail from "./pages/PersonDetail";
 
@@ -36,6 +36,7 @@ function App() {
 
           {/* 전체 리뷰 */}
           <Route path="/reviews" element={<AllReviews />} />
+          <Route path="/profile/liked-reviews" element={<LikedReviews />} />
 
           {/* 리뷰 상세 및 댓글 */}
           <Route path="/reviews/:reviewId" element={<ReviewDetail />} />
