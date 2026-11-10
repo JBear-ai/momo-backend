@@ -14,6 +14,7 @@ import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieRepository;
 import com.momo.backend.repository.MoviePosterCacheRepository;
+import com.github.benmanes.caffeine.cache.Cache;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +51,7 @@ public class MovieService {
     private final MoviePosterCacheService posterCacheService;
     private final MoviePersistenceService moviePersistenceService;
     private final MoviePosterCacheRepository moviePosterCacheRepository;
+    private final Cache<String, MovieCache> movieApiMemoryCache;
 
     private static final Object[] CACHE_LOCKS = createCacheLocks();
     private static Object[] createCacheLocks() {
@@ -76,17 +78,33 @@ public class MovieService {
 
     private MovieCache findValidCache(String cacheType, String cacheKey) {
 
-        MovieCache cache = movieCacheRepository
+        String memoryKey = cacheType + "::" + cacheKey;
+        LocalDateTime now = LocalDateTime.now();
+
+        // L1: 백엔드 메모리 캐시를 먼저 확인한다.
+        MovieCache memoryCache = movieApiMemoryCache.getIfPresent(memoryKey);
+        if (memoryCache != null) {
+            if (memoryCache.isValid(now)) {
+                log.debug("영화 메모리 캐시 HIT. type: {}, key: {}", cacheType, cacheKey);
+                return memoryCache;
+            }
+            movieApiMemoryCache.invalidate(memoryKey);
+        }
+
+        // L2: 메모리에 없으면 기존 MySQL 캐시를 확인한다.
+        MovieCache databaseCache = movieCacheRepository
                 .findByCacheTypeAndCacheKey(cacheType, cacheKey)
                 .orElse(null);
 
-        if (cache == null || !cache.isValid(LocalDateTime.now())) {
+        if (databaseCache == null || !databaseCache.isValid(now)) {
             log.info("영화 API 캐시 MISS. type: {}, key: {}", cacheType, cacheKey);
             return null;
         }
 
-        log.info("영화 API 캐시 HIT. type: {}, key: {}", cacheType, cacheKey);
-        return cache;
+        // MySQL에서 찾은 유효한 데이터를 메모리에도 올린다.
+        movieApiMemoryCache.put(memoryKey, databaseCache);
+        log.debug("영화 MySQL 캐시 HIT. 메모리 캐시에 적재. type: {}, key: {}", cacheType, cacheKey);
+        return databaseCache;
     }
 
     // 통합 캐시 저장
@@ -105,6 +123,13 @@ public class MovieService {
             LocalDateTime now = LocalDateTime.now();
             movieCacheRepository.upsert(cacheType, cacheKey, contentJson,
                     now, now.plusHours(ttlHours));
+
+            // DB 저장이 성공한 데이터만 L1 메모리 캐시에 반영한다.
+            String memoryKey = cacheType + "::" + cacheKey;
+            movieApiMemoryCache.put(
+                    memoryKey,
+                    new MovieCache(cacheType, cacheKey, contentJson, ttlHours)
+            );
 
         } catch (Exception e) {
 
