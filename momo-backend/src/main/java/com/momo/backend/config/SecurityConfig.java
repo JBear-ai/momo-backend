@@ -74,7 +74,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/auth/exists/id/**"
+                                "/api/auth/exists/id/**",
+                                "/api/auth/users/*/profile-image"
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
