@@ -44,10 +44,11 @@ public class CommentController {
     @GetMapping("/api/reviews/{reviewId}/comments")
     public ResponseEntity<Page<CommentResponse>> getComments(
             @PathVariable Long reviewId,
-            @RequestParam(defaultValue = "0") int page) {
+            @RequestParam(defaultValue = "0") int page,
+            Authentication authentication) {
 
         return ResponseEntity.ok(
-                commentService.getComments(reviewId, page)
+                commentService.getComments(reviewId, page, authentication.getName())
         );
     }
 
