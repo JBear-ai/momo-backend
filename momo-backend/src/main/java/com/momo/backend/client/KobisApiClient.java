@@ -59,7 +59,14 @@ public class KobisApiClient {
      * 최근 동기화에서는 개봉연도 범위를 지정한다.
      */
     public String searchCatalogMovies(int page, int size, Integer startYear, Integer endYear) {
-        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+        return searchCatalogMovies(page, size, startYear, endYear,
+                com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+    }
+
+    private String searchCatalogMovies(
+            int page, int size, Integer startYear, Integer endYear,
+            com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
+        apiCallBudgetService.acquire("KOBIS", trafficType);
         return metrics.record("KOBIS", "searchCatalogMovies", () -> restClient.get()
                 .uri(uriBuilder -> {
                     var builder = uriBuilder.path("/movie/searchMovieList.json")
@@ -101,6 +108,7 @@ public class KobisApiClient {
     }
 
     public String searchMoviesByGenre(int page) {
-        return searchCatalogMovies(page, 100, null, null);
+        return searchCatalogMovies(page, 100, null, null,
+                com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
     }
 }
