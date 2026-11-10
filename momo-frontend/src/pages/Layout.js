@@ -11,6 +11,10 @@ import styled from "styled-components";
 import textlogo from "../textlogo.png";
 import AxiosApi from "../api/AxiosApi";
 
+// ========================================
+// 전체 레이아웃
+// ========================================
+
 const Container = styled.div`
   min-height: 100vh;
   display: flex;
@@ -19,6 +23,10 @@ const Container = styled.div`
   color: #1c1a17;
   letter-spacing: -0.01em;
 `;
+
+// ========================================
+// 헤더
+// ========================================
 
 const Header = styled.header`
   position: sticky;
@@ -145,6 +153,11 @@ const ActionButton = styled.button`
     border-color: #ffd43b;
     transform: translateY(-1px);
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 `;
 
 const Main = styled.main`
@@ -154,9 +167,9 @@ const Main = styled.main`
   box-sizing: border-box;
 `;
 
-/* ========================================
-   푸터 영역
-======================================== */
+// ========================================
+// 푸터
+// ========================================
 
 const Footer = styled.footer`
   padding: 44px 8%;
@@ -277,28 +290,30 @@ const FooterBottom = styled.div`
   }
 `;
 
+// ========================================
+// Layout 컴포넌트
+// ========================================
+
 function Layout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
-  // 현재 페이지 경로를 확인
-  // 페이지가 이동하면 로그인 상태를 다시 확인하기 위해 사용
   const location = useLocation();
 
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
 
-  // 서버 확인 전에는 로그인 상태를 확정하지 않음
   const [nickname, setNickname] = useState("");
-
-  // 서버 세션 확인이 끝났는지 구분
   const [authLoading, setAuthLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
-  // URL의 검색어가 변경되면 헤더 검색창에도 반영
+  // URL 검색어 변경 시 헤더 검색창 동기화
   useEffect(() => {
     setKeyword(searchParams.get("keyword") || "");
   }, [searchParams]);
 
-  // 서버 세션을 확인하여 로그인 상태를 갱신
+  // ========================================
+  // 서버 로그인 상태 확인
+  // ========================================
+
   useEffect(() => {
     let active = true;
 
@@ -314,23 +329,19 @@ function Layout() {
       }
 
       try {
-        // 현재 서버에 로그인된 사용자 정보 요청
         const response = await AxiosApi.memberMe();
 
         if (!active) return;
 
-        // 세션이 유효하면 서버에서 받은 닉네임 표시
         setNickname(response.data.nickname || "회원");
       } catch (error) {
         if (!active) return;
 
-        // 인증 실패(401)인 경우 로그인 상태 초기화
         if (error.response?.status === 401) {
+          // 인증 만료 처리는 AxiosApi 인터셉터가 담당
           setNickname("");
-          localStorage.removeItem("username");
-          localStorage.removeItem("nickname");
         } else {
-          // 서버 연결 문제는 인증 실패와 구분
+          // 서버 연결 오류와 인증 실패를 구분
           console.error("로그인 상태 확인 실패:", error);
           setNickname("");
         }
@@ -341,20 +352,21 @@ function Layout() {
       }
     };
 
-    // 사이트 최초 접속 및 페이지 이동 시 로그인 상태 확인
     checkLogin();
 
-    // Login.js에서 로그인 성공 이벤트가 발생하면 다시 확인
+    // 로그인 / 로그아웃 / 인증 만료 이벤트 감지
     window.addEventListener("momo-auth-changed", checkLogin);
 
     return () => {
       active = false;
       window.removeEventListener("momo-auth-changed", checkLogin);
     };
-    // 페이지 경로가 변경되면 서버 세션을 다시 확인
   }, [location.pathname]);
 
-  // 헤더 검색 실행
+  // ========================================
+  // 영화 검색
+  // ========================================
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
 
@@ -365,185 +377,130 @@ function Layout() {
     navigate(`/search?keyword=${encodeURIComponent(trimmedKeyword)}`);
   };
 
-  // 로그아웃 시 서버 세션도 함께 종료
+  // ========================================
+  // 로그아웃
+  // ========================================
+
   const handleLogout = async () => {
+    if (logoutLoading) return;
+
+    setLogoutLoading(true);
+
     try {
-      // Spring Boot에 로그아웃 요청
+      // Spring Boot 서버 로그아웃 요청
       await AxiosApi.memberLogout();
 
-      // 로그아웃 성공 후 브라우저 사용자 정보 삭제
+      // 서버 로그아웃 성공 후 클라이언트 인증 정보 정리
+      localStorage.removeItem("accessToken");
       localStorage.removeItem("username");
       localStorage.removeItem("nickname");
-      localStorage.removeItem("accessToken");
-      window.dispatchEvent(new Event("momo-auth-changed"));
 
-      // 화면을 로그아웃 상태로 변경
       setNickname("");
 
-      // 로그아웃 성공 후 메인 홈페이지로 이동
+      // 다른 컴포넌트에도 인증 변경 알림
+      window.dispatchEvent(new Event("momo-auth-changed"));
+
+      // 메인 화면 이동
       navigate("/", { replace: true });
     } catch (error) {
       console.error("로그아웃 실패:", error);
-      alert("로그아웃에 실패했습니다. 다시 시도해 주세요.");
+
+      // 401은 AxiosApi 인증 인터셉터가 처리하므로
+      // 중복 알림을 표시하지 않음
+      if (error.response?.status !== 401) {
+        alert("로그아웃에 실패했습니다. 다시 시도해 주세요.");
+      }
+    } finally {
+      setLogoutLoading(false);
     }
   };
 
+  // ========================================
+  // 화면
+  // ========================================
+
   return (
-    React.createElement(
-  Container,
-  null,
-  React.createElement(
-      Header,
-      null,
-      React.createElement(
-            Logo,
-            {"to":"/","aria-label":"MOMO 홈"},
-            React.createElement(
-                    LogoImage,
-                    {"src":textlogo,"alt":"MOMO"}
-                  )
-          ),
-      React.createElement(
-            SearchForm,
-            {"onSubmit":handleSearchSubmit},
-            React.createElement(
-                    SearchInput,
-                    {"type":"text","placeholder":"영화 제목 또는 키워드 검색","value":keyword,"onChange":(e) => setKeyword(e.target.value)}
-                  ),
-            React.createElement(
-                    SearchButton,
-                    {"type":"submit"},
-                    "검색"
-                  )
-          ),
-      React.createElement(
-            Navigation,
-            null,
-            (authLoading ? null : nickname ? (
-                        React.createElement(
-                    UserArea,
-                    null,
-                    React.createElement(
-                              NavLink,
-                              {"to":"/"},
-                              "홈"
-                            ),
-                    React.createElement(
-                              NavLink,
-                              {"to":"/reviews"},
-                              "전체 리뷰"
-                            ),
-                    React.createElement(
-                              NavLink,
-                              {"to":"/profile"},
-                              "마이페이지"
-                            ),
-                    React.createElement(
-                              "p",
-                              null,
-                              React.createElement(
-                                          "strong",
-                                          null,
-                                          (nickname),
-                                          "님"
-                                        )
-                            ),
-                    React.createElement(
-                              ActionButton,
-                              {"onClick":handleLogout},
-                              "로그아웃"
-                            )
-                  )
-                      ) : (
-                        React.createElement(
-                    UserArea,
-                    null,
-                    React.createElement(
-                              NavLink,
-                              {"to":"/login"},
-                              "로그인"
-                            ),
-                    React.createElement(
-                              NavLink,
-                              {"to":"/signup"},
-                              "회원가입"
-                            )
-                  )
-                      ))
-          )
-    ),
-  React.createElement(
-      Main,
-      null,
-      React.createElement(
-            Outlet,
-            null
-          )
-    ),
-  React.createElement(
-      Footer,
-      null,
-      React.createElement(
-            FooterContainer,
-            null,
-            React.createElement(
-                    FooterLeft,
-                    null,
-                    React.createElement(
-                              FooterLogo,
-                              {"src":textlogo,"alt":"MOMO"}
-                            ),
-                    React.createElement(
-                              FooterDesc,
-                              null,
-                              "영화를 메모하다, 메모지처럼 가볍게 남기는 나만의 영화 기록 공간 MOVIEMEMO."
-                            )
-                  ),
-            React.createElement(
-                    FooterRight,
-                    null,
-                    React.createElement(
-                              FooterColumn,
-                              null,
-                              React.createElement(
-                                          "h4",
-                                          null,
-                                          "Service"
-                                        ),
-                              React.createElement(
-                                          Link,
-                                          {"to":"/"},
-                                          "홈 오버뷰"
-                                        ),
-                              React.createElement(
-                                          Link,
-                                          {"to":"/reviews"},
-                                          "전체 리뷰"
-                                        ),
-                              React.createElement(
-                                          Link,
-                                          {"to":"/profile"},
-                                          "마이 페이지"
-                                        )
-                            )
-                  )
-          ),
-      React.createElement(
-            FooterBottom,
-            null,
-            React.createElement(
-                    "p",
-                    null,
-                    "© 2026 MOMO. All rights reserved."
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "Designed for Movie Lovers with Warm Analog 감성"
-                  )
-          )
-    )
-)
+    <Container>
+      <Header>
+        <Logo to="/" aria-label="MOMO 홈">
+          <LogoImage src={textlogo} alt="MOMO" />
+        </Logo>
+
+        <SearchForm onSubmit={handleSearchSubmit}>
+          <SearchInput
+            type="text"
+            placeholder="영화 제목 또는 키워드 검색"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            aria-label="영화 검색어"
+          />
+
+          <SearchButton type="submit">검색</SearchButton>
+        </SearchForm>
+
+        <Navigation>
+          {!authLoading &&
+            (nickname ? (
+              <UserArea>
+                <NavLink to="/">홈</NavLink>
+
+                <NavLink to="/reviews">전체 리뷰</NavLink>
+
+                <NavLink to="/profile">마이페이지</NavLink>
+
+                <p>
+                  <strong>{nickname}</strong>님
+                </p>
+
+                <ActionButton onClick={handleLogout} disabled={logoutLoading}>
+                  {logoutLoading ? "로그아웃 중..." : "로그아웃"}
+                </ActionButton>
+              </UserArea>
+            ) : (
+              <UserArea>
+                <NavLink to="/login">로그인</NavLink>
+
+                <NavLink to="/signup">회원가입</NavLink>
+              </UserArea>
+            ))}
+        </Navigation>
+      </Header>
+
+      <Main>
+        <Outlet />
+      </Main>
+
+      <Footer>
+        <FooterContainer>
+          <FooterLeft>
+            <FooterLogo src={textlogo} alt="MOMO" />
+
+            <FooterDesc>
+              영화를 메모하다, 메모지처럼 가볍게 남기는 나만의 영화 기록 공간
+              MOVIEMEMO.
+            </FooterDesc>
+          </FooterLeft>
+
+          <FooterRight>
+            <FooterColumn>
+              <h4>Service</h4>
+
+              <Link to="/">홈 오버뷰</Link>
+
+              <Link to="/reviews">전체 리뷰</Link>
+
+              <Link to="/profile">마이 페이지</Link>
+            </FooterColumn>
+          </FooterRight>
+        </FooterContainer>
+
+        <FooterBottom>
+          <p>© 2026 MOMO. All rights reserved.</p>
+
+          <p>Designed for Movie Lovers with Warm Analog 감성</p>
+        </FooterBottom>
+      </Footer>
+    </Container>
   );
 }
 
