@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
 import FavoriteStar from "../components/common/FavoriteStar";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 function FavoriteMovies() {
   const navigate = useNavigate();
@@ -99,7 +100,7 @@ function FavoriteMovies() {
                                           (movie.posterUrl ? (
                                                                 React.createElement(
                                                         "img",
-                                                        {"src":movie.posterUrl,"alt":`${movie.title} 포스터`,"onError":(event) => {
+                                                        {"src":resolvePosterUrl(movie.posterUrl),"alt":`${movie.title} 포스터`,"onError":(event) => {
                                                                                   event.currentTarget.style.display = "none";
                                                                                 }}
                                                       )
