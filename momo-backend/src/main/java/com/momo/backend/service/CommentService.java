@@ -134,7 +134,6 @@ public class CommentService {
     // 댓글 작성자 프로필 및 반응 정보를 공통 응답으로 변환
     private CommentResponse toResponse(Comment comment, Long currentUserId) {
         Long commentId = comment.getCommentId();
-        Long authorId = comment.getUser().getUserId();
 
         long likeCount = commentReactionRepository
                 .countByComment_CommentIdAndLiked(commentId, true);
