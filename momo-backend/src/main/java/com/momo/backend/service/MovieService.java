@@ -387,6 +387,11 @@ public class MovieService {
         return response;
     }
 
+    // 전체 카탈로그 수집 결과도 기존 포스터 중복 방지·비동기 작업 흐름을 재사용한다.
+    public void enqueueCatalogPosterSearches(List<MovieSearchResponse> movies) {
+        enqueuePosterSearches(movies);
+    }
+
     // 포스터 비동기 검색 등록
 
     private void enqueuePosterSearches(
