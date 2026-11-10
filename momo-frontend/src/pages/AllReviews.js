@@ -8,6 +8,12 @@ function AllReviews() {
   const [reviews, setReviews] = useState([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [searchType, setSearchType] = useState("ALL");
+  const [searchInput, setSearchInput] = useState("");
+  const [activeSearch, setActiveSearch] = useState({
+    searchType: "ALL",
+    keyword: "",
+  });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,7 +31,12 @@ function AllReviews() {
         setError("");
         setReviewInfo({});
 
-        const response = await AxiosApi.allReviews(page, controller.signal);
+        const response = await AxiosApi.allReviews(
+          page,
+          controller.signal,
+          activeSearch.searchType,
+          activeSearch.keyword,
+        );
 
         if (controller.signal.aborted) return;
 
@@ -120,7 +131,7 @@ function AllReviews() {
     fetchReviews();
 
     return () => controller.abort();
-  }, [page]);
+  }, [page, activeSearch]);
 
   // 날짜 형식 변환
   const formatDate = (dateString) => {
@@ -140,6 +151,34 @@ function AllReviews() {
   // 리뷰 상세 페이지 이동
   const handleReviewClick = (reviewId) => {
     navigate(`/reviews/${reviewId}`);
+  };
+
+  // 검색 실행
+  const handleSearch = (event) => {
+    event.preventDefault();
+    setPage(0);
+    setActiveSearch({
+      searchType,
+      keyword: searchInput.trim(),
+    });
+  };
+
+  // 검색 조건과 검색어 초기화
+  const handleSearchReset = () => {
+    setSearchType("ALL");
+    setSearchInput("");
+    setPage(0);
+    setActiveSearch({ searchType: "ALL", keyword: "" });
+  };
+
+  const searchPlaceholders = {
+    ALL: "영화, 감독, 배우, 닉네임, 리뷰 제목 또는 내용 검색",
+    MOVIE: "영화 제목을 입력하세요.",
+    DIRECTOR: "감독 이름을 입력하세요.",
+    ACTOR: "배우 이름을 입력하세요.",
+    NICKNAME: "사용자 닉네임을 입력하세요.",
+    TITLE: "리뷰 제목을 입력하세요.",
+    CONTENT: "리뷰 내용을 입력하세요.",
   };
 
   // 페이지 변경
@@ -184,12 +223,56 @@ function AllReviews() {
           </span>
         </div>
 
+        <form className="all-reviews-search" onSubmit={handleSearch}>
+          <label className="all-reviews-search-label" htmlFor="all-reviews-search-type">
+            검색 범위
+          </label>
+          <select
+            id="all-reviews-search-type"
+            className="all-reviews-search-select"
+            value={searchType}
+            onChange={(event) => setSearchType(event.target.value)}
+          >
+            <option value="ALL">전체</option>
+            <option value="MOVIE">영화 제목</option>
+            <option value="DIRECTOR">감독</option>
+            <option value="ACTOR">배우</option>
+            <option value="NICKNAME">닉네임</option>
+            <option value="TITLE">리뷰 제목</option>
+            <option value="CONTENT">리뷰 내용</option>
+          </select>
+
+          <input
+            className="all-reviews-search-input"
+            type="search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder={searchPlaceholders[searchType]}
+            aria-label="리뷰 검색어"
+          />
+
+          <button className="all-reviews-search-submit" type="submit">
+            검색
+          </button>
+          <button
+            className="all-reviews-search-reset"
+            type="button"
+            onClick={handleSearchReset}
+          >
+            초기화
+          </button>
+        </form>
+
         {loading ? (
           <div className="all-reviews-state">리뷰를 불러오는 중입니다.</div>
         ) : error ? (
           <div className="all-reviews-state all-reviews-error">{error}</div>
         ) : reviews.length === 0 ? (
-          <div className="all-reviews-state">아직 작성된 리뷰가 없습니다.</div>
+          <div className="all-reviews-state">
+            {activeSearch.keyword
+              ? "검색 조건에 맞는 리뷰가 없습니다."
+              : "아직 작성된 리뷰가 없습니다."}
+          </div>
         ) : (
           <>
             {/* PC 테이블 */}

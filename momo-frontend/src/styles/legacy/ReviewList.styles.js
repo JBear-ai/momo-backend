@@ -131,6 +131,79 @@ const ReviewListStyles = createGlobalStyle`
   font-weight: 700;
 }
 
+/* 전체 리뷰 검색 */
+.all-reviews-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(220px, 2fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 24px;
+  padding: 16px;
+  background: #FFFCF4;
+  border: 1px solid var(--momo-note-border);
+  border-radius: 10px;
+}
+
+.all-reviews-search-label {
+  color: var(--momo-muted);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.all-reviews-search-select,
+.all-reviews-search-input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  color: var(--momo-text);
+  background: var(--momo-surface);
+  border: 1px solid var(--momo-border);
+  border-radius: 7px;
+  outline: none;
+  font-size: 13px;
+}
+
+.all-reviews-search-select:focus,
+.all-reviews-search-input:focus {
+  border-color: var(--momo-accent-ink);
+  box-shadow: 0 0 0 3px rgba(255, 212, 59, 0.18);
+}
+
+.all-reviews-search-submit,
+.all-reviews-search-reset {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.all-reviews-search-submit {
+  color: var(--momo-accent-ink);
+  background: var(--momo-accent);
+  border: 1px solid var(--momo-accent);
+}
+
+.all-reviews-search-submit:hover {
+  background: #F5C928;
+}
+
+.all-reviews-search-reset {
+  color: var(--momo-muted);
+  background: var(--momo-surface);
+  border: 1px solid var(--momo-border);
+}
+
+.all-reviews-search-reset:hover {
+  background: var(--momo-bg);
+  border-color: #BEB5A7;
+}
+
 /* 리뷰 테이블 */
 .all-reviews-table-wrap {
   width: 100%;
@@ -330,6 +403,16 @@ const ReviewListStyles = createGlobalStyle`
 }
 
 /* 반응형 */
+@media (max-width: 900px) {
+  .all-reviews-search {
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .all-reviews-search-label {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 768px) {
   .all-reviews-page {
     padding: 20px 0 50px;
@@ -350,6 +433,21 @@ const ReviewListStyles = createGlobalStyle`
 }
 
 @media (max-width: 600px) {
+  .all-reviews-search {
+    grid-template-columns: 1fr 1fr;
+    padding: 12px;
+  }
+
+  .all-reviews-search-select,
+  .all-reviews-search-input {
+    grid-column: 1 / -1;
+  }
+
+  .all-reviews-search-submit,
+  .all-reviews-search-reset {
+    width: 100%;
+  }
+
   .all-reviews-heading {
     padding: 26px 20px;
   }
