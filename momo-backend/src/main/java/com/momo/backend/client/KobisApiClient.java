@@ -14,13 +14,15 @@ public class KobisApiClient {
     private final RestClient restClient;
     private final String apiKey;
     private final ApiCallMetrics metrics;
+    private final com.momo.backend.service.ApiCallBudgetService apiCallBudgetService;
 
     public KobisApiClient(
             @Value("${kobis.api.base-url}") String baseUrl,
             @Value("${kobis.api.key}") String apiKey,
             @Value("${external-api.connect-timeout:3s}") Duration connectTimeout,
             @Value("${external-api.read-timeout:8s}") Duration readTimeout,
-            ApiCallMetrics metrics) {
+            ApiCallMetrics metrics,
+            com.momo.backend.service.ApiCallBudgetService apiCallBudgetService) {
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
@@ -32,6 +34,7 @@ public class KobisApiClient {
                 .build();
         this.apiKey = apiKey;
         this.metrics = metrics;
+        this.apiCallBudgetService = apiCallBudgetService;
     }
 
     public String searchMovies(String keyword) {
@@ -39,6 +42,7 @@ public class KobisApiClient {
     }
 
     public String searchMovies(String keyword, int page, int size) {
+        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
         return metrics.record("KOBIS", "searchMovies", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieList.json")
                         .queryParam("key", apiKey)
@@ -55,6 +59,7 @@ public class KobisApiClient {
      * 최근 동기화에서는 개봉연도 범위를 지정한다.
      */
     public String searchCatalogMovies(int page, int size, Integer startYear, Integer endYear) {
+        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         return metrics.record("KOBIS", "searchCatalogMovies", () -> restClient.get()
                 .uri(uriBuilder -> {
                     var builder = uriBuilder.path("/movie/searchMovieList.json")
@@ -74,6 +79,7 @@ public class KobisApiClient {
     }
 
     public String getMovieDetail(String movieCode) {
+        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         return metrics.record("KOBIS", "getMovieDetail", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieInfo.json")
                         .queryParam("key", apiKey)
@@ -84,6 +90,7 @@ public class KobisApiClient {
     }
 
     public String getDailyBoxOffice(String targetDate) {
+        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
         return metrics.record("KOBIS", "getDailyBoxOffice", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/boxoffice/searchDailyBoxOfficeList.json")
                         .queryParam("key", apiKey)
