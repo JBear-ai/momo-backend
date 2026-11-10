@@ -1,6 +1,7 @@
 package com.momo.backend.repository;
 
 import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.PosterStatus;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -14,6 +15,14 @@ import java.util.List;
 // 영화 포스터 캐시 조회 및 저장
 public interface MoviePosterCacheRepository
         extends JpaRepository<MoviePosterCache, String> {
+
+    // 재시도 대기열에서 오래된 작업부터 제한된 수만 가져온다.
+    List<MoviePosterCache> findTop10ByStatusOrderByUpdatedAtAsc(PosterStatus status);
+
+    List<MoviePosterCache> findTop10ByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+            PosterStatus status,
+            LocalDateTime updatedBefore
+    );
 
     // 여러 영화 코드에 해당하는 포스터 캐시를 한 번에 조회
     List<MoviePosterCache> findAllByMovieCodeIn(Collection<String> movieCodes);
