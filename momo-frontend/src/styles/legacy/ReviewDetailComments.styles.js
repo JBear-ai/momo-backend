@@ -654,6 +654,62 @@ const ReviewDetailCommentsStyles = createGlobalStyle`
   font-size: 14px;
 }
 
+
+/* 공용 프로필 이미지 */
+.review-comment-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* 댓글 좋아요 / 싫어요 */
+.review-comment-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.comment-like-button,
+.comment-dislike-button,
+.comment-reaction-cancel {
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid #e2ddd5;
+  border-radius: 7px;
+  color: #666;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.comment-like-button:hover,
+.comment-like-button.active {
+  background: #fff6e5;
+  border-color: #d6a33b;
+  color: #8a5b00;
+}
+
+.comment-dislike-button:hover,
+.comment-dislike-button.active {
+  background: #f4f4f4;
+  border-color: #999;
+  color: #333;
+}
+
+.comment-reaction-cancel {
+  color: #888;
+}
+
+.comment-reaction-cancel:hover {
+  background: #f7f7f7;
+  border-color: #bbb;
+}
+
 `;
 
 export default ReviewDetailCommentsStyles;
