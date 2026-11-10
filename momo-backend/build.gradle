@@ -25,6 +25,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
+    // 무료 오픈소스 인메모리 캐시
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.2.2'
+
     // Google Cloud 라이브러리 버전 관리
     implementation platform('com.google.cloud:libraries-bom:26.88.1')
 
