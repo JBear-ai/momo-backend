@@ -25,13 +25,15 @@ public class ApiCallBudgetService {
 
     private final ApiCallBudgetStateRepository repository;
 
-    @Value("${momo.api-budget.kobis.daily-limit:1000}")
+    // 0 means the provider's daily quota is unknown or is not a fixed daily quota.
+    // Do not invent a local daily cap in that case.
+    @Value("${momo.api-budget.kobis.daily-limit:0}")
     private long kobisDailyLimit;
 
-    @Value("${momo.api-budget.kmdb.daily-limit:1000}")
+    @Value("${momo.api-budget.kmdb.daily-limit:0}")
     private long kmdbDailyLimit;
 
-    @Value("${momo.api-budget.tmdb.daily-limit:1000}")
+    @Value("${momo.api-budget.tmdb.daily-limit:0}")
     private long tmdbDailyLimit;
 
     @Transactional
@@ -42,23 +44,29 @@ public class ApiCallBudgetService {
         ApiCallBudgetState state = repository.findById(normalizedProvider + "_" + today)
                 .orElseGet(() -> ApiCallBudgetState.create(normalizedProvider, today));
 
-        long prefetchLimit = (long) Math.floor(dailyLimit * PREFETCH_RATIO);
-        long demandLimit = dailyLimit - prefetchLimit;
+        // Apply the 90:10 reservation only when the provider's actual daily quota is known.
+        // Unknown quotas are counted, but are not artificially capped at an assumed number.
+        if (dailyLimit > 0) {
+            long prefetchLimit = (long) Math.floor(dailyLimit * PREFETCH_RATIO);
+            long demandLimit = dailyLimit - prefetchLimit;
 
-        if (trafficType == TrafficType.PREFETCH) {
-            if (state.getPrefetchCalls() >= prefetchLimit) {
+            if (trafficType == TrafficType.PREFETCH
+                    && state.getPrefetchCalls() >= prefetchLimit) {
                 throw new ApiBudgetExceededException(normalizedProvider,
                         "사전 수집 예산(90%)을 모두 사용했습니다.");
             }
-            state.increasePrefetch();
-        } else {
-            if (state.getDemandCalls() >= demandLimit) {
+            if (trafficType == TrafficType.USER_SEARCH
+                    && state.getDemandCalls() >= demandLimit) {
                 throw new ApiBudgetExceededException(normalizedProvider,
                         "사용자 검색 예산(10%)을 모두 사용했습니다.");
             }
-            state.increaseDemand();
         }
 
+        if (trafficType == TrafficType.PREFETCH) {
+            state.increasePrefetch();
+        } else {
+            state.increaseDemand();
+        }
         repository.save(state);
     }
 
@@ -69,12 +77,16 @@ public class ApiCallBudgetService {
             long limit = dailyLimitFor(provider);
             ApiCallBudgetState state = repository.findById(provider + "_" + today)
                     .orElseGet(() -> ApiCallBudgetState.create(provider, today));
+            long prefetchLimit = limit > 0
+                    ? (long) Math.floor(limit * PREFETCH_RATIO) : 0;
+            long demandLimit = limit > 0 ? limit - prefetchLimit : 0;
             result.put(provider, new BudgetSnapshot(
                     limit,
-                    (long) Math.floor(limit * PREFETCH_RATIO),
-                    limit - (long) Math.floor(limit * PREFETCH_RATIO),
+                    prefetchLimit,
+                    demandLimit,
                     state.getPrefetchCalls(),
-                    state.getDemandCalls()
+                    state.getDemandCalls(),
+                    limit > 0
             ));
         }
         return java.util.Map.copyOf(result);
@@ -85,7 +97,8 @@ public class ApiCallBudgetService {
             long prefetchLimit,
             long userSearchLimit,
             long prefetchUsed,
-            long userSearchUsed
+            long userSearchUsed,
+            boolean dailyLimitConfigured
     ) {}
 
     private long dailyLimitFor(String provider) {
@@ -95,8 +108,8 @@ public class ApiCallBudgetService {
             case "TMDB" -> tmdbDailyLimit;
             default -> throw new IllegalArgumentException("지원하지 않는 API 공급처: " + provider);
         };
-        if (limit < 1) {
-            throw new IllegalStateException(provider + " 일일 API 예산이 1 이상으로 설정되어야 합니다.");
+        if (limit < 0) {
+            throw new IllegalStateException(provider + " 일일 API 예산은 0 또는 양수여야 합니다.");
         }
         return limit;
     }
