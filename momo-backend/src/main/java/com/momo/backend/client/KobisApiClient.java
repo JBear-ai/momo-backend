@@ -50,6 +50,29 @@ public class KobisApiClient {
                 .body(String.class));
     }
 
+    /**
+     * 검색어 없이 KOBIS 영화 목록 전체를 페이지 단위로 조회한다.
+     * 최근 동기화에서는 개봉연도 범위를 지정한다.
+     */
+    public String searchCatalogMovies(int page, int size, Integer startYear, Integer endYear) {
+        return metrics.record("KOBIS", "searchCatalogMovies", () -> restClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder.path("/movie/searchMovieList.json")
+                            .queryParam("key", apiKey)
+                            .queryParam("curPage", page)
+                            .queryParam("itemPerPage", size);
+                    if (startYear != null) {
+                        builder.queryParam("openStartDt", startYear);
+                    }
+                    if (endYear != null) {
+                        builder.queryParam("openEndDt", endYear);
+                    }
+                    return builder.build();
+                })
+                .retrieve()
+                .body(String.class));
+    }
+
     public String getMovieDetail(String movieCode) {
         return metrics.record("KOBIS", "getMovieDetail", () -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieInfo.json")
@@ -71,13 +94,6 @@ public class KobisApiClient {
     }
 
     public String searchMoviesByGenre(int page) {
-        return metrics.record("KOBIS", "searchMoviesByGenre", () -> restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieList.json")
-                        .queryParam("key", apiKey)
-                        .queryParam("curPage", page)
-                        .queryParam("itemPerPage", 100)
-                        .build())
-                .retrieve()
-                .body(String.class));
+        return searchCatalogMovies(page, 100, null, null);
     }
 }
