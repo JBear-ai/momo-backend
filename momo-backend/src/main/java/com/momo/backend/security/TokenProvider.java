@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Collections;
 import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -29,43 +30,74 @@ public class TokenProvider {
     // Access Token 유효기간 (밀리초)
     private final long accessExpMs;
 
+    // Refresh Token 유효기간 (밀리초)
+    private final long refreshExpMs;
+
+    private static final String TOKEN_TYPE_CLAIM = "typ";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     // 1. JWT 비밀키와 만료시간 설정
     public TokenProvider(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.access-exp-ms:1800000}") long accessExpMs)
-    {
+            @Value("${jwt.access-exp-ms:1800000}") long accessExpMs,
+            @Value("${jwt.refresh-exp-ms:604800000}") long refreshExpMs) {
         // Base64 문자열을 실제 비밀키로 변환
         this.key = Keys.hmacShaKeyFor(
-                Decoders.BASE64.decode(secret)
-        );
+                Decoders.BASE64.decode(secret));
 
         this.accessExpMs = accessExpMs;
+        this.refreshExpMs = refreshExpMs;
     }
 
     // 2. 로그인 성공 시 Access Token 생성
     public String createToken(String loginId) {
 
+        return createToken(loginId, ACCESS_TOKEN_TYPE, accessExpMs);
+    }
+
+    // 3. 로그인 및 재발급 성공 시 Refresh Token 생성
+    public String createRefreshToken(String loginId) {
+
+        return createToken(loginId, REFRESH_TOKEN_TYPE, refreshExpMs);
+    }
+
+    private String createToken(String loginId, String tokenType, long expirationMs) {
+
         // 토큰 발급 시간
         long now = System.currentTimeMillis();
 
         // 토큰 만료 시간
-        Date expiration = new Date(now + accessExpMs);
+        Date expiration = new Date(now + expirationMs);
 
-        // 로그인 아이디와 만료시간을 포함한 JWT 생성
+        // 토큰 유형을 명시하여 Refresh Token이 일반 API 인증에 사용되지 않도록 한다.
         return Jwts.builder()
                 .subject(loginId)
+                .claim(TOKEN_TYPE_CLAIM, tokenType)
+                .id(UUID.randomUUID().toString())
                 .issuedAt(new Date(now))
                 .expiration(expiration)
                 .signWith(key)
                 .compact();
     }
 
-    // 3. 전달받은 JWT의 서명과 만료 여부 검증
+    // 4. Access Token의 서명, 만료 여부 및 토큰 유형 검증
     public boolean validateToken(String token) {
 
+        return validateTokenType(token, ACCESS_TOKEN_TYPE);
+    }
+
+    // 5. Refresh Token의 서명, 만료 여부 및 토큰 유형 검증
+    public boolean validateRefreshToken(String token) {
+
+        return validateTokenType(token, REFRESH_TOKEN_TYPE);
+    }
+
+    private boolean validateTokenType(String token, String expectedType) {
+
         try {
-            parseClaims(token);
-            return true;
+            Claims claims = parseClaims(token);
+            return expectedType.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
 
         } catch (ExpiredJwtException e) {
             log.info("만료된 JWT입니다.");
@@ -77,7 +109,7 @@ public class TokenProvider {
         return false;
     }
 
-    // 4. JWT에서 로그인 사용자 인증 정보 생성
+    // 6. Access Token에서 로그인 사용자 인증 정보 생성
     public Authentication getAuthentication(String token) {
 
         // JWT에 저장된 사용자 정보 추출
@@ -91,11 +123,15 @@ public class TokenProvider {
         return new UsernamePasswordAuthenticationToken(
                 loginId,
                 null,
-                Collections.emptyList()
-        );
+                Collections.emptyList());
     }
 
-    // 5. JWT 서명을 검증하고 저장된 정보 추출
+    // 7. 검증된 JWT에서 로그인 아이디 추출
+    public String getLoginId(String token) {
+        return parseClaims(token).getSubject();
+    }
+
+    // 8. JWT 서명을 검증하고 저장된 정보 추출
     private Claims parseClaims(String token) {
 
         return Jwts.parser()

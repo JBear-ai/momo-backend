@@ -25,13 +25,11 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+            FilterChain filterChain) throws ServletException, IOException {
 
         // 2. Authorization 요청 헤더 가져오기
         String header = request.getHeader(
-                HttpHeaders.AUTHORIZATION
-        );
+                HttpHeaders.AUTHORIZATION);
 
         // 3. Bearer 방식의 JWT가 전달되었는지 확인
         if (header != null && header.startsWith("Bearer ")) {
@@ -39,14 +37,13 @@ public class JwtFilter extends OncePerRequestFilter {
             // Bearer 접두사를 제외하고 JWT 추출
             String token = header.substring(7);
 
-            // 4. JWT 서명 및 만료 여부 검증
+            // 4. JWT 서명, 만료 여부와 Access Token 유형 검증
             if (tokenProvider.validateToken(token)) {
 
                 // 5. 검증된 JWT로 로그인 사용자 인증 정보 설정
                 SecurityContextHolder.getContext()
                         .setAuthentication(
-                                tokenProvider.getAuthentication(token)
-                        );
+                                tokenProvider.getAuthentication(token));
             }
         }
 

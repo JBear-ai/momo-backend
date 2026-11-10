@@ -28,118 +28,113 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableSpringDataWebSupport(pageSerializationMode = PageSerializationMode.VIA_DTO)
 public class SecurityConfig {
 
-    // 비밀번호 암호화 설정
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        // 비밀번호 암호화 설정
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 
-    // Spring Boot의 임시 인메모리 계정 자동 생성을 방지하고 DB 회원 정보를 기준으로 구성한다.
-    @Bean
-    public UserDetailsService userDetailsService(UserRepository userRepository) {
-        return loginId -> userRepository.findByLoginId(loginId)
-                .map(user -> org.springframework.security.core.userdetails.User
-                        .withUsername(user.getLoginId())
-                        .password(user.getPasswordHash())
-                        .authorities("USER")
-                        .build())
-                .orElseThrow(() -> new UsernameNotFoundException("회원 정보를 찾을 수 없습니다."));
-    }
+        // Spring Boot의 임시 인메모리 계정 자동 생성을 방지하고 DB 회원 정보를 기준으로 구성한다.
+        @Bean
+        public UserDetailsService userDetailsService(UserRepository userRepository) {
+                return loginId -> userRepository.findByLoginId(loginId)
+                                .map(user -> org.springframework.security.core.userdetails.User
+                                                .withUsername(user.getLoginId())
+                                                .password(user.getPasswordHash())
+                                                .authorities("USER")
+                                                .build())
+                                .orElseThrow(() -> new UsernameNotFoundException("회원 정보를 찾을 수 없습니다."));
+        }
 
-    // JWT 기반 무상태 인증 및 URL별 접근 권한 설정
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            TokenProvider tokenProvider
-    ) throws Exception {
+        // JWT 기반 무상태 인증 및 URL별 접근 권한 설정
+        @Bean
+        public SecurityFilterChain securityFilterChain(
+                        HttpSecurity http,
+                        TokenProvider tokenProvider) throws Exception {
 
-        http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
-                .logout(logout -> logout.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**"
-                        ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/signup",
-                                "/api/auth/login"
-                        ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/auth/exists/id/**",
-                                "/api/auth/users/*/profile-image"
-                        ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/logout"
-                        ).authenticated()
-                        // 개인별 좋아요 영화 목록은 공개 영화 조회 규칙보다 먼저 인증을 요구한다.
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/movies/my/liked"
-                        ).authenticated()
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/movies/**",
-                                "/api/boxoffice/**"
-                        ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/movies/posters/status"
-                        ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/reviews/movie/*",
-                                "/api/reviews/movie/*/rating",
-                                "/api/persons/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                            response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write(
-                                    "{\"code\":\"UNAUTHORIZED\","
-                                            + "\"message\":\"로그인이 필요합니다.\"}"
-                            );
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.setStatus(HttpStatus.FORBIDDEN.value());
-                            response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write(
-                                    "{\"code\":\"FORBIDDEN\","
-                                            + "\"message\":\"접근 권한이 없습니다.\"}"
-                            );
-                        })
-                )
-                .addFilterBefore(
-                        new JwtFilter(tokenProvider),
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                http
+                                .csrf(csrf -> csrf.disable())
+                                .cors(cors -> {
+                                })
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .formLogin(form -> form.disable())
+                                .httpBasic(basic -> basic.disable())
+                                .logout(logout -> logout.disable())
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html",
+                                                                "/v3/api-docs/**")
+                                                .permitAll()
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/auth/signup",
+                                                                "/api/auth/login")
+                                                .permitAll()
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/auth/exists/id/**",
+                                                                "/api/auth/users/*/profile-image")
+                                                .permitAll()
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/auth/logout")
+                                                .authenticated()
+                                                // 개인별 좋아요 영화 목록은 공개 영화 조회 규칙보다 먼저 인증을 요구한다.
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/movies/my/liked")
+                                                .authenticated()
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/movies/**",
+                                                                "/api/boxoffice/**")
+                                                .permitAll()
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/movies/posters/status")
+                                                .permitAll()
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/reviews/movie/*",
+                                                                "/api/reviews/movie/*/rating",
+                                                                "/api/persons/**")
+                                                .permitAll()
+                                                .anyRequest().authenticated())
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint((request, response, authException) -> {
+                                                        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                                                        response.setContentType("application/json;charset=UTF-8");
+                                                        response.getWriter().write(
+                                                                        "{\"code\":\"UNAUTHORIZED\","
+                                                                                        + "\"message\":\"로그인이 필요합니다.\"}");
+                                                })
+                                                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                                                        response.setStatus(HttpStatus.FORBIDDEN.value());
+                                                        response.setContentType("application/json;charset=UTF-8");
+                                                        response.getWriter().write(
+                                                                        "{\"code\":\"FORBIDDEN\","
+                                                                                        + "\"message\":\"접근 권한이 없습니다.\"}");
+                                                }))
+                                .addFilterBefore(
+                                                new JwtFilter(tokenProvider),
+                                                UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 
-    // React 개발 서버와의 API 통신 설정
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
+        // React 개발 서버와의 API 통신 설정
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration config = new CorsConfiguration();
+                config.setAllowedOrigins(List.of("http://localhost:3000"));
+                config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                config.setAllowedHeaders(List.of("*"));
+                config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
-        return source;
-    }
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/api/**", config);
+                return source;
+        }
 }

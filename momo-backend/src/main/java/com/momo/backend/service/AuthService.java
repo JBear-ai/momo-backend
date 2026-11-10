@@ -1,3 +1,4 @@
+
 package com.momo.backend.service;
 
 import java.io.IOException;
@@ -14,10 +15,11 @@ import com.momo.backend.repository.MovieRatingRepository;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
+
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import lombok.extern.slf4j.Slf4j;
 
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,6 +41,7 @@ public class AuthService {
     private final CommentReactionRepository commentReactionRepository;
     private final FirebaseStorageService firebaseStorageService;
     private final MovieRatingRepository movieRatingRepository;
+    private final RefreshTokenService refreshTokenService;
 
     // 회원가입
 
@@ -105,7 +108,8 @@ public class AuthService {
                 throw new IllegalArgumentException("현재 비밀번호를 입력해 주세요.");
             }
 
-            if (!passwordEncoder.matches(dto.currentPassword(), user.getPasswordHash())) {
+            if (!passwordEncoder.matches(
+                    dto.currentPassword(), user.getPasswordHash())) {
                 throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
             }
 
@@ -124,6 +128,7 @@ public class AuthService {
         }
 
         user.updateProfile(dto.nickname(), dto.email());
+
         return new UserResponse(user);
     }
 
@@ -133,12 +138,16 @@ public class AuthService {
     public long getMyLikeCount(String loginId) {
         User user = getLoginUser(loginId);
 
-        long reviewLikeCount = reviewReactionRepository.countByUser_UserIdAndLiked(user.getUserId(), true);
-        long commentLikeCount = commentReactionRepository.countByUser_UserIdAndLiked(user.getUserId(), true);
+        long reviewLikeCount = reviewReactionRepository.countByUser_UserIdAndLiked(
+                user.getUserId(), true);
+
+        long commentLikeCount = commentReactionRepository.countByUser_UserIdAndLiked(
+                user.getUserId(), true);
 
         return reviewLikeCount + commentLikeCount;
     }
 
+    // 회원 탈퇴
 
     public void deleteMyAccount(String loginId, String password) {
         User user = getLoginUser(loginId);
@@ -148,6 +157,9 @@ public class AuthService {
         }
 
         Long userId = user.getUserId();
+
+        // 회원 삭제 전에 Refresh Token 제거
+        refreshTokenService.deleteByUserId(userId);
 
         // Firebase에서 삭제할 기존 프로필 이미지 경로 보관
         String profileImage = user.getProfileImage();
@@ -180,7 +192,7 @@ public class AuthService {
         // 마지막으로 회원 정보 삭제
         userRepository.delete(user);
 
-        // DB 트랜잭션이 성공적으로 커밋된 후 Firebase 이미지 삭제
+        // DB 트랜잭션 성공적으로 커밋된 후 Firebase 이미지 삭제
         if (profileImage != null && !profileImage.isBlank()) {
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
@@ -191,28 +203,27 @@ public class AuthService {
                             } catch (Exception e) {
                                 log.error(
                                         "회원 탈퇴 후 Firebase 프로필 이미지 삭제에 실패했습니다.",
-                                        e
-                                );
+                                        e);
                             }
                         }
-                    }
-            );
+                    });
         }
     }
 
-
     @Transactional(readOnly = true)
-    public boolean checkCurrentPassword(String loginId, String currentPassword) {
+    public boolean checkCurrentPassword(
+            String loginId, String currentPassword) {
+
         User user = getLoginUser(loginId);
 
-        return passwordEncoder.matches(currentPassword, user.getPasswordHash());
+        return passwordEncoder.matches(
+                currentPassword, user.getPasswordHash());
     }
 
     // 프로필 이미지
 
-
-    public UserResponse updateProfileImage(String loginId, MultipartFile file)
-            throws IOException {
+    public UserResponse updateProfileImage(
+            String loginId, MultipartFile file) throws IOException {
 
         User user = getLoginUser(loginId);
 
@@ -233,9 +244,13 @@ public class AuthService {
                         // DB 커밋 성공: 기존 이미지 삭제
                         if (oldProfileImage != null && !oldProfileImage.isBlank()) {
                             try {
-                                firebaseStorageService.deleteProfileImage(oldProfileImage);
+                                firebaseStorageService.deleteProfileImage(
+                                        oldProfileImage);
                             } catch (Exception e) {
-                                log.error("기존 프로필 이미지 삭제 실패: {}", oldProfileImage, e);
+                                log.error(
+                                        "기존 프로필 이미지 삭제 실패: {}",
+                                        oldProfileImage,
+                                        e);
                             }
                         }
                     }
@@ -245,22 +260,24 @@ public class AuthService {
                         // DB 롤백: 새 이미지 삭제
                         if (status == STATUS_ROLLED_BACK) {
                             try {
-                                firebaseStorageService.deleteProfileImage(newProfileImage);
+                                firebaseStorageService.deleteProfileImage(
+                                        newProfileImage);
                             } catch (Exception e) {
-                                log.error("롤백 후 새 프로필 이미지 삭제 실패: {}", newProfileImage, e);
+                                log.error(
+                                        "롤백 후 새 프로필 이미지 삭제 실패: {}",
+                                        newProfileImage,
+                                        e);
                             }
                         }
                     }
-                }
-        );
+                });
 
         return new UserResponse(user);
     }
 
-
     public UserResponse removeProfileImage(String loginId) {
-
         User user = getLoginUser(loginId);
+
         String oldProfileImage = user.getProfileImage();
 
         user.removeProfileImage();
@@ -272,13 +289,16 @@ public class AuthService {
                         @Override
                         public void afterCommit() {
                             try {
-                                firebaseStorageService.deleteProfileImage(oldProfileImage);
+                                firebaseStorageService.deleteProfileImage(
+                                        oldProfileImage);
                             } catch (Exception e) {
-                                log.error("프로필 이미지 삭제 실패: {}", oldProfileImage, e);
+                                log.error(
+                                        "프로필 이미지 삭제 실패: {}",
+                                        oldProfileImage,
+                                        e);
                             }
                         }
-                    }
-            );
+                    });
         }
 
         return new UserResponse(user);
@@ -287,27 +307,36 @@ public class AuthService {
     @Transactional(readOnly = true)
     public byte[] getProfileImage(String loginId) {
         User user = getLoginUser(loginId);
-        return firebaseStorageService.getProfileImage(user.getProfileImage());
+
+        return firebaseStorageService.getProfileImage(
+                user.getProfileImage());
     }
 
     @Transactional(readOnly = true)
     public String getProfileImageContentType(String loginId) {
         User user = getLoginUser(loginId);
-        return firebaseStorageService.getProfileImageContentType(user.getProfileImage());
+
+        return firebaseStorageService.getProfileImageContentType(
+                user.getProfileImage());
     }
 
-    // 댓글 및 커뮤니티에서 특정 회원의 프로필 이미지를 조회한다.
+    // 댓글 및 커뮤니티에서 특정 회원의 프로필 이미지 조회
+
     @Transactional(readOnly = true)
     public byte[] getProfileImageByUserId(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
-        return firebaseStorageService.getProfileImage(user.getProfileImage());
+
+        return firebaseStorageService.getProfileImage(
+                user.getProfileImage());
     }
 
     @Transactional(readOnly = true)
     public String getProfileImageContentTypeByUserId(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
-        return firebaseStorageService.getProfileImageContentType(user.getProfileImage());
+
+        return firebaseStorageService.getProfileImageContentType(
+                user.getProfileImage());
     }
 }

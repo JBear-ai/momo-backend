@@ -32,15 +32,20 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
+import com.momo.backend.service.RefreshTokenService;
+import com.momo.backend.dto.auth.TokenRefreshRequest;
+import com.momo.backend.dto.auth.TokenRefreshResponse;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
-        private final AuthService authService;
-
         // 로그인 성공 시 Access Token을 발급한다.
+        private final AuthService authService;
+        private final RefreshTokenService refreshTokenService;
+
+        // JWT 발급 담당
         private final TokenProvider tokenProvider;
 
         // 1. 회원가입
@@ -56,7 +61,7 @@ public class AuthController {
                                 .body(response);
         }
 
-        // 2. 로그인 및 JWT 발급
+        // 로그인 및 Access Token과 Refresh Token 발급
         @PostMapping("/login")
         public ResponseEntity<LoginResponse> login(
                         @Valid @RequestBody LoginRequest dto) {
@@ -66,10 +71,22 @@ public class AuthController {
                                 dto.getPassword());
 
                 String accessToken = tokenProvider.createToken(user.getLoginId());
+                String refreshToken = tokenProvider.createRefreshToken(user.getLoginId());
 
-                return ResponseEntity.ok(new LoginResponse(user, accessToken));
+                refreshTokenService.saveOrReplace(user, refreshToken);
+
+                return ResponseEntity.ok(
+                                new LoginResponse(user, accessToken, refreshToken));
         }
 
+        // Refresh Token Rotation을 통한 토큰 재발급
+        @PostMapping("/reissue")
+        public ResponseEntity<TokenRefreshResponse> reissue(
+                        @Valid @RequestBody TokenRefreshRequest dto) {
+
+                return ResponseEntity.ok(
+                                refreshTokenService.reissue(dto.refreshToken()));
+        }
         // 3. 로그인한 회원 정보 조회
 
         @GetMapping("/me")
@@ -114,11 +131,16 @@ public class AuthController {
                 return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
         }
 
-        // 6. 로그아웃
+        // 로그아웃 및 Refresh Token 삭제
         @PostMapping("/logout")
-        public ResponseEntity<Void> logout() {
-                // JWT는 서버 세션에 저장하지 않으므로 클라이언트에서 토큰을 삭제한다.
+        public ResponseEntity<Void> logout(
+                        Authentication authentication) {
+
+                refreshTokenService.deleteByLoginId(
+                                authentication.getName());
+
                 SecurityContextHolder.clearContext();
+
                 return ResponseEntity.noContent().build();
         }
 
@@ -211,9 +233,11 @@ public class AuthController {
 
         // 13. 커뮤니티에서 공개적으로 사용하는 회원별 프로필 이미지 조회
         @GetMapping("/users/{userId}/profile-image")
-        public ResponseEntity<byte[]> getUserProfileImage(@PathVariable Long userId) {
+        public ResponseEntity<byte[]> getUserProfileImage(
+                        @PathVariable Long userId) {
 
                 byte[] image = authService.getProfileImageByUserId(userId);
+
                 String contentType = authService.getProfileImageContentTypeByUserId(userId);
 
                 if (image == null || image.length == 0 || contentType == null) {

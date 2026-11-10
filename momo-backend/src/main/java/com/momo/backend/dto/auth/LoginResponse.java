@@ -8,16 +8,18 @@ public record LoginResponse(
         String nickname,
         String profileImage,
         String accessToken,
+        String refreshToken,
         String tokenType
 ) {
 
-    public LoginResponse(User user, String accessToken) {
+    public LoginResponse(User user, String accessToken, String refreshToken) {
         this(
                 user.getUserId(),
                 user.getLoginId(),
                 user.getNickname(),
                 user.getProfileImage(),
                 accessToken,
+                refreshToken,
                 "Bearer"
         );
     }
