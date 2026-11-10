@@ -12,6 +12,16 @@
   --momo-muted: #787062;
   --momo-accent: #FFD43B;
   --momo-accent-ink: #594400;
+
+  /* 리뷰 반응 컬러: 모든 좋아요/싫어요 UI에서 공통 사용 */
+  --momo-like-bg: #FFF9E6;
+  --momo-like-bg-hover: #FFF1C2;
+  --momo-like-border: #E6BF33;
+  --momo-like-text: #594400;
+  --momo-dislike-bg: #FFF1F1;
+  --momo-dislike-bg-hover: #FFE2E2;
+  --momo-dislike-border: #E7A3A3;
+  --momo-dislike-text: #A83232;
   --momo-note: #FFFAEC;
   --momo-note-border: #EFE6D0;
   --momo-shadow: 0 10px 30px -6px rgba(45, 38, 26, 0.08);
