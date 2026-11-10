@@ -57,29 +57,32 @@ public class CommentService {
 
         Comment savedComment = commentRepository.save(comment);
 
-        return new CommentResponse(savedComment);
+        return toResponse(savedComment, user.getUserId());
     }
 
     // 특정 리뷰의 댓글 목록 조회 (오래된 댓글부터)
     @Transactional(readOnly = true)
     public Page<CommentResponse> getComments(
             Long reviewId,
-            int page) {
+            int page,
+            String loginId) {
 
         // 존재하지 않는 리뷰인지 확인
         if (!reviewRepository.existsById(reviewId)) {
             throw new IllegalArgumentException("리뷰를 찾을 수 없습니다.");
         }
 
+        // 현재 로그인한 회원을 조회해 댓글별 내 반응 상태를 함께 반환한다.
+        User currentUser = userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
         // 한 페이지에 댓글 10개씩 조회
         Pageable pageable = PageRequest.of(page, 10);
 
         return commentRepository
-                .findByReview_ReviewIdOrderByCreatedAtAsc(
-                        reviewId,
-                        pageable
-                )
-                .map(CommentResponse::new);
+                .findByReview_ReviewIdOrderByCreatedAtAsc(reviewId, pageable)
+                .map(comment -> toResponse(comment, currentUser.getUserId()));
     }
 
     // 본인이 작성한 댓글 수정
@@ -102,7 +105,7 @@ public class CommentService {
         // 기존 Comment Entity의 수정 메서드 재사용
         comment.updateComment(dto.getContent());
 
-        return new CommentResponse(comment);
+        return toResponse(comment, comment.getUser().getUserId());
     }
 
     // 본인이 작성한 댓글 삭제
@@ -126,5 +129,32 @@ public class CommentService {
 
         // 댓글 삭제
         commentRepository.delete(comment);
+    }
+
+    // 댓글 작성자 프로필 및 반응 정보를 공통 응답으로 변환
+    private CommentResponse toResponse(Comment comment, Long currentUserId) {
+        Long commentId = comment.getCommentId();
+        Long authorId = comment.getUser().getUserId();
+
+        long likeCount = commentReactionRepository
+                .countByComment_CommentIdAndLiked(commentId, true);
+        long dislikeCount = commentReactionRepository
+                .countByComment_CommentIdAndLiked(commentId, false);
+
+        Boolean myReaction = commentReactionRepository
+                .findByUser_UserIdAndComment_CommentId(currentUserId, commentId)
+                .map(reaction -> reaction.getLiked())
+                .orElse(null);
+
+        boolean profileImageAvailable = comment.getUser().getProfileImage() != null
+                && !comment.getUser().getProfileImage().isBlank();
+
+        return new CommentResponse(
+                comment,
+                profileImageAvailable,
+                likeCount,
+                dislikeCount,
+                myReaction
+        );
     }
 }
