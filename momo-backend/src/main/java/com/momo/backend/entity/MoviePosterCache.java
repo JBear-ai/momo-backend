@@ -40,6 +40,11 @@ public class MoviePosterCache {
     // 마지막 수정 시간
     private LocalDateTime updatedAt;
 
+    public void updatePosterUrl(String posterUrl) {
+        this.posterUrl = posterUrl;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // 포스터 캐시 생성
     public MoviePosterCache(
             String movieCode,
