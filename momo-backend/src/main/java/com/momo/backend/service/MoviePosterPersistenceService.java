@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
-import java.time.LocalDateTime;
 import java.net.URISyntaxException;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 @Service
@@ -17,23 +17,28 @@ public class MoviePosterPersistenceService {
 
     private final MoviePosterCacheRepository posterCacheRepository;
     private final MovieRepository movieRepository;
+    private final PosterFileStorageService posterFileStorageService;
 
     @Transactional
     public boolean saveSuccess(String movieCode, String claimToken, String posterUrl) {
         String normalizedPosterUrl = validatePosterUrl(posterUrl);
+        String localPosterPath = posterFileStorageService.downloadAndSave(
+                movieCode, normalizedPosterUrl);
 
         int completed = posterCacheRepository.completeClaim(
-                movieCode, claimToken, normalizedPosterUrl, LocalDateTime.now());
+                movieCode, claimToken, localPosterPath, LocalDateTime.now());
         if (completed != 1) {
+            // 작업 소유권이 바뀐 경우 오래된 비동기 작업이 남긴 파일을 정리한다.
+            posterFileStorageService.delete(localPosterPath);
             return false;
         }
 
         movieRepository.findById(movieCode)
-                .ifPresent(movie -> movie.updatePosterUrl(normalizedPosterUrl));
+                .ifPresent(movie -> movie.updatePosterUrl(localPosterPath));
         return true;
     }
 
-    // 외부 공급원 응답에 이미지 주소가 아닌 값이나 위험한 URI가 섞이는 것을 방지한다.
+    // 외부 공급원 응답에 이미지 주소가 아닌 값이나 사용자 정보가 포함된 URI가 섞이지 않도록 검사한다.
     private String validatePosterUrl(String posterUrl) {
         if (posterUrl == null || posterUrl.isBlank() || posterUrl.length() > 1000) {
             throw new IllegalArgumentException("유효하지 않은 포스터 주소입니다.");
