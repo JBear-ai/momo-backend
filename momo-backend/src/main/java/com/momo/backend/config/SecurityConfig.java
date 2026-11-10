@@ -28,13 +28,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableSpringDataWebSupport(pageSerializationMode = PageSerializationMode.VIA_DTO)
 public class SecurityConfig {
 
-        // 비밀번호 암호화 설정
         @Bean
         public PasswordEncoder passwordEncoder() {
                 return new BCryptPasswordEncoder();
         }
 
-        // Spring Boot의 임시 인메모리 계정 자동 생성을 방지하고 DB 회원 정보를 기준으로 구성한다.
         @Bean
         public UserDetailsService userDetailsService(UserRepository userRepository) {
                 return loginId -> userRepository.findByLoginId(loginId)
@@ -46,7 +44,6 @@ public class SecurityConfig {
                                 .orElseThrow(() -> new UsernameNotFoundException("회원 정보를 찾을 수 없습니다."));
         }
 
-        // JWT 기반 무상태 인증 및 URL별 접근 권한 설정
         @Bean
         public SecurityFilterChain securityFilterChain(
                         HttpSecurity http,
@@ -65,7 +62,8 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 "/swagger-ui/**",
                                                                 "/swagger-ui.html",
-                                                                "/v3/api-docs/**")
+                                                                "/v3/api-docs/**",
+                                                                "/posters/**")
                                                 .permitAll()
                                                 .requestMatchers(
                                                                 HttpMethod.POST,
@@ -81,7 +79,6 @@ public class SecurityConfig {
                                                                 HttpMethod.POST,
                                                                 "/api/auth/logout")
                                                 .authenticated()
-                                                // 개인별 좋아요 영화 목록은 공개 영화 조회 규칙보다 먼저 인증을 요구한다.
                                                 .requestMatchers(
                                                                 HttpMethod.GET,
                                                                 "/api/movies/my/liked")
@@ -124,7 +121,6 @@ public class SecurityConfig {
                 return http.build();
         }
 
-        // React 개발 서버와의 API 통신 설정
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
