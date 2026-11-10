@@ -1,6 +1,7 @@
 
 package com.momo.backend.service;
 
+import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.entity.Review;
 import com.momo.backend.entity.ReviewReactions;
 import com.momo.backend.entity.User;
@@ -10,8 +11,11 @@ import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 @Transactional
@@ -110,6 +114,36 @@ public class ReviewReactionService {
                 .countByReview_ReviewIdAndLiked(reviewId, false);
 
         return new long[]{likeCount, dislikeCount};
+    }
+
+    // 로그인한 회원이 좋아요한 리뷰 목록 조회
+    @Transactional(readOnly = true)
+    public Page<ReviewResponse> getMyLikedReviews(
+            String loginId,
+            int page
+    ) {
+
+        // 로그인한 회원 조회
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                "USER_NOT_FOUND",
+                                "회원 정보를 찾을 수 없습니다."
+                        ));
+
+        // 페이지 설정
+        Pageable pageable = PageRequest.of(page, 10);
+
+        // 좋아요한 리뷰 조회
+        return reactionRepository
+                .findByUser_UserIdAndLikedOrderByReview_CreatedAtDescReview_ReviewIdDesc(
+                        user.getUserId(),
+                        true,
+                        pageable
+                )
+                .map(reaction ->
+                        new ReviewResponse(reaction.getReview())
+                );
     }
 
 }

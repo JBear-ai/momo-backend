@@ -1,5 +1,7 @@
 package com.momo.backend.controller;
 
+import com.momo.backend.dto.review.ReviewResponse;
+import org.springframework.data.domain.Page;
 import com.momo.backend.service.ReviewReactionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,5 +66,22 @@ public class ReviewReactionController {
 
         return ResponseEntity.ok(response);
     }
+
+    // 로그인한 회원이 좋아요한 리뷰 목록 조회
+    @GetMapping("/me/liked")
+    public ResponseEntity<Page<ReviewResponse>> getMyLikedReviews(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page
+    ) {
+
+        return ResponseEntity.ok(
+                reactionService.getMyLikedReviews(
+                        authentication.getName(),
+                        page
+                )
+        );
+    }
+
+
 
 }

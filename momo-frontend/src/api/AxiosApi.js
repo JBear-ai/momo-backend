@@ -44,7 +44,9 @@ axios.interceptors.response.use(
       localStorage.removeItem("username");
       localStorage.removeItem("nickname");
       window.dispatchEvent(new Event("momo-auth-changed"));
-      alert("로그인 인증이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.");
+      alert(
+        "로그인 인증이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.",
+      );
 
       if (window.location.pathname !== "/login") {
         window.location.replace("/login");
@@ -54,7 +56,6 @@ axios.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
 
 const AxiosApi = {
   // 1. 회원 아이디 중복 확인
@@ -409,6 +410,15 @@ const AxiosApi = {
       `${HM_DOMAIN}/api/reviews/${encodeURIComponent(reviewId)}/reaction`,
       { withCredentials: true },
     );
+  },
+
+  // 31.로그인 회원이 좋아요한 리뷰 목록 조회
+  myLikedReviews: async (page = 0, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/reviews/me/liked`, {
+      params: { page },
+      withCredentials: true,
+      signal,
+    });
   },
 };
 
