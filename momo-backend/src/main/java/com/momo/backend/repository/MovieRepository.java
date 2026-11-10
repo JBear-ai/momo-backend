@@ -20,6 +20,19 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
     @Query("""
             select movie
               from Movie movie
+             where movie.posterUrl like 'http%'
+               and (movie.posterMigrationAttemptedAt is null
+                 or movie.posterMigrationAttemptedAt < :retryBefore)
+             order by movie.movieCode asc
+            """)
+    List<Movie> findMoviesNeedingPosterMigration(
+            @Param("retryBefore") LocalDateTime retryBefore,
+            Pageable pageable
+    );
+
+    @Query("""
+            select movie
+              from Movie movie
              where (movie.titleEn is null or trim(movie.titleEn) = ''
                  or movie.releaseDate is null or trim(movie.releaseDate) = ''
                  or movie.showTime is null or trim(movie.showTime) = ''
@@ -31,19 +44,6 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
                  or movie.kobisDetailAttemptedAt < :retryBefore)
              order by movie.movieCode asc
             """)
-    @Query("""
-            select movie
-              from Movie movie
-             where movie.posterUrl like 'http%'
-               and (movie.posterMigrationAttemptedAt is null
-                 or movie.posterMigrationAttemptedAt < :retryBefore)
-             order by movie.movieCode asc
-            """)
-    List<Movie> findMoviesNeedingPosterMigration(
-            @Param("retryBefore") LocalDateTime retryBefore,
-            Pageable pageable
-    );
-
     List<Movie> findMoviesNeedingMetadata(
             @Param("retryBefore") LocalDateTime retryBefore,
             Pageable pageable
