@@ -96,7 +96,10 @@ function AllReviews() {
               reviewId: review.reviewId,
               posterUrl: poster?.posterUrl || "",
               commentCount:
-                comments?.page?.totalElements ?? comments?.totalElements ?? comments?.content?.length ?? 0,
+                comments?.page?.totalElements ??
+                comments?.totalElements ??
+                comments?.content?.length ??
+                0,
               likeCount: reactions?.likeCount ?? 0,
               dislikeCount: reactions?.dislikeCount ?? 0,
             };
@@ -172,7 +175,7 @@ function AllReviews() {
   };
 
   const searchPlaceholders = {
-    ALL: "영화, 감독, 배우, 닉네임, 리뷰 제목 또는 내용 검색",
+    ALL: "검색하고 싶은 키워드를 입력하세요.",
     MOVIE: "영화 제목을 입력하세요.",
     DIRECTOR: "감독 이름을 입력하세요.",
     ACTOR: "배우 이름을 입력하세요.",
@@ -224,7 +227,10 @@ function AllReviews() {
         </div>
 
         <form className="all-reviews-search" onSubmit={handleSearch}>
-          <label className="all-reviews-search-label" htmlFor="all-reviews-search-type">
+          <label
+            className="all-reviews-search-label"
+            htmlFor="all-reviews-search-type"
+          >
             검색 범위
           </label>
           <select
