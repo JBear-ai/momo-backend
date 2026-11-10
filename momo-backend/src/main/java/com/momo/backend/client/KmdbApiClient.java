@@ -14,13 +14,15 @@ public class KmdbApiClient {
     private final RestClient restClient;
     private final String apiKey;
     private final ApiCallMetrics metrics;
+    private final com.momo.backend.service.ApiCallBudgetService apiCallBudgetService;
 
     public KmdbApiClient(
             @Value("${kmdb.api.base-url}") String baseUrl,
             @Value("${kmdb.api.key}") String apiKey,
             @Value("${external-api.connect-timeout:3s}") Duration connectTimeout,
             @Value("${external-api.read-timeout:8s}") Duration readTimeout,
-            ApiCallMetrics metrics) {
+            ApiCallMetrics metrics,
+            com.momo.backend.service.ApiCallBudgetService apiCallBudgetService) {
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
@@ -32,9 +34,11 @@ public class KmdbApiClient {
                 .build();
         this.apiKey = apiKey;
         this.metrics = metrics;
+        this.apiCallBudgetService = apiCallBudgetService;
     }
 
     public String searchMovie(String title) {
+        apiCallBudgetService.acquire("KMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
