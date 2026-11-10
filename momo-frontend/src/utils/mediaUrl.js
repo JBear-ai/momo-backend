@@ -12,5 +12,10 @@ export function resolvePosterUrl(value) {
     return url;
   }
 
-  return `${API_BASE_URL}${url.startsWith("/") ? url : `/${url}`}`;
+  // 로컬에 저장된 포스터 경로만 백엔드 주소를 붙인다.
+  if (url.startsWith("/posters/")) {
+    return `${API_BASE_URL}${url}`;
+  }
+
+  return url;
 }
