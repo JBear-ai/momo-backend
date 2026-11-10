@@ -14,13 +14,15 @@ public class TmdbApiClient {
     private final RestClient restClient;
     private final String apiKey;
     private final ApiCallMetrics metrics;
+    private final com.momo.backend.service.ApiCallBudgetService apiCallBudgetService;
 
     public TmdbApiClient(
             @Value("${tmdb.api.base-url}") String baseUrl,
             @Value("${tmdb.api.key}") String apiKey,
             @Value("${external-api.connect-timeout:3s}") Duration connectTimeout,
             @Value("${external-api.read-timeout:8s}") Duration readTimeout,
-            ApiCallMetrics metrics) {
+            ApiCallMetrics metrics,
+            com.momo.backend.service.ApiCallBudgetService apiCallBudgetService) {
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
@@ -32,6 +34,7 @@ public class TmdbApiClient {
                 .build();
         this.apiKey = apiKey;
         this.metrics = metrics;
+        this.apiCallBudgetService = apiCallBudgetService;
     }
 
     public String searchMovie(String title) {
@@ -40,6 +43,7 @@ public class TmdbApiClient {
 
     // 검색어 언어에 맞춰 TMDb 결과 제목을 조회한다.
     public String searchMovie(String title, String language) {
+        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
@@ -60,6 +64,7 @@ public class TmdbApiClient {
     }
 
     public String getMovieDetail(long movieId) {
+        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (movieId <= 0) {
             throw new IllegalArgumentException("올바르지 않은 TMDb 영화 ID입니다.");
         }
@@ -75,6 +80,7 @@ public class TmdbApiClient {
     }
 
     public String searchTv(String title) {
+        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("TV 프로그램 제목이 비어 있습니다.");
         }
@@ -91,6 +97,7 @@ public class TmdbApiClient {
     }
 
     public String searchPerson(String name, String language) {
+        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("인물 이름이 비어 있습니다.");
         }
@@ -111,6 +118,7 @@ public class TmdbApiClient {
     }
 
     public String getPersonDetail(long personId, String language) {
+        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (personId <= 0) {
             throw new IllegalArgumentException("올바르지 않은 TMDb 인물 ID입니다.");
         }
