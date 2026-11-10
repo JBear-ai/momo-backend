@@ -248,9 +248,9 @@ const AxiosApi = {
   },
 
   // 18. 전체 리뷰 목록 조회
-  allReviews: async (page = 0, signal) => {
+  allReviews: async (page = 0, signal, searchType = "ALL", keyword = "") => {
     return await axios.get(`${HM_DOMAIN}/api/reviews`, {
-      params: { page },
+      params: { page, searchType, keyword },
       withCredentials: true,
       signal,
     });
