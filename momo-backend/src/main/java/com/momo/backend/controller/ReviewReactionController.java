@@ -50,6 +50,17 @@ public class ReviewReactionController {
         return ResponseEntity.noContent().build();
     }
 
+    // 로그인 회원이 해당 리뷰에 남긴 반응 조회
+    @GetMapping("/{reviewId}/reaction")
+    public ResponseEntity<Boolean> getMyReaction(
+            @PathVariable Long reviewId,
+            Authentication authentication) {
+
+        return ResponseEntity.ok(
+                reactionService.getMyReaction(authentication.getName(), reviewId)
+        );
+    }
+
     // 특정 리뷰의 좋아요/싫어요 개수 조회
     @GetMapping("/{reviewId}/reactions")
     public ResponseEntity<Map<String, Long>> getReactionCounts(
