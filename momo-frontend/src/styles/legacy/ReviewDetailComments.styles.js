@@ -354,39 +354,66 @@ const ReviewDetailCommentsStyles = createGlobalStyle`
 
 .review-like-button,
 .review-dislike-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   min-width: 150px;
-
   padding: 12px 20px;
-
+  border: 1px solid transparent;
   border-radius: 12px;
-
+  font: inherit;
   font-size: 15px;
   font-weight: 800;
-
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .review-like-button {
-  background: #fff0f0;
-  border: 1px solid #ffbcbc;
-  color: #e53935;
+  background: var(--momo-like-bg);
+  border-color: var(--momo-like-border);
+  color: var(--momo-like-text);
+}
+
+.review-like-button::before {
+  content: "👍";
 }
 
 .review-like-button:hover,
 .review-like-button.active {
-  background: #ffdede;
+  background: var(--momo-like-bg-hover);
 }
 
 .review-dislike-button {
-  background: #edf3ff;
-  border: 1px solid #b5ceff;
-  color: #2864d7;
+  background: var(--momo-dislike-bg);
+  border-color: var(--momo-dislike-border);
+  color: var(--momo-dislike-text);
+}
+
+.review-dislike-button::before {
+  content: "👎";
 }
 
 .review-dislike-button:hover,
 .review-dislike-button.active {
-  background: #dbe8ff;
+  background: var(--momo-dislike-bg-hover);
+}
+
+.review-like-button:hover,
+.review-dislike-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(45, 38, 26, 0.08);
+}
+
+.review-like-button:focus-visible,
+.review-dislike-button:focus-visible {
+  outline: 3px solid rgba(89, 68, 0, 0.2);
+  outline-offset: 2px;
 }
 
 .review-reaction-cancel {
