@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AxiosApi from "../api/AxiosApi";
+import AxiosApi, { clearAuthSession } from "../api/AxiosApi";
 
 function ProfileDelete() {
   const navigate = useNavigate();
@@ -33,9 +33,7 @@ function ProfileDelete() {
       await AxiosApi.memberDelete(password);
 
       // 탈퇴 성공 후 브라우저에 저장된 로그인 정보 제거
-      localStorage.removeItem("username");
-      localStorage.removeItem("nickname");
-      localStorage.removeItem("accessToken");
+      clearAuthSession();
       window.dispatchEvent(new Event("momo-auth-changed"));
       localStorage.removeItem("email");
       localStorage.removeItem("password");

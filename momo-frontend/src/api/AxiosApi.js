@@ -1,18 +1,135 @@
 import axios from "axios";
 
-const HM_DOMAIN = process.env.REACT_APP_API_BASE_URL || "http://localhost:8111";
-// MOMO API 요청에 저장된 JWT를 자동으로 전달한다.
+// 환경변수가 있으면 팀 공용 백엔드 주소를 사용하고,
+// 없으면 기존 로컬 개발 주소를 그대로 사용한다.
+const HM_DOMAIN =
+  process.env.REACT_APP_API_BASE_URL || "http://localhost:8111";
+
+// 재발급 요청은 일반 axios 인터셉터에 다시 걸리지 않도록 별도 인스턴스를 사용한다.
+const reissueClient = axios.create();
+
+let refreshPromise = null;
+let refreshPromiseSessionVersion = null;
+let authSessionVersion = 0;
+
+// 로그인 성공 시 Access Token과 Refresh Token을 한 세션으로 저장한다.
+export const storeLoginTokens = (accessToken, refreshToken) => {
+  authSessionVersion += 1;
+  localStorage.setItem("accessToken", accessToken);
+  localStorage.setItem("refreshToken", refreshToken);
+  window.__momoAuthExpiredHandled = false;
+};
+
+// 로그아웃·회원 탈퇴·인증 만료 시 토큰과 사용자 정보를 함께 제거한다.
+export const clearAuthSession = () => {
+  authSessionVersion += 1;
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("username");
+  localStorage.removeItem("nickname");
+};
+
+const setAuthorization = (config, accessToken) => {
+  config.headers = config.headers || {};
+
+  if (typeof config.headers.set === "function") {
+    config.headers.set("Authorization", `Bearer ${accessToken}`);
+  } else {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+};
+
+const isExcludedAuthRequest = (url = "") =>
+  url.endsWith("/api/auth/login") ||
+  url.endsWith("/api/auth/signup") ||
+  url.endsWith("/api/auth/reissue");
+
+// 인증 만료 처리는 한 번만 수행한다.
+const handleAuthExpired = (error) => {
+  if (!window.__momoAuthExpiredHandled) {
+    window.__momoAuthExpiredHandled = true;
+    clearAuthSession();
+    window.dispatchEvent(new Event("momo-auth-changed"));
+    alert(
+      "로그인 인증이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.",
+    );
+
+    if (window.location.pathname !== "/login") {
+      window.location.replace("/login");
+    }
+  }
+
+  if (error && typeof error === "object") {
+    error.momoAuthExpiredHandled = true;
+  }
+};
+
+// 같은 로그인 세션에서 발생한 동시 401은 하나의 Rotation 결과를 공유한다.
+const reissueAccessToken = () => {
+  const refreshToken = localStorage.getItem("refreshToken");
+  const requestedSessionVersion = authSessionVersion;
+
+  if (
+    refreshPromise &&
+    refreshPromiseSessionVersion === requestedSessionVersion
+  ) {
+    return refreshPromise;
+  }
+
+  if (!refreshToken) {
+    return Promise.reject(new Error("Refresh Token이 없습니다."));
+  }
+
+  let currentPromise;
+  currentPromise = reissueClient
+    .post(`${HM_DOMAIN}/api/auth/reissue`, { refreshToken })
+    .then((response) => {
+      const newAccessToken = response.data?.accessToken;
+      const newRefreshToken = response.data?.refreshToken;
+
+      if (!newAccessToken || !newRefreshToken) {
+        throw new Error("재발급 응답에 토큰이 없습니다.");
+      }
+
+      // 요청 도중 로그인·로그아웃·탈퇴가 발생했다면 이전 토큰을 저장하지 않는다.
+      if (
+        authSessionVersion !== requestedSessionVersion ||
+        localStorage.getItem("refreshToken") !== refreshToken
+      ) {
+        const sessionChangedError = new Error(
+          "인증 상태가 이미 변경되었습니다.",
+        );
+        sessionChangedError.code = "MOMO_AUTH_SESSION_CHANGED";
+        throw sessionChangedError;
+      }
+
+      localStorage.setItem("accessToken", newAccessToken);
+      localStorage.setItem("refreshToken", newRefreshToken);
+
+      return newAccessToken;
+    })
+    .finally(() => {
+      if (refreshPromise === currentPromise) {
+        refreshPromise = null;
+        refreshPromiseSessionVersion = null;
+      }
+    });
+
+  refreshPromise = currentPromise;
+  refreshPromiseSessionVersion = requestedSessionVersion;
+  return currentPromise;
+};
+
+// MOMO API에만 JWT를 전달한다. 외부 API 통신에는 Authorization을 강제로 붙이지 않는다.
 axios.interceptors.request.use(
   (config) => {
     const accessToken = localStorage.getItem("accessToken");
     const isMomoApi = config.url?.startsWith(`${HM_DOMAIN}/api/`);
-    const isPublicAuthRequest =
-      config.url?.endsWith("/api/auth/login") ||
-      config.url?.endsWith("/api/auth/signup");
+    const isPublicAuthRequest = isExcludedAuthRequest(config.url);
 
     if (isMomoApi && accessToken && !isPublicAuthRequest) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${accessToken}`;
+      setAuthorization(config, accessToken);
+      config._momoAuthSessionVersion = authSessionVersion;
     }
 
     return config;
@@ -20,39 +137,77 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// 인증 토큰이 만료되면 로그인 상태를 정리한다.
+// Access Token 만료 시 Refresh Token Rotation 후 원래 요청을 한 번만 재시도한다.
 axios.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error.response?.status;
-    const requestUrl = error.config?.url || "";
-    const sentHeaders = error.config?.headers;
+    const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || "";
+    const sentHeaders = originalRequest?.headers;
     const sentAuthorization =
       sentHeaders?.Authorization || sentHeaders?.get?.("Authorization");
-    const accessToken = localStorage.getItem("accessToken");
 
     if (
-      status === 401 &&
-      requestUrl.startsWith(`${HM_DOMAIN}/api/`) &&
-      accessToken &&
-      sentAuthorization === `Bearer ${accessToken}` &&
-      !window.__momoAuthExpiredHandled
+      status !== 401 ||
+      !originalRequest ||
+      !requestUrl.startsWith(`${HM_DOMAIN}/api/`) ||
+      isExcludedAuthRequest(requestUrl) ||
+      !sentAuthorization
     ) {
-      window.__momoAuthExpiredHandled = true;
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("username");
-      localStorage.removeItem("nickname");
-      window.dispatchEvent(new Event("momo-auth-changed"));
-      alert(
-        "로그인 인증이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.",
-      );
-
-      if (window.location.pathname !== "/login") {
-        window.location.replace("/login");
-      }
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    // 이전 로그인 세션의 응답이 새 로그인 세션에 영향을 주지 않도록 차단한다.
+    if (
+      originalRequest._momoAuthSessionVersion !== undefined &&
+      originalRequest._momoAuthSessionVersion !== authSessionVersion
+    ) {
+      const sessionChangedError = new Error("인증 상태가 이미 변경되었습니다.");
+      sessionChangedError.code = "MOMO_AUTH_SESSION_CHANGED";
+      return Promise.reject(sessionChangedError);
+    }
+
+    if (originalRequest._retry) {
+      handleAuthExpired(error);
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+
+    const currentAccessToken = localStorage.getItem("accessToken");
+
+    // 다른 요청이 먼저 재발급을 마쳤다면 최신 Access Token으로 재시도한다.
+    if (
+      currentAccessToken &&
+      sentAuthorization !== `Bearer ${currentAccessToken}`
+    ) {
+      setAuthorization(originalRequest, currentAccessToken);
+      return axios(originalRequest);
+    }
+
+    const requestedSessionVersion = authSessionVersion;
+
+    try {
+      const newAccessToken = await reissueAccessToken();
+
+      if (authSessionVersion !== requestedSessionVersion) {
+        const sessionChangedError = new Error(
+          "인증 상태가 이미 변경되었습니다.",
+        );
+        sessionChangedError.code = "MOMO_AUTH_SESSION_CHANGED";
+        throw sessionChangedError;
+      }
+
+      setAuthorization(originalRequest, newAccessToken);
+      return axios(originalRequest);
+    } catch (reissueError) {
+      if (reissueError?.code !== "MOMO_AUTH_SESSION_CHANGED") {
+        handleAuthExpired(reissueError);
+      }
+
+      return Promise.reject(reissueError);
+    }
   },
 );
 

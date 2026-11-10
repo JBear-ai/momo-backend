@@ -9,7 +9,7 @@ import {
 } from "react-router-dom";
 import styled from "styled-components";
 import textlogo from "../textlogo.png";
-import AxiosApi from "../api/AxiosApi";
+import AxiosApi, { clearAuthSession } from "../api/AxiosApi";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -372,9 +372,7 @@ function Layout() {
       await AxiosApi.memberLogout();
 
       // 로그아웃 성공 후 브라우저 사용자 정보 삭제
-      localStorage.removeItem("username");
-      localStorage.removeItem("nickname");
-      localStorage.removeItem("accessToken");
+      clearAuthSession();
       window.dispatchEvent(new Event("momo-auth-changed"));
 
       // 화면을 로그아웃 상태로 변경
