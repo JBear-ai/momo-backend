@@ -416,19 +416,6 @@ const ReviewDetailCommentsStyles = createGlobalStyle`
   outline-offset: 2px;
 }
 
-.review-reaction-cancel {
-  padding: 10px 14px;
-
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-
-  color: #666;
-  font-size: 13px;
-
-  cursor: pointer;
-}
-
 /* ==================================================
    REVIEW COMMENTS
    댓글 영역
@@ -675,18 +662,6 @@ const ReviewDetailCommentsStyles = createGlobalStyle`
 
 .comment-like-button,
 .comment-dislike-button,
-.comment-reaction-cancel {
-  padding: 6px 10px;
-  background: #fff;
-  border: 1px solid #e2ddd5;
-  border-radius: 7px;
-  color: #666;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-}
-
 .comment-like-button:hover,
 .comment-like-button.active {
   background: #fff6e5;
