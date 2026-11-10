@@ -295,4 +295,19 @@ public class AuthService {
         User user = getLoginUser(loginId);
         return firebaseStorageService.getProfileImageContentType(user.getProfileImage());
     }
+
+    // 댓글 및 커뮤니티에서 특정 회원의 프로필 이미지를 조회한다.
+    @Transactional(readOnly = true)
+    public byte[] getProfileImageByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+        return firebaseStorageService.getProfileImage(user.getProfileImage());
+    }
+
+    @Transactional(readOnly = true)
+    public String getProfileImageContentTypeByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+        return firebaseStorageService.getProfileImageContentType(user.getProfileImage());
+    }
 }

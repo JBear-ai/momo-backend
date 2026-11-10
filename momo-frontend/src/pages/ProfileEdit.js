@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
-import stdLogo from "../image/std_logo.png";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 /* =========================
    정규식
@@ -30,6 +30,7 @@ function ProfileEdit() {
   ========================= */
 
   const [userId, setUserId] = useState("");
+  const [profileUserId, setProfileUserId] = useState(null);
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
 
@@ -93,21 +94,14 @@ function ProfileEdit() {
             localStorage.getItem("username") ||
             "",
         );
+        setProfileUserId(user.userId || null);
         setNickname(user.nickname || localStorage.getItem("nickname") || "");
         setEmail(user.email || localStorage.getItem("email") || "");
 
         const savedProfileImage = user.profileImage || "";
         setProfileImage(savedProfileImage);
 
-        if (savedProfileImage) {
-          const imageResponse = await AxiosApi.profileImageGet();
-
-          if (!active) return;
-
-          const objectUrl = URL.createObjectURL(imageResponse.data);
-          profileImageUrlRef.current = objectUrl;
-          setProfileImageUrl(objectUrl);
-        }
+        // 실제 이미지 조회는 ProfileAvatar 공용 컴포넌트가 담당한다.
       } catch (error) {
         if (!active) return;
 
@@ -564,8 +558,10 @@ function ProfileEdit() {
             React.createElement(
               "div",
               { className: "profile-image-preview" },
-              React.createElement("img", {
-                src: profilePreview || profileImageUrl || stdLogo,
+              React.createElement(ProfileAvatar, {
+                userId: profileUserId,
+                hasImage: Boolean(profileImage),
+                src: profilePreview || profileImageUrl,
                 alt: "프로필 이미지",
               }),
             ),

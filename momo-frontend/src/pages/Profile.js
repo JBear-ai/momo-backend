@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
 import AxiosApi from "../api/AxiosApi";
-import stdLogo from "../image/std_logo.png";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 function Profile() {
   const [userId, setUserId] = useState("");
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
-  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [profileUserId, setProfileUserId] = useState(null);
+  const [hasProfileImage, setHasProfileImage] = useState(false);
 
   // 관심 영화 개수
   const [favoriteCount, setFavoriteCount] = useState(
@@ -36,36 +37,25 @@ function Profile() {
     };
   }, []);
 
-  // 서버에 저장된 프로필 이미지 불러오기
+  // 공용 프로필 이미지 컴포넌트에 필요한 회원 정보를 조회한다.
   useEffect(() => {
-    let imageUrl = "";
-    let isMounted = true;
+    let active = true;
 
-    const loadProfileImage = async () => {
+    const loadProfile = async () => {
       try {
-        const userResponse = await AxiosApi.memberMe();
+        const response = await AxiosApi.memberMe();
+        if (!active) return;
 
-        if (userResponse.data.profileImage) {
-          const imageResponse = await AxiosApi.profileImageGet();
-
-          if (!isMounted) return;
-
-          imageUrl = URL.createObjectURL(imageResponse.data);
-          setProfileImageUrl(imageUrl);
-        }
+        setProfileUserId(response.data.userId || null);
+        setHasProfileImage(Boolean(response.data.profileImage));
       } catch (error) {
-        console.error("프로필 이미지 조회 실패:", error);
+        console.error("프로필 정보 조회 실패:", error);
       }
     };
 
-    loadProfileImage();
-
+    loadProfile();
     return () => {
-      isMounted = false;
-
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
+      active = false;
     };
   }, []);
 
@@ -95,7 +85,11 @@ function Profile() {
 
           <div className="profile-user">
             <div className="profile-avatar">
-              <img src={profileImageUrl || stdLogo} alt="프로필 이미지" />
+              <ProfileAvatar
+                userId={profileUserId}
+                hasImage={hasProfileImage}
+                alt="프로필 이미지"
+              />
             </div>
 
             <div className="profile-user-info">

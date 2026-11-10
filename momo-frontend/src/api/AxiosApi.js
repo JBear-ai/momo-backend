@@ -323,6 +323,14 @@ const AxiosApi = {
     });
   },
 
+  // 회원 ID로 다른 회원의 프로필 이미지 조회
+  profileImageByUserIdGet: async (userId, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/auth/users/${encodeURIComponent(userId)}/profile-image`,
+      { responseType: "blob", signal },
+    );
+  },
+
   // 23. 인물 상세 및 필모그래피 조회
   getPersonDetail: async (type, name, signal) => {
     return await axios.get(
@@ -373,6 +381,26 @@ const AxiosApi = {
   commentDelete: async (commentId) => {
     return await axios.delete(
       `${HM_DOMAIN}/api/comments/${encodeURIComponent(commentId)}`,
+      { withCredentials: true },
+    );
+  },
+
+  // 27-1. 댓글 좋아요 / 싫어요 저장 및 변경
+  commentReaction: async (commentId, liked) => {
+    return await axios.put(
+      `${HM_DOMAIN}/api/comments/${encodeURIComponent(commentId)}/reaction`,
+      liked,
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  },
+
+  // 27-2. 댓글 반응 취소
+  commentReactionDelete: async (commentId) => {
+    return await axios.delete(
+      `${HM_DOMAIN}/api/comments/${encodeURIComponent(commentId)}/reaction`,
       { withCredentials: true },
     );
   },

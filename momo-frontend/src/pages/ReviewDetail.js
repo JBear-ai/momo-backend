@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 const h = React.createElement;
 
@@ -355,6 +356,40 @@ function ReviewDetail() {
     }
   };
 
+  // 댓글 좋아요 / 싫어요 저장 및 변경
+  const handleCommentReaction = async (commentId, liked) => {
+    if (!currentUser) {
+      alert("로그인 후 이용해주세요.");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      await AxiosApi.commentReaction(commentId, liked);
+      await fetchComments();
+    } catch (err) {
+      console.error("댓글 반응 저장 실패:", err);
+      alert(err.response?.data?.message || "댓글 반응 저장에 실패했습니다.");
+    }
+  };
+
+  // 댓글 반응 취소
+  const handleCommentReactionDelete = async (commentId) => {
+    if (!currentUser) {
+      alert("로그인 후 이용해주세요.");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      await AxiosApi.commentReactionDelete(commentId);
+      await fetchComments();
+    } catch (err) {
+      console.error("댓글 반응 취소 실패:", err);
+      alert(err.response?.data?.message || "댓글 반응 취소에 실패했습니다.");
+    }
+  };
+
   // 댓글 삭제
   const handleCommentDelete = async (commentId) => {
     const confirmed = window.confirm("댓글을 삭제하시겠습니까?");
@@ -679,7 +714,11 @@ function ReviewDetail() {
     h(
       "div",
       { className: "review-comment-avatar" },
-      (currentUser?.nickname || "M").charAt(0),
+      h(ProfileAvatar, {
+        userId: currentUser?.userId,
+        hasImage: Boolean(currentUser?.profileImage),
+        alt: "내 프로필 이미지",
+      }),
     ),
 
     h("input", {
@@ -724,7 +763,11 @@ function ReviewDetail() {
             h(
               "div",
               { className: "review-comment-avatar" },
-              (comment.nickname || "M").charAt(0),
+              h(ProfileAvatar, {
+                userId: comment.userId,
+                hasImage: Boolean(comment.profileImageAvailable),
+                alt: `${comment.nickname || "회원"} 프로필 이미지`,
+              }),
             ),
 
             h(
@@ -806,6 +849,49 @@ function ReviewDetail() {
                     { className: "review-comment-content" },
                     comment.content,
                   ),
+
+              h(
+                "div",
+                { className: "review-comment-reactions" },
+
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    className:
+                      "comment-like-button" +
+                      (comment.myReaction === true ? " active" : ""),
+                    onClick: () =>
+                      handleCommentReaction(comment.commentId, true),
+                  },
+                  `좋아요 ${comment.likeCount ?? 0}`,
+                ),
+
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    className:
+                      "comment-dislike-button" +
+                      (comment.myReaction === false ? " active" : ""),
+                    onClick: () =>
+                      handleCommentReaction(comment.commentId, false),
+                  },
+                  `싫어요 ${comment.dislikeCount ?? 0}`,
+                ),
+
+                comment.myReaction !== null && comment.myReaction !== undefined &&
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      className: "comment-reaction-cancel",
+                      onClick: () =>
+                        handleCommentReactionDelete(comment.commentId),
+                    },
+                    "취소",
+                  ),
+              ),
             ),
           ),
         );
