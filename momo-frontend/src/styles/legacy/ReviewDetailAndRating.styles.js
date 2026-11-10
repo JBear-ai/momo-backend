@@ -146,15 +146,15 @@ const ReviewDetailAndRatingStyles = createGlobalStyle`
 }
 
 .review-detail-reaction.like {
-  background: #FFF9E6;
-  border: 1px solid #E6BF33;
-  color: var(--momo-accent-ink);
+  background: var(--momo-like-bg);
+  border: 1px solid var(--momo-like-border);
+  color: var(--momo-like-text);
 }
 
 .review-detail-reaction.dislike {
-  background: #FFF5F5;
-  border: 1px solid #EED2D2;
-  color: #C0392B;
+  background: var(--momo-dislike-bg);
+  border: 1px solid var(--momo-dislike-border);
+  color: var(--momo-dislike-text);
 }
 
 /* 리뷰 내용 */
@@ -277,6 +277,18 @@ const ReviewDetailAndRatingStyles = createGlobalStyle`
   transition: all 0.2s ease;
 }
 
+.detail-reaction-count:first-child {
+  background: var(--momo-like-bg);
+  border-color: var(--momo-like-border);
+  color: var(--momo-like-text);
+}
+
+.detail-reaction-count:last-child {
+  background: var(--momo-dislike-bg);
+  border-color: var(--momo-dislike-border);
+  color: var(--momo-dislike-text);
+}
+
 .detail-reaction-count span {
   font-size: 14px;
   font-weight: 700;
@@ -293,15 +305,15 @@ const ReviewDetailAndRatingStyles = createGlobalStyle`
 }
 
 .detail-reaction-count.selected-like {
-  background: #FFF9E6;
-  border: 2px solid #E6BF33;
-  color: var(--momo-accent-ink);
+  background: var(--momo-like-bg-hover);
+  border: 2px solid var(--momo-like-border);
+  color: var(--momo-like-text);
 }
 
 .detail-reaction-count.selected-dislike {
-  background: #FFF5F5;
-  border: 2px solid #E57373;
-  color: #C53030;
+  background: var(--momo-dislike-bg-hover);
+  border: 2px solid var(--momo-dislike-border);
+  color: var(--momo-dislike-text);
 }
 
 .detail-total-count {
