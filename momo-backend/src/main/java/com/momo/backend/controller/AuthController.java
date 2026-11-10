@@ -209,4 +209,20 @@ public class AuthController {
                                 .body(image);
         }
 
+        // 13. 커뮤니티에서 공개적으로 사용하는 회원별 프로필 이미지 조회
+        @GetMapping("/users/{userId}/profile-image")
+        public ResponseEntity<byte[]> getUserProfileImage(@PathVariable Long userId) {
+
+                byte[] image = authService.getProfileImageByUserId(userId);
+                String contentType = authService.getProfileImageContentTypeByUserId(userId);
+
+                if (image == null || image.length == 0 || contentType == null) {
+                        return ResponseEntity.notFound().build();
+                }
+
+                return ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType(contentType))
+                                .body(image);
+        }
+
 }
