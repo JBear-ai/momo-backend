@@ -198,17 +198,17 @@ const ReviewComposerAuthRecommendStyles = createGlobalStyle`
 }
 
 .reaction-button.selected-like {
-  background: #FFF9E6;
-  border: 2px solid #E6BF33;
+  background: var(--momo-like-bg);
+  border: 2px solid var(--momo-like-border);
   font-weight: 800;
-  color: var(--momo-accent-ink);
+  color: var(--momo-like-text);
 }
 
 .reaction-button.selected-dislike {
-  background: #FFF5F5;
-  border: 2px solid #E57373;
+  background: var(--momo-dislike-bg);
+  border: 2px solid var(--momo-dislike-border);
   font-weight: 800;
-  color: #C53030;
+  color: var(--momo-dislike-text);
 }
 
 .review-form-actions {
