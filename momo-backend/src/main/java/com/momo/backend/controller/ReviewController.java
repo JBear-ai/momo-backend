@@ -31,10 +31,12 @@ public class ReviewController {
 
     @GetMapping
     public ResponseEntity<Page<ReviewPageResponse>> getAllReviews(
-            @RequestParam(defaultValue = "0") int page) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "ALL") String searchType,
+            @RequestParam(defaultValue = "") String keyword) {
 
         return ResponseEntity.ok(
-                reviewService.getAllReviews(page)
+                reviewService.getAllReviews(page, searchType, keyword)
         );
     }
 
