@@ -39,7 +39,7 @@ public class MoviePosterRetryScheduler {
 
         int submitted = 0;
         for (MoviePosterCache candidate : candidates) {
-            if (submitted >= 5) {
+            if (submitted >= 3) {
                 break;
             }
 
