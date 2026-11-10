@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AxiosApi from "../../api/AxiosApi";
 import { getFavoriteMovies } from "../../utils/favorites";
+import { resolvePosterUrl } from "../../utils/mediaUrl";
 
 const isValidMovieCode = (movieCode) => /^\d{8}$/.test(String(movieCode || ""));
 const isValidReleaseDate = (releaseDate) => /^\d{8}$/.test(String(releaseDate || ""));
@@ -210,7 +211,7 @@ function TodayRecommend() {
   (movie.posterUrl ? (
           React.createElement(
       "img",
-      {"className":"recommend-poster","src":movie.posterUrl,"alt":movie.title}
+      {"className":"recommend-poster","src":resolvePosterUrl(movie.posterUrl),"alt":movie.title}
     )
         ) : (
           React.createElement(
