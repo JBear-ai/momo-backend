@@ -49,7 +49,34 @@ public class ReviewService {
     // 전체 리뷰 목록 조회
 
     @Transactional(readOnly = true)
-    public Page<ReviewPageResponse> getAllReviews(int page) {
+    public Page<ReviewPageResponse> getAllReviews(
+            int page,
+            String searchType,
+            String keyword) {
+
+        if (page < 0) {
+            throw new IllegalArgumentException("페이지 번호는 0 이상이어야 합니다.");
+        }
+
+        Set<String> allowedSearchTypes = Set.of(
+                "ALL", "MOVIE", "DIRECTOR", "ACTOR",
+                "NICKNAME", "TITLE", "CONTENT"
+        );
+        String normalizedSearchType = searchType == null
+                ? "ALL"
+                : searchType.trim().toUpperCase();
+
+        if (!allowedSearchTypes.contains(normalizedSearchType)) {
+            throw new IllegalArgumentException("지원하지 않는 리뷰 검색 조건입니다.");
+        }
+
+        String normalizedKeyword = keyword == null
+                ? ""
+                : keyword.trim().replaceAll("\\s+", " ").toLowerCase();
+
+        String pattern = normalizedKeyword.isEmpty()
+                ? "%"
+                : "%" + normalizedKeyword + "%";
 
         Pageable pageable = PageRequest.of(
                 page,
@@ -60,8 +87,11 @@ public class ReviewService {
                 )
         );
 
-        Page<Review> reviews =
-                reviewRepository.findAllByOrderByCreatedAtDescReviewIdDesc(
+        Page<Review> reviews = normalizedKeyword.isEmpty()
+                ? reviewRepository.findAllByOrderByCreatedAtDescReviewIdDesc(pageable)
+                : reviewRepository.searchAllReviews(
+                        normalizedSearchType,
+                        pattern,
                         pageable
                 );
 
@@ -100,6 +130,11 @@ public class ReviewService {
                     movieYear
             );
         });
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ReviewPageResponse> getAllReviews(int page) {
+        return getAllReviews(page, "ALL", "");
     }
 
     // 개봉일에서 연도 추출
