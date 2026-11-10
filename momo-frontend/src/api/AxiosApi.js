@@ -1,7 +1,6 @@
 import axios from "axios";
 
-const HM_DOMAIN = "http://localhost:8111";
-
+const HM_DOMAIN = process.env.REACT_APP_API_BASE_URL || "http://localhost:8111";
 // MOMO API 요청에 저장된 JWT를 자동으로 전달한다.
 axios.interceptors.request.use(
   (config) => {
