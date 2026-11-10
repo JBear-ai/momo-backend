@@ -136,9 +136,31 @@ function ReviewDetail() {
 
         // 로그인 사용자
         if (results[1].status === "fulfilled") {
-          setCurrentUser(results[1].value.data);
+          const userData = results[1].value.data;
+          setCurrentUser(userData);
+
+          // 로그인 회원의 현재 리뷰 반응을 조회한다.
+          if (userData) {
+            try {
+              const reactionResponse = await AxiosApi.reviewMyReactionGet(reviewId);
+              if (!active) return;
+              setMyReaction(
+                typeof reactionResponse.data === "boolean"
+                  ? reactionResponse.data
+                  : null,
+              );
+            } catch (reactionError) {
+              if (reactionError.response?.status !== 401) {
+                console.error("내 리뷰 반응 조회 실패:", reactionError);
+              }
+              setMyReaction(null);
+            }
+          } else {
+            setMyReaction(null);
+          }
         } else {
           setCurrentUser(null);
+          setMyReaction(null);
         }
 
         // 좋아요 / 싫어요 개수
@@ -356,8 +378,8 @@ function ReviewDetail() {
     }
   };
 
-  // 댓글 좋아요 / 싫어요 저장 및 변경
-  const handleCommentReaction = async (commentId, liked) => {
+  // 댓글 반응: 같은 버튼 재클릭은 취소, 반대 버튼은 변경
+  const handleCommentReaction = async (commentId, liked, currentReaction) => {
     if (!currentUser) {
       alert("로그인 후 이용해주세요.");
       navigate("/login");
@@ -365,28 +387,15 @@ function ReviewDetail() {
     }
 
     try {
-      await AxiosApi.commentReaction(commentId, liked);
+      if (currentReaction === liked) {
+        await AxiosApi.commentReactionDelete(commentId);
+      } else {
+        await AxiosApi.commentReaction(commentId, liked);
+      }
       await fetchComments();
     } catch (err) {
-      console.error("댓글 반응 저장 실패:", err);
-      alert(err.response?.data?.message || "댓글 반응 저장에 실패했습니다.");
-    }
-  };
-
-  // 댓글 반응 취소
-  const handleCommentReactionDelete = async (commentId) => {
-    if (!currentUser) {
-      alert("로그인 후 이용해주세요.");
-      navigate("/login");
-      return;
-    }
-
-    try {
-      await AxiosApi.commentReactionDelete(commentId);
-      await fetchComments();
-    } catch (err) {
-      console.error("댓글 반응 취소 실패:", err);
-      alert(err.response?.data?.message || "댓글 반응 취소에 실패했습니다.");
+      console.error("댓글 반응 처리 실패:", err);
+      alert(err.response?.data?.message || "댓글 반응 처리에 실패했습니다.");
     }
   };
 
@@ -420,40 +429,23 @@ function ReviewDetail() {
     }
 
     try {
-      await AxiosApi.reviewReaction(reviewId, liked);
-
-      setMyReaction(liked);
+      if (myReaction === liked) {
+        await AxiosApi.reviewReactionDelete(reviewId);
+        setMyReaction(null);
+      } else {
+        await AxiosApi.reviewReaction(reviewId, liked);
+        setMyReaction(liked);
+      }
 
       await fetchReactionCounts();
     } catch (err) {
-      console.error("리뷰 반응 저장 실패:", err);
+      console.error("리뷰 반응 처리 실패:", err);
 
       if (err.response?.status === 401) {
         alert("로그인이 필요합니다.");
       } else {
-        alert(err.response?.data?.message || "반응 저장에 실패했습니다.");
+        alert(err.response?.data?.message || "반응 처리에 실패했습니다.");
       }
-    }
-  };
-
-  // 반응 취소
-  const handleReactionDelete = async () => {
-    if (!currentUser) {
-      alert("로그인 후 이용해주세요.");
-      navigate("/login");
-      return;
-    }
-
-    try {
-      await AxiosApi.reviewReactionDelete(reviewId);
-
-      setMyReaction(null);
-
-      await fetchReactionCounts();
-    } catch (err) {
-      console.error("반응 취소 실패:", err);
-
-      alert(err.response?.data?.message || "반응 취소에 실패했습니다.");
     }
   };
 
@@ -680,16 +672,7 @@ function ReviewDetail() {
       dislikeCount,
     ),
 
-    myReaction !== null &&
-      h(
-        "button",
-        {
-          type: "button",
-          className: "review-reaction-cancel",
-          onClick: handleReactionDelete,
-        },
-        "반응 취소",
-      ),
+
   );
 
   // 리뷰 본문 영역
@@ -862,7 +845,7 @@ function ReviewDetail() {
                       "comment-like-button" +
                       (comment.myReaction === true ? " active" : ""),
                     onClick: () =>
-                      handleCommentReaction(comment.commentId, true),
+                      handleCommentReaction(comment.commentId, true, comment.myReaction),
                   },
                   `좋아요 ${comment.likeCount ?? 0}`,
                 ),
@@ -875,22 +858,12 @@ function ReviewDetail() {
                       "comment-dislike-button" +
                       (comment.myReaction === false ? " active" : ""),
                     onClick: () =>
-                      handleCommentReaction(comment.commentId, false),
+                      handleCommentReaction(comment.commentId, false, comment.myReaction),
                   },
                   `싫어요 ${comment.dislikeCount ?? 0}`,
                 ),
 
-                comment.myReaction !== null && comment.myReaction !== undefined &&
-                  h(
-                    "button",
-                    {
-                      type: "button",
-                      className: "comment-reaction-cancel",
-                      onClick: () =>
-                        handleCommentReactionDelete(comment.commentId),
-                    },
-                    "취소",
-                  ),
+
               ),
             ),
           ),

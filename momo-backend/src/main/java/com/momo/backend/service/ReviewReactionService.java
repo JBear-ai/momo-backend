@@ -94,6 +94,27 @@ public class ReviewReactionService {
         reactionRepository.delete(reactions);
     }
 
+    // 로그인 회원이 특정 리뷰에 남긴 반응 조회 (없으면 null)
+    @Transactional(readOnly = true)
+    public Boolean getMyReaction(String loginId, Long reviewId) {
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                "USER_NOT_FOUND",
+                                "회원 정보를 찾을 수 없습니다."));
+
+        if (!reviewRepository.existsById(reviewId)) {
+            throw new CustomException(
+                    "REVIEW_NOT_FOUND",
+                    "리뷰를 찾을 수 없습니다.");
+        }
+
+        return reactionRepository
+                .findByUser_UserIdAndReview_ReviewId(user.getUserId(), reviewId)
+                .map(ReviewReactions::getLiked)
+                .orElse(null);
+    }
+
     // 특정 리뷰의 좋아요/싫어요 개수 조회
     @Transactional(readOnly = true)
     public long[] getReactionCounts(Long reviewId) {

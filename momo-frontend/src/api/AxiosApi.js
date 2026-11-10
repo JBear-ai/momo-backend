@@ -416,6 +416,14 @@ const AxiosApi = {
     );
   },
 
+  // 로그인 회원의 특정 리뷰 반응 조회 (true=좋아요, false=싫어요, null=반응 없음)
+  reviewMyReactionGet: async (reviewId, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/reviews/${encodeURIComponent(reviewId)}/reaction`,
+      { withCredentials: true, signal },
+    );
+  },
+
   // 29. 리뷰 좋아요 / 싫어요 저장 및 변경
   // true = 좋아요, false = 싫어요
   reviewReaction: async (reviewId, liked) => {
