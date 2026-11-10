@@ -2,6 +2,7 @@ package com.momo.backend.service;
 
 import com.momo.backend.client.KmdbApiClient;
 import com.momo.backend.client.TmdbApiClient;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -362,7 +363,8 @@ class MovieMetadataMatchingTest {
                 mock(com.momo.backend.repository.MovieCacheRepository.class),
                 mock(MoviePosterCacheService.class),
                 mock(MoviePersistenceService.class),
-                mock(com.momo.backend.repository.MoviePosterCacheRepository.class)
+                mock(com.momo.backend.repository.MoviePosterCacheRepository.class),
+                Caffeine.newBuilder().maximumSize(10).build()
         );
 
         com.momo.backend.dto.movie.MovieDetailResponse response =
