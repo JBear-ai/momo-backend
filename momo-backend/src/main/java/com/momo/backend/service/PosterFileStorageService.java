@@ -95,7 +95,8 @@ public class PosterFileStorageService {
     }
 
     public String location() {
-        return posterDirectory.toUri().toString();
+        String location = posterDirectory.toUri().toString();
+        return location.endsWith("/") ? location : location + "/";
     }
 
     private DownloadedImage download(URI uri, int redirectCount) {
@@ -176,7 +177,7 @@ public class PosterFileStorageService {
         try {
             URI uri = URI.create(value.trim()).normalize();
             String host = uri.getHost();
-            if (!"https".equalsIgnoreCase(uri.getScheme())
+            if (!("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()))
                     || host == null
                     || uri.getUserInfo() != null
                     || !(ALLOWED_HOSTS.contains(host.toLowerCase(Locale.ROOT))
