@@ -62,6 +62,32 @@ public class ApiCallBudgetService {
         repository.save(state);
     }
 
+    public synchronized java.util.Map<String, BudgetSnapshot> getTodayStatus() {
+        LocalDate today = LocalDate.now(KOREA_ZONE);
+        java.util.Map<String, BudgetSnapshot> result = new java.util.LinkedHashMap<>();
+        for (String provider : java.util.List.of("KOBIS", "KMDB", "TMDB")) {
+            long limit = dailyLimitFor(provider);
+            ApiCallBudgetState state = repository.findById(provider + "_" + today)
+                    .orElseGet(() -> ApiCallBudgetState.create(provider, today));
+            result.put(provider, new BudgetSnapshot(
+                    limit,
+                    (long) Math.floor(limit * PREFETCH_RATIO),
+                    limit - (long) Math.floor(limit * PREFETCH_RATIO),
+                    state.getPrefetchCalls(),
+                    state.getDemandCalls()
+            ));
+        }
+        return java.util.Map.copyOf(result);
+    }
+
+    public record BudgetSnapshot(
+            long dailyLimit,
+            long prefetchLimit,
+            long userSearchLimit,
+            long prefetchUsed,
+            long userSearchUsed
+    ) {}
+
     private long dailyLimitFor(String provider) {
         long limit = switch (provider) {
             case "KOBIS" -> kobisDailyLimit;
