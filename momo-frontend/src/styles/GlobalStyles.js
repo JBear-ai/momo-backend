@@ -10,6 +10,7 @@ import ReviewDetailCommentsStyles from "./legacy/ReviewDetailComments.styles";
 import MyReviewsStyles from "./legacy/MyReviews.styles";
 import ResponsiveAndPosterOverridesStyles from "./legacy/ResponsiveAndPosterOverrides.styles";
 import PersonDetailStyles from "./PersonDetail.styles";
+import LikedReviewsStyles from "./legacy/LikedReviews.styles";
 
 /**
  * App.css의 전역 토큰과 기본 스타일 위에 기능별 styled-components를 조립합니다.
@@ -29,6 +30,7 @@ function GlobalStyles() {
       <FavoritesAndProfileOverridesStyles />
       <ReviewDetailCommentsStyles />
       <MyReviewsStyles />
+      <LikedReviewsStyles />
       <ResponsiveAndPosterOverridesStyles />
       <PersonDetailStyles />
     </>
