@@ -4,7 +4,6 @@ import com.momo.backend.repository.MoviePosterCacheRepository;
 import com.momo.backend.repository.MovieRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -19,7 +18,6 @@ public class MoviePosterPersistenceService {
     private final MovieRepository movieRepository;
     private final PosterFileStorageService posterFileStorageService;
 
-    @Transactional
     public boolean saveSuccess(String movieCode, String claimToken, String posterUrl) {
         String normalizedPosterUrl = validatePosterUrl(posterUrl);
         String localPosterPath = posterFileStorageService.downloadAndSave(
@@ -33,8 +31,10 @@ public class MoviePosterPersistenceService {
             return false;
         }
 
-        movieRepository.findById(movieCode)
-                .ifPresent(movie -> movie.updatePosterUrl(localPosterPath));
+        movieRepository.findById(movieCode).ifPresent(movie -> {
+            movie.updatePosterUrl(localPosterPath);
+            movieRepository.save(movie);
+        });
         return true;
     }
 
