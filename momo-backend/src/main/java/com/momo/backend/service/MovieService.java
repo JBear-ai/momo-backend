@@ -68,9 +68,7 @@ public class MovieService {
     private static final long DAILY_BOX_OFFICE_CACHE_HOURS = 1;
     private static final long GENRE_CACHE_HOURS = 24;
 
-    // 장르 수집 범위: KOBIS 목록 앞 10페이지 × 페이지당 100개, 최대 1,000개 후보.
-    // 전체 KOBIS 영화 카탈로그가 아니라 제한된 후보 집합이다.
-    private static final int GENRE_SCAN_PAGES = 10;
+    // KOBIS 목록은 페이지당 최대 100개씩 전체 페이지를 순회한다.
     private static final int GENRE_SCAN_SIZE = 100;
     private static final int GENRE_PAGE_SIZE = 10;
 
@@ -1290,60 +1288,64 @@ public class MovieService {
     ) {
 
         List<MovieSearchResponse> result = new ArrayList<>();
+        int totalPages = 1;
 
-        for (int currentPage = 1;
-             currentPage <= GENRE_SCAN_PAGES;
-             currentPage++) {
-
+        for (int currentPage = 1; currentPage <= totalPages; currentPage++) {
             log.info("KOBIS 장르 목록 API 요청. page: {}, pageSize: {}",
                     currentPage, GENRE_SCAN_SIZE);
+
             String json = kobisApiClient.searchMoviesByGenre(currentPage);
+            JsonNode root;
+            try {
+                root = objectMapper.readTree(json);
+            } catch (Exception exception) {
+                throw new IllegalStateException("KOBIS 장르 목록 응답을 읽을 수 없습니다.", exception);
+            }
+
+            JsonNode totalCountNode = root.path("movieListResult").path("totCnt");
+            if (!totalCountNode.canConvertToInt() || totalCountNode.asInt() < 0) {
+                throw new IllegalStateException("KOBIS 장르 목록 총건수가 올바르지 않습니다.");
+            }
+            int totalCount = totalCountNode.asInt();
+            totalPages = (int) Math.ceil((double) totalCount / GENRE_SCAN_SIZE);
+
             JsonNode movieList = readRequiredArray(json, "movieListResult", "movieList",
                     "KOBIS 장르 검색용 영화 목록 응답이 올바르지 않습니다.");
-
-            if (movieList.isEmpty()) {
-                break;
+            if (movieList.isEmpty() && totalCount > 0) {
+                throw new IllegalStateException("KOBIS 장르 목록이 비어 있지만 총건수는 0보다 큽니다.");
             }
 
             for (JsonNode movie : movieList) {
-
-                if (isBlank(movie.path("movieCd").asText(""))
-                        || isBlank(movie.path("movieNm").asText(""))) {
+                String movieCode = movie.path("movieCd").asText("");
+                String title = movie.path("movieNm").asText("");
+                if (isBlank(movieCode) || isBlank(title)) {
                     throw new IllegalStateException("KOBIS 장르 목록에 영화 코드 또는 제목이 누락되었습니다.");
                 }
-                String movieGenre = movie.path("genreAlt").asText("");
 
-                boolean matchesGenre = Arrays.stream(
-                                movieGenre.split(",")
-                        )
+                String movieGenre = movie.path("genreAlt").asText("");
+                boolean matchesGenre = Arrays.stream(movieGenre.split(","))
                         .map(String::trim)
                         .anyMatch(name -> name.equals(genre));
-
                 if (!matchesGenre) {
                     continue;
                 }
 
-                String director = "";
-
-                JsonNode directors = movie.path("directors");
-
-                if (directors.isArray() && !directors.isEmpty()) {
-                    director = directors.get(0)
-                            .path("peopleNm")
-                            .asText("");
-                }
+                String director = StreamSupport.stream(
+                                movie.path("directors").spliterator(), false)
+                        .map(node -> node.path("peopleNm").asText(""))
+                        .filter(name -> !name.isBlank())
+                        .distinct()
+                        .limit(5)
+                        .reduce((first, second) -> first + ", " + second)
+                        .orElse("");
 
                 result.add(new MovieSearchResponse(
-                        movie.path("movieCd").asText(""),
-                        movie.path("movieNm").asText(""),
+                        movieCode,
+                        title,
                         movie.path("openDt").asText(""),
                         movieGenre,
                         director
                 ));
-            }
-
-            if (movieList.size() < GENRE_SCAN_SIZE) {
-                break;
             }
         }
 
@@ -1366,79 +1368,40 @@ public class MovieService {
     private List<MovieSearchResponse> getMoviesByGenreInternal(String genre, int page) {
 
         if (isBlank(genre) || page < 1) {
-            throw new IllegalArgumentException(
-                    "장르와 페이지 번호를 확인해주세요."
-            );
+            throw new IllegalArgumentException("장르와 페이지 번호를 확인해주세요.");
         }
 
         String normalizedGenre = normalizeGenre(genre);
 
-        // 페이지가 아닌 장르 하나를 캐시 식별값으로 사용
-        String cacheKey = normalizedGenre;
+        // 전체 카탈로그 수집 데이터가 있으면 외부 API 대신 MySQL 전체 결과를 사용한다.
+        List<MovieSearchResponse> allMovies = movieRepository
+                .findByGenreContainingIgnoreCaseOrderByReleaseDateDescMovieCodeAsc(normalizedGenre)
+                .stream()
+                .map(movie -> new MovieSearchResponse(
+                        movie.getMovieCode(),
+                        movie.getTitle(),
+                        movie.getReleaseDate() == null ? "" : movie.getReleaseDate(),
+                        movie.getGenre() == null ? "" : movie.getGenre(),
+                        movie.getDirector() == null ? "" : movie.getDirector()
+                ))
+                .toList();
 
-        List<MovieSearchResponse> allMovies;
-
-        MovieCache cached = findValidCache(
-                CACHE_GENRE,
-                cacheKey
-        );
-
-        if (cached != null) {
-
-            try {
-
-                allMovies = readCachedGenreMovies(
-                        cached.getContentJson()
-                );
-
-            } catch (Exception e) {
-
-                log.warn("장르 캐시 변환 실패. KOBIS 재조회", e);
-
-                allMovies = fetchAllMoviesByGenre(normalizedGenre);
-
-                saveCache(
-                        CACHE_GENRE,
-                        cacheKey,
-                        allMovies,
-                        GENRE_CACHE_HOURS
-                );
-            }
-
-        } else {
-
-            // 캐시가 없을 때만 KOBIS 목록 수집
+        // DB에 아직 해당 장르가 없을 때만 KOBIS 전체 페이지를 조회해 초기 데이터를 채운다.
+        if (allMovies.isEmpty()) {
             allMovies = fetchAllMoviesByGenre(normalizedGenre);
-
-            // 전체 결과를 한 번에 캐싱
-            saveCache(
-                    CACHE_GENRE,
-                    cacheKey,
-                    allMovies,
-                    GENRE_CACHE_HOURS
-            );
+            saveSearchMoviesToDatabase(allMovies);
         }
 
-        // 전체 결과를 DB에 저장한다.
-        saveSearchMoviesToDatabase(allMovies);
-
-        // 페이지는 캐시된 전체 목록에서 분리
         int start = (page - 1) * GENRE_PAGE_SIZE;
-
         if (start >= allMovies.size()) {
             return List.of();
         }
 
-        int end = Math.min(
-                start + GENRE_PAGE_SIZE,
-                allMovies.size()
-        );
-
-        List<MovieSearchResponse> pageMovies =
-                mergeSavedMovieDetails(allMovies.subList(start, end));
+        int end = Math.min(start + GENRE_PAGE_SIZE, allMovies.size());
+        List<MovieSearchResponse> pageMovies = mergeSavedMovieDetails(
+                allMovies.subList(start, end));
 
         enqueuePosterSearches(pageMovies);
-
         return pageMovies;
     }
 
