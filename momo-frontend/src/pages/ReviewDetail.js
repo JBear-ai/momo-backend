@@ -144,7 +144,11 @@ function ReviewDetail() {
             try {
               const reactionResponse = await AxiosApi.reviewMyReactionGet(reviewId);
               if (!active) return;
-              setMyReaction(reactionResponse.data ?? null);
+              setMyReaction(
+                typeof reactionResponse.data === "boolean"
+                  ? reactionResponse.data
+                  : null,
+              );
             } catch (reactionError) {
               if (reactionError.response?.status !== 401) {
                 console.error("내 리뷰 반응 조회 실패:", reactionError);
