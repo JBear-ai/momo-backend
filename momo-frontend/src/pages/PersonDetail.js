@@ -165,77 +165,38 @@ function PersonDetail() {
   const handleFilmographyClick = async (movie) => {
     if (navigatingMovieId !== null) return;
 
-    if (!movie?.title) {
-      setMovieNavigationError("작품 제목을 확인할 수 없습니다.");
+    if (!movie?.tmdbId) {
+      setMovieNavigationError("TMDb 영화 식별 정보가 없어 상세 페이지로 연결할 수 없습니다.");
       return;
     }
 
-    const movieId = movie.tmdbId ?? movie.title;
-
     try {
       setMovieNavigationError("");
-      setNavigatingMovieId(movieId);
+      setNavigatingMovieId(movie.tmdbId);
 
-      // 백엔드 검색 페이지는 1부터 시작
-      const response = await AxiosApi.movieSearch(movie.title, 1, 20);
+      // 제목 검색 대신 TMDb 고유 ID로 KOBIS 영화 코드를 확인한다.
+      const response = await AxiosApi.resolveFilmographyMovie(movie.tmdbId);
+      const movieCode = response?.data?.movieCode;
 
-      const results = Array.isArray(response?.data?.content)
-        ? response.data.content
-        : [];
-
-      if (results.length === 0) {
-        throw new Error("MOMO에서 해당 영화를 찾을 수 없습니다.");
+      if (!/^\\d{8}$/.test(String(movieCode || ""))) {
+        throw new Error("정확한 MOMO 영화 코드를 확인하지 못했습니다.");
       }
 
-      const targetTitle = normalizeTitle(movie.title);
-
-      // 제목이 정확히 일치하는 영화만 선택
-      const exactMatches = results.filter(
-        (item) => normalizeTitle(item.title) === targetTitle,
-      );
-
-      if (exactMatches.length === 0) {
-        throw new Error("MOMO에서 제목이 일치하는 영화를 찾을 수 없습니다.");
-      }
-
-      // 개봉 연도까지 비교하여 동명 영화 구분
-      const movieYear = String(movie.releaseDate || "").slice(0, 4);
-
-      let matchedMovie;
-
-      if (/^\d{4}$/.test(movieYear)) {
-        matchedMovie = exactMatches.find(
-          (item) => String(item.releaseDate || "").slice(0, 4) === movieYear,
-        );
-
-        if (!matchedMovie) {
-          throw new Error(
-            "제목은 일치하지만 개봉 연도가 일치하는 영화를 찾지 못했습니다.",
-          );
-        }
-      } else if (exactMatches.length === 1) {
-        matchedMovie = exactMatches[0];
-      } else {
-        throw new Error(
-          "동일한 제목의 영화가 여러 개 있어 정확한 작품을 찾을 수 없습니다.",
-        );
-      }
-
-      const movieCode = matchedMovie.movieCode;
-
-      if (!movieCode) {
-        throw new Error("영화 상세 페이지에 필요한 영화 코드가 없습니다.");
-      }
-
-      navigate(`/movie/${encodeURIComponent(movieCode)}`);
+      navigate(`/movie/${movieCode}`);
     } catch (navigationError) {
       console.error("영화 상세 페이지 이동 실패:", navigationError);
 
-      setMovieNavigationError(
-        navigationError?.response?.data?.message ||
-          navigationError.message ||
-          "영화 정보를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.",
-      );
+      const status = navigationError?.response?.status;
+      const message = navigationError?.response?.data?.detail
+        || navigationError?.response?.data?.message
+        || (status === 404
+          ? "이 작품은 아직 MOMO 영화 목록에 등록되지 않았습니다."
+          : status === 409
+            ? "동일한 제목과 개봉 연도의 영화가 여러 편이라 자동으로 선택할 수 없습니다."
+            : navigationError.message)
+        || "영화 정보를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.";
+
+      setMovieNavigationError(message);
     } finally {
       setNavigatingMovieId(null);
     }
