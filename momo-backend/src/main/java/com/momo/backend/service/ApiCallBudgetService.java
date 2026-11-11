@@ -1,5 +1,6 @@
 package com.momo.backend.service;
 
+import com.momo.backend.entity.ApiCallBudgetState;
 import com.momo.backend.repository.ApiCallBudgetStateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
