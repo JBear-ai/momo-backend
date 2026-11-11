@@ -3,6 +3,7 @@ package com.momo.backend.service;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -20,6 +21,21 @@ class PosterFileStorageServiceTest {
         Files.writeString(temporaryDirectory.resolve("poster.jpg"), "image");
 
         assertTrue(storageService.exists("/posters/poster.jpg"));
+    }
+
+    @Test
+    void requestsOnlyImageFormatsSupportedByTheStorageValidator() {
+        PosterFileStorageService storageService =
+                new PosterFileStorageService(temporaryDirectory.toString());
+
+        String acceptHeader = storageService.createDownloadRequest(
+                URI.create("https://image.tmdb.org/t/p/w500/test.jpg"))
+                .headers()
+                .firstValue("Accept")
+                .orElseThrow();
+
+        assertEquals("image/webp,image/png,image/jpeg", acceptHeader);
+        assertFalse(acceptHeader.contains("avif"));
     }
 
     @Test

@@ -6,21 +6,29 @@ import com.momo.backend.security.TokenProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@AutoConfigureMockMvc
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:momo;DB_CLOSE_DELAY=-1;MODE=MySQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
+        "momo.storage.poster-dir=${java.io.tmpdir}/momo-poster-security-test",
         "JWT_SECRET=TW9tb1Rlc3RPbmx5U2VjcmV0S2V5Rm9ySlZUVGVzdHMxMjM0NQ==",
 })
 @ActiveProfiles("test")
@@ -30,7 +38,32 @@ class MomoBackendApplicationTests {
     private TokenProvider tokenProvider;
 
     @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
     private MoviePosterCacheRepository posterCacheRepository;
+
+    @Test
+    void localPosterImageCanBeRequestedWithoutAnAuthorizationHeader() throws Exception {
+        Path posterDirectory = Path.of(
+                System.getProperty("java.io.tmpdir"),
+                "momo-poster-security-test");
+        Files.createDirectories(posterDirectory);
+
+        String fileName = "anonymous-" + UUID.randomUUID() + ".jpg";
+        Path posterFile = posterDirectory.resolve(fileName);
+        Files.write(posterFile, new byte[] {
+                (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00
+        });
+
+        try {
+            // 브라우저 img 요청처럼 Authorization 헤더 없이 실제 파일을 받아야 한다.
+            mockMvc.perform(get("/posters/" + fileName))
+                    .andExpect(status().isOk());
+        } finally {
+            Files.deleteIfExists(posterFile);
+        }
+    }
 
     @Test
     void contextLoads() {

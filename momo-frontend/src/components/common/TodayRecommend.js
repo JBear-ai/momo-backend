@@ -16,6 +16,7 @@ function TodayRecommend() {
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+    let posterRefreshTimer = null;
 
     const getRating = async (movieCode) => {
       try {
@@ -43,6 +44,62 @@ function TodayRecommend() {
         console.warn("추천 영화 줄거리 조회 실패:", detailError);
         return { ...candidate, overview: "" };
       }
+    };
+
+    const refreshRecommendationPoster = (movieCode, attempt = 0) => {
+      if (!active || attempt >= 180) return;
+
+      posterRefreshTimer = window.setTimeout(async () => {
+        try {
+          const response = await AxiosApi.moviePosterStatuses(
+            [movieCode],
+            controller.signal,
+          );
+          const status = Array.isArray(response.data)
+            ? response.data.find((item) => item.movieCode === movieCode)
+            : null;
+
+          if (status?.posterUrl) {
+            if (active) {
+              setMovie((current) =>
+                current?.movieCode === movieCode
+                  ? { ...current, posterUrl: status.posterUrl }
+                  : current,
+              );
+            }
+            return;
+          }
+        } catch (posterError) {
+          if (posterError.code === "ERR_CANCELED") return;
+          console.warn("추천 영화 포스터 상태 조회 실패:", posterError);
+        }
+
+        refreshRecommendationPoster(movieCode, attempt + 1);
+      }, 4000);
+    };
+
+    const completeRecommendation = async (candidate) => {
+      const candidateWithOverview = await attachMovieOverview(candidate);
+      if (candidateWithOverview.posterUrl) return candidateWithOverview;
+
+      try {
+        // 추천 후보는 박스오피스 조회 경로를 거치지 않으므로 포스터 조회 API를 직접 호출해 수집을 등록한다.
+        const posterResponse = await AxiosApi.moviePoster(
+          candidateWithOverview.movieCode,
+          controller.signal,
+        );
+        const posterUrl = posterResponse.data?.posterUrl;
+        if (posterUrl) {
+          return { ...candidateWithOverview, posterUrl };
+        }
+      } catch (posterError) {
+        if (posterError.code === "ERR_CANCELED") throw posterError;
+        console.warn("추천 영화 포스터 수집 등록 실패:", posterError);
+      }
+
+      // 비동기 수집이 완료되면 추천 배너의 포스터도 자동으로 갱신한다.
+      refreshRecommendationPoster(candidateWithOverview.movieCode);
+      return candidateWithOverview;
     };
 
     const chooseUnratedMovie = async (candidates, excludedCodes, checkedCodes) => {
@@ -136,8 +193,8 @@ function TodayRecommend() {
             );
 
             if (selected) {
-              const selectedWithOverview = await attachMovieOverview(selected);
-              if (active) setMovie(selectedWithOverview);
+              const selectedWithPoster = await completeRecommendation(selected);
+              if (active) setMovie(selectedWithPoster);
               return;
             }
           } catch (genreError) {
@@ -157,10 +214,10 @@ function TodayRecommend() {
           checkedCodes,
         );
 
-        const fallbackWithOverview = fallback
-          ? await attachMovieOverview(fallback)
+        const fallbackWithPoster = fallback
+          ? await completeRecommendation(fallback)
           : null;
-        if (active) setMovie(fallbackWithOverview);
+        if (active) setMovie(fallbackWithPoster);
       } catch (requestError) {
         if (requestError.code !== "ERR_CANCELED") {
           console.error("오늘의 추천작 조회 실패:", requestError);
@@ -174,6 +231,9 @@ function TodayRecommend() {
     loadRecommendation();
     return () => {
       active = false;
+      if (posterRefreshTimer) {
+        window.clearTimeout(posterRefreshTimer);
+      }
       controller.abort();
     };
   }, []);

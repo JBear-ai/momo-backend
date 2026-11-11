@@ -842,17 +842,9 @@ public class MovieService {
     // DB와 포스터 캐시를 이용한 포스터 조회
 
     private boolean isPosterUrlAvailable(String posterUrl) {
-        if (isBlank(posterUrl)) {
-            return false;
-        }
-        return !posterUrl.startsWith("/posters/")
-                || posterFileStorageService.exists(posterUrl);
-    }
-
-    private boolean isMissingLocalPosterFile(String posterUrl) {
         return !isBlank(posterUrl)
                 && posterUrl.startsWith("/posters/")
-                && !posterFileStorageService.exists(posterUrl);
+                && posterFileStorageService.exists(posterUrl);
     }
 
     // DB의 URL뿐 아니라 로컬 파일의 실제 존재 여부까지 확인한다.
@@ -878,13 +870,20 @@ public class MovieService {
             return cachedPosterUrl;
         }
 
-        if (isMissingLocalPosterFile(moviePosterUrl)
-                || isMissingLocalPosterFile(cachedPosterUrl)) {
-            if (movie != null && isMissingLocalPosterFile(moviePosterUrl)) {
-                movie.updatePosterUrl(null);
-                movieRepository.save(movie);
-            }
+        // Movie / cache 테이블의 외부 URL은 브라우저에서 깨져도 서버가 확인할 수 없다.
+        // 파일 저장 검증을 통과한 /posters 경로만 성공으로 취급하고 기존 외부 URL은 재수집한다.
+        boolean invalidMoviePoster = !isBlank(moviePosterUrl)
+                && !isPosterUrlAvailable(moviePosterUrl);
+        boolean invalidCachedPoster = posterCache != null
+                && posterCache.getStatus() == PosterStatus.SUCCESS
+                && !isPosterUrlAvailable(posterCache.getPosterUrl());
 
+        if (invalidMoviePoster && movie != null) {
+            movie.updatePosterUrl(null);
+            movieRepository.save(movie);
+        }
+
+        if (invalidMoviePoster || invalidCachedPoster) {
             posterCacheService.resetMissingPoster(
                     movieCode,
                     movie == null ? "" : movie.getTitle(),
@@ -983,7 +982,8 @@ public class MovieService {
             // FAILED 캐시는 Movie 테이블에 과거 URL이 남아 있어도 화면에 반환하지 않는다.
             // 그래야 홈 화면이 누락 포스터로 인식하고 상태 조회를 이어갈 수 있다.
             boolean posterSearchFailed = posterCache != null
-                    && posterCache.getStatus() == PosterStatus.FAILED;
+                    && posterCache.getStatus() == PosterStatus.FAILED
+                    && !isPosterUrlAvailable(moviePosterUrl);
 
             String posterUrl = posterSearchFailed ? ""
                     : isPosterUrlAvailable(moviePosterUrl) ? moviePosterUrl
@@ -992,15 +992,19 @@ public class MovieService {
                     : "";
 
             if (posterUrl.isBlank()) {
-                boolean missingSavedFile = isMissingLocalPosterFile(moviePosterUrl)
-                        || isMissingLocalPosterFile(cachePosterUrl);
+                // 오래된 외부 URL과 파일이 삭제된 로컬 경로는 정상 포스터로 취급하지 않는다.
+                boolean invalidMoviePoster = !isBlank(moviePosterUrl)
+                        && !isPosterUrlAvailable(moviePosterUrl);
+                boolean invalidCachePoster = posterCache != null
+                        && posterCache.getStatus() == PosterStatus.SUCCESS
+                        && !isPosterUrlAvailable(posterCache.getPosterUrl());
 
-                if (missingSavedFile) {
-                    if (savedMovie != null && isMissingLocalPosterFile(moviePosterUrl)) {
-                        savedMovie.updatePosterUrl(null);
-                        movieRepository.save(savedMovie);
-                    }
+                if (invalidMoviePoster && savedMovie != null) {
+                    savedMovie.updatePosterUrl(null);
+                    movieRepository.save(savedMovie);
+                }
 
+                if (invalidMoviePoster || invalidCachePoster) {
                     posterCacheService.resetMissingPoster(
                             code, item.title(), item.releaseDate());
                 }

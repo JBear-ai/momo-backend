@@ -104,6 +104,12 @@ public class SecurityConfig {
                                                                 "/api/movies/my/liked")
                                                 .authenticated()
 
+                                                // 브라우저 img 요청은 Authorization 헤더를 보낼 수 없으므로 로컬 포스터는 공개 GET으로 제공
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/posters/**")
+                                                .permitAll()
+
                                                 // 공개 영화 조회
                                                 .requestMatchers(
                                                                 HttpMethod.GET,

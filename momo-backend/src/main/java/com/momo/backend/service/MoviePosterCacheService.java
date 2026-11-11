@@ -84,8 +84,8 @@ public class MoviePosterCacheService {
         if (posterUrl == null || posterUrl.isBlank()) {
             return false;
         }
-        return !posterUrl.startsWith("/posters/")
-                || posterFileStorageService.exists(posterUrl);
+        return posterUrl.startsWith("/posters/")
+                && posterFileStorageService.exists(posterUrl);
     }
 
     public List<MoviePosterStatusResponse> findPosterStatuses(Collection<String> movieCodes) {
