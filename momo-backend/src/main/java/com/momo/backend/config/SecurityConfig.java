@@ -1,7 +1,10 @@
 
 package com.momo.backend.config;
 
+import java.util.Arrays;
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
 
 import com.momo.backend.repository.UserRepository;
 import com.momo.backend.security.JwtFilter;
@@ -28,6 +31,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableSpringDataWebSupport(pageSerializationMode = PageSerializationMode.VIA_DTO)
 public class SecurityConfig {
+
+        @Value("${momo.cors.allowed-origins:http://localhost:3000,http://192.168.0.166:3000}")
+        private String allowedOrigins;
 
         // 비밀번호 암호화 설정
         @Bean
@@ -111,11 +117,23 @@ public class SecurityConfig {
                                                                 "/api/movies/posters/status")
                                                 .permitAll()
 
-                                                // 공개 리뷰 및 인물 조회
+                                                // 내 리뷰 및 좋아요한 리뷰는 개인 정보이므로 공개 규칙보다 먼저 인증을 요구한다.
                                                 .requestMatchers(
                                                                 HttpMethod.GET,
+                                                                "/api/reviews/me",
+                                                                "/api/reviews/me/**")
+                                                .authenticated()
+
+                                                // 공개 리뷰, 댓글 및 반응 개수 조회
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/reviews",
+                                                                "/api/reviews/*",
+                                                                "/api/reviews/*/comments",
+                                                                "/api/reviews/*/reactions",
                                                                 "/api/reviews/movie/*",
                                                                 "/api/reviews/movie/*/rating",
+                                                                "/api/comments/*/reactions",
                                                                 "/api/persons/**")
                                                 .permitAll()
 
@@ -150,7 +168,12 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
 
-                config.setAllowedOrigins(List.of("http://localhost:3000"));
+                config.setAllowedOrigins(
+                                Arrays.stream(allowedOrigins.split(","))
+                                                .map(String::trim)
+                                                .filter(origin -> !origin.isEmpty())
+                                                .distinct()
+                                                .toList());
                 config.setAllowedMethods(List.of(
                                 "GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 config.setAllowedHeaders(List.of("*"));

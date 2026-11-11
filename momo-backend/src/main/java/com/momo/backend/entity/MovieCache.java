@@ -33,7 +33,7 @@ public class MovieCache {
     private String cacheKey;
 
     // API 응답 데이터 JSON
-    @Column(name = "content_json", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "content_json", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String contentJson;
 
     // 캐시 생성 시각

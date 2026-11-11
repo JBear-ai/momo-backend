@@ -69,6 +69,9 @@ public class Movie {
     @Column(length = 1000)
     private String posterUrl;
 
+    // 기존 외부 포스터 URL을 로컬 파일로 이전한 마지막 시각
+    private LocalDateTime posterMigrationAttemptedAt;
+
     public void markBoxOfficeEntered(int rank, String targetDate) {
         if (rank > 0 && (bestBoxOfficeRank == null || rank < bestBoxOfficeRank)) {
             bestBoxOfficeRank = rank;
@@ -101,6 +104,10 @@ public class Movie {
 
     public void updatePosterUrl(String posterUrl) {
         this.posterUrl = posterUrl;
+    }
+
+    public void markPosterMigrationAttempted(LocalDateTime attemptedAt) {
+        this.posterMigrationAttemptedAt = attemptedAt;
     }
 
     // KOBIS에서 가져온 영화 정보로 Movie 객체 생성

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const HM_DOMAIN = process.env.REACT_APP_API_BASE_URL || "http://localhost:8111";
+const HM_DOMAIN = (process.env.REACT_APP_API_BASE_URL || "http://localhost:8111").replace(/\/+$/, "");
 
 // ========================================
 // 인증 관리
@@ -49,6 +49,7 @@ export const storeLoginTokens = (accessToken, refreshToken) => {
 
 // 로그아웃 및 회원 탈퇴 시 인증 정보 제거
 export const clearAuthSession = () => {
+  // 진행 중인 재발급 응답이 현재 세션을 덮어쓰지 못하도록 버전을 올린다.
   authSessionVersion += 1;
 
   localStorage.removeItem("accessToken");
@@ -56,8 +57,10 @@ export const clearAuthSession = () => {
   localStorage.removeItem("username");
   localStorage.removeItem("nickname");
 
+  // 기존 Promise는 취소할 수 없지만, 새 세션은 새 재발급을 시작할 수 있다.
   refreshPromise = null;
-  isHandlingAuthExpired = false;
+
+  window.dispatchEvent(new Event("momo-auth-changed"));
 };
 
 // 인증 만료 처리
@@ -77,8 +80,6 @@ const handleAuthExpired = (error) => {
     error.momoAuthExpiredHandled = true;
   }
 
-  window.dispatchEvent(new Event("momo-auth-changed"));
-
   if (window.location.pathname !== "/login") {
     alert("로그인이 만료되었습니다. 다시 로그인해 주세요.");
     window.location.href = "/login";
@@ -87,7 +88,7 @@ const handleAuthExpired = (error) => {
 
 // Refresh Token을 이용한 Access Token 재발급
 const reissueAccessToken = () => {
-  // 이미 재발급 중이라면 기존 요청 공유
+  // 같은 로그인 세션의 동시 401 요청은 하나의 재발급 요청을 공유한다.
   if (refreshPromise) {
     return refreshPromise;
   }
@@ -95,22 +96,21 @@ const reissueAccessToken = () => {
   const refreshToken = localStorage.getItem("refreshToken");
 
   if (!refreshToken) {
-    return Promise.reject(new Error("Refresh Token이 없습니다."));
+    const error = new Error("Refresh Token이 없습니다.");
+    error.code = "MOMO_REFRESH_TOKEN_MISSING";
+    return Promise.reject(error);
   }
 
   const requestedSessionVersion = authSessionVersion;
 
-  refreshPromise = axios
-    .post(`${HM_DOMAIN}/api/auth/reissue`, {
-      refreshToken,
-    })
+  // finally에서 이전 Promise가 새 세션의 Promise를 지우지 않도록 참조를 비교한다.
+  const currentPromise = axios
+    .post(`${HM_DOMAIN}/api/auth/reissue`, { refreshToken })
     .then((response) => {
-      // 재발급 중 로그인 세션이 변경되었다면 저장하지 않는다.
+      // 이전 세션에서 시작한 응답은 현재 로그인 토큰을 덮어쓸 수 없다.
       if (authSessionVersion !== requestedSessionVersion) {
         const error = new Error("인증 상태가 이미 변경되었습니다.");
-
         error.code = "MOMO_AUTH_SESSION_CHANGED";
-
         throw error;
       }
 
@@ -118,7 +118,9 @@ const reissueAccessToken = () => {
       const newRefreshToken = response.data?.refreshToken;
 
       if (!newAccessToken || !newRefreshToken) {
-        throw new Error("재발급 토큰 응답이 올바르지 않습니다.");
+        const error = new Error("재발급 토큰 응답이 올바르지 않습니다.");
+        error.code = "MOMO_INVALID_REFRESH_RESPONSE";
+        throw error;
       }
 
       localStorage.setItem("accessToken", newAccessToken);
@@ -127,10 +129,13 @@ const reissueAccessToken = () => {
       return newAccessToken;
     })
     .finally(() => {
-      refreshPromise = null;
+      if (refreshPromise === currentPromise) {
+        refreshPromise = null;
+      }
     });
 
-  return refreshPromise;
+  refreshPromise = currentPromise;
+  return currentPromise;
 };
 
 // ========================================
@@ -236,7 +241,12 @@ axios.interceptors.response.use(
       // 기존 요청 한 번 재시도
       return axios(originalRequest);
     } catch (reissueError) {
-      if (reissueError?.code !== "MOMO_AUTH_SESSION_CHANGED") {
+      // Refresh Token이 실제로 거부된 경우에만 세션을 종료한다.
+      // 네트워크 오류나 서버 5xx는 로그인 정보를 보존해 재시도할 수 있게 한다.
+      if (
+        reissueError?.code === "MOMO_REFRESH_TOKEN_MISSING" ||
+        reissueError?.response?.status === 401
+      ) {
         handleAuthExpired(reissueError);
       }
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 function AllReviews() {
   const navigate = useNavigate();
@@ -309,7 +310,7 @@ function AllReviews() {
                             <div className="all-review-poster">
                               {info?.posterUrl ? (
                                 <img
-                                  src={info.posterUrl}
+                                  src={resolvePosterUrl(info.posterUrl)}
                                   alt={review.movieTitle || "영화 포스터"}
                                 />
                               ) : (
@@ -380,7 +381,7 @@ function AllReviews() {
                       <div className="all-review-poster">
                         {info?.posterUrl ? (
                           <img
-                            src={info.posterUrl}
+                            src={resolvePosterUrl(info.posterUrl)}
                             alt={review.movieTitle || "영화 포스터"}
                           />
                         ) : (

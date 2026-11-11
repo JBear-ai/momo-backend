@@ -72,17 +72,21 @@ public class CommentService {
             throw new IllegalArgumentException("리뷰를 찾을 수 없습니다.");
         }
 
-        // 현재 로그인한 회원을 조회해 댓글별 내 반응 상태를 함께 반환한다.
-        User currentUser = userRepository.findByLoginId(loginId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+        // 비회원도 댓글을 읽을 수 있으며, 이 경우 개인 반응은 null로 반환한다.
+        Long currentUserId = null;
+        if (loginId != null && !loginId.isBlank()) {
+            currentUserId = userRepository.findByLoginId(loginId)
+                    .map(User::getUserId)
+                    .orElse(null);
+        }
 
         // 한 페이지에 댓글 10개씩 조회
         Pageable pageable = PageRequest.of(page, 10);
+        Long viewerId = currentUserId;
 
         return commentRepository
                 .findByReview_ReviewIdOrderByCreatedAtAsc(reviewId, pageable)
-                .map(comment -> toResponse(comment, currentUser.getUserId()));
+                .map(comment -> toResponse(comment, viewerId));
     }
 
     // 본인이 작성한 댓글 수정
@@ -140,10 +144,12 @@ public class CommentService {
         long dislikeCount = commentReactionRepository
                 .countByComment_CommentIdAndLiked(commentId, false);
 
-        Boolean myReaction = commentReactionRepository
-                .findByUser_UserIdAndComment_CommentId(currentUserId, commentId)
-                .map(reaction -> reaction.getLiked())
-                .orElse(null);
+        Boolean myReaction = currentUserId == null
+                ? null
+                : commentReactionRepository
+                        .findByUser_UserIdAndComment_CommentId(currentUserId, commentId)
+                        .map(reaction -> reaction.getLiked())
+                        .orElse(null);
 
         boolean profileImageAvailable = comment.getUser().getProfileImage() != null
                 && !comment.getUser().getProfileImage().isBlank();

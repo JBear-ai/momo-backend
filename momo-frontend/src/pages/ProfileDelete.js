@@ -34,7 +34,6 @@ function ProfileDelete() {
 
       // 탈퇴 성공 후 브라우저에 저장된 로그인 정보 제거
       clearAuthSession();
-      window.dispatchEvent(new Event("momo-auth-changed"));
       localStorage.removeItem("email");
       localStorage.removeItem("password");
 

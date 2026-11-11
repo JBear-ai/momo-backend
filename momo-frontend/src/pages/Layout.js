@@ -9,7 +9,7 @@ import {
 } from "react-router-dom";
 import styled from "styled-components";
 import textlogo from "../textlogo.png";
-import AxiosApi from "../api/AxiosApi";
+import AxiosApi, { clearAuthSession } from "../api/AxiosApi";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -386,11 +386,8 @@ function Layout() {
       // Spring Boot 서버 로그아웃 요청
       await AxiosApi.memberLogout();
 
-      // 로그아웃 성공 후 브라우저 사용자 정보 삭제
-      localStorage.removeItem("username");
-      localStorage.removeItem("nickname");
-      localStorage.removeItem("accessToken");
-      window.dispatchEvent(new Event("momo-auth-changed"));
+      // Access Token과 Refresh Token을 포함한 인증 정보를 한 번에 정리한다.
+      clearAuthSession();
 
       // 메인 화면 이동
       navigate("/", { replace: true });

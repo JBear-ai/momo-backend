@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 function MyReviews() {
   const [reviews, setReviews] = useState([]);
@@ -217,7 +218,7 @@ function MyReviews() {
                   <div className="my-review-poster">
                     {info?.posterUrl ? (
                       <img
-                        src={info.posterUrl}
+                        src={resolvePosterUrl(info.posterUrl)}
                         alt={info.title || "영화 포스터"}
                       />
                     ) : (
