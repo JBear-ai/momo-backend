@@ -124,7 +124,7 @@ function normalizePeople(people) {
 }
 
 function MovieDetail() {
-  const { id } = useParams();
+  const { id, tmdbId } = useParams();
   const navigate = useNavigate();
 
   // =========================================================
@@ -179,51 +179,57 @@ function MovieDetail() {
         setError("");
         setMovie(null);
 
-        const detailResponse = await AxiosApi.movieDetail(
-          id,
-          controller.signal,
-        );
+        const detailResponse = tmdbId
+          ? await AxiosApi.movieDetailByTmdbId(tmdbId, controller.signal)
+          : await AxiosApi.movieDetail(id, controller.signal);
         const detailData = detailResponse.data;
+        const movieCode = detailData.movieCode || null;
 
-        let posterUrl = "";
-        try {
-          const posterResponse = await AxiosApi.moviePoster(
-            id,
-            controller.signal,
-          );
-          posterUrl = posterResponse.data?.posterUrl || "";
-        } catch (posterError) {
-          if (posterError.code === "ERR_CANCELED") throw posterError;
-          console.warn("포스터 조회 실패:", posterError);
+        // KOBIS 영화는 기존 포스터 캐시를, 미등록 영화는 TMDb 포스터를 사용한다.
+        let posterUrl = detailData.posterUrl || "";
+        if (movieCode) {
+          try {
+            const posterResponse = await AxiosApi.moviePoster(
+              movieCode,
+              controller.signal,
+            );
+            posterUrl = posterResponse.data?.posterUrl || posterUrl;
+          } catch (posterError) {
+            if (posterError.code === "ERR_CANCELED") throw posterError;
+            console.warn("포스터 조회 실패:", posterError);
+          }
         }
 
         if (!active) return;
-        let moviePeople = [];
-        try {
-          const peopleResponse = await AxiosApi.moviePeople(id, controller.signal);
-          moviePeople = Array.isArray(peopleResponse.data) ? peopleResponse.data : [];
-        } catch (peopleError) {
-          if (peopleError.code === "ERR_CANCELED") throw peopleError;
-          console.warn("영화 인물 프로필 조회 실패:", peopleError);
+        let moviePeople = Array.isArray(detailData.people) ? detailData.people : [];
+        if (movieCode) {
+          try {
+            const peopleResponse = await AxiosApi.moviePeople(movieCode, controller.signal);
+            moviePeople = Array.isArray(peopleResponse.data) ? peopleResponse.data : [];
+          } catch (peopleError) {
+            if (peopleError.code === "ERR_CANCELED") throw peopleError;
+            console.warn("영화 인물 프로필 조회 실패:", peopleError);
+          }
         }
 
         if (!active) return;
         setMovie({
           ...detailData,
-          id: detailData.movieCode,
+          id: movieCode || "TMDB-" + tmdbId,
+          movieCode,
           posterUrl,
           directorPeople: moviePeople.filter((person) => person.department === "director"),
           actorPeople: moviePeople.filter((person) => person.department === "actor"),
         });
 
-        // 최초 포스터 응답이 비어 있으면 비동기 수집 완료를 확인한다.
-        if (!posterUrl) {
-          waitForMoviePoster(id, controller.signal)
+        // 최초 포스터 응답이 비어 있으면 KOBIS 포스터 수집 완료를 확인한다.
+        if (movieCode && !posterUrl) {
+          waitForMoviePoster(movieCode, controller.signal)
             .then((resolvedPosterUrl) => {
               if (!active || !resolvedPosterUrl) return;
 
               setMovie((currentMovie) => {
-                if (!currentMovie || currentMovie.movieCode !== id) {
+                if (!currentMovie || currentMovie.movieCode !== movieCode) {
                   return currentMovie;
                 }
                 return { ...currentMovie, posterUrl: resolvedPosterUrl };
@@ -248,18 +254,20 @@ function MovieDetail() {
       }
     }
 
-    if (id) fetchMovieDetail();
+    if (id || tmdbId) fetchMovieDetail();
     else setLoading(false);
 
     return () => {
       active = false;
       controller.abort();
     };
-  }, [id]);
+  }, [id, tmdbId]);
 
   // =========================================================
   // 5. 영화별 리뷰 및 평가 조회
   // =========================================================
+
+  const reviewMovieCode = movie?.movieCode || null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -278,8 +286,8 @@ function MovieDetail() {
       });
 
       const [reviewsResult, ratingResult] = await Promise.allSettled([
-        AxiosApi.movieReviews(id, 0, controller.signal),
-        AxiosApi.movieRating(id, controller.signal),
+        AxiosApi.movieReviews(reviewMovieCode, 0, controller.signal),
+        AxiosApi.movieRating(reviewMovieCode, controller.signal),
       ]);
 
       if (!active) return;
@@ -306,12 +314,12 @@ function MovieDetail() {
       }
     }
 
-    if (id) fetchReviewsAndRating();
+    if (reviewMovieCode) fetchReviewsAndRating();
     return () => {
       active = false;
       controller.abort();
     };
-  }, [id]);
+  }, [reviewMovieCode]);
 
   // =========================================================
   // 6. 영화 평가 데이터
@@ -347,7 +355,7 @@ function MovieDetail() {
   // =========================================================
 
   async function handleMovieRating(liked) {
-    if (isRatingSubmitting) return;
+    if (!movie?.movieCode || isRatingSubmitting) return;
 
     const previousSummary = { ...ratingSummary };
     const previousRating = previousSummary.myRating;
@@ -432,6 +440,8 @@ function MovieDetail() {
   // =========================================================
 
   async function addReview() {
+    if (!movie?.movieCode) return;
+
     if (!reviewTitle.trim()) {
       alert("리뷰 제목을 입력해 주세요.");
       return;
@@ -610,7 +620,14 @@ function MovieDetail() {
         ),
       ),
     ),
-    React.createElement(
+    movie.overview &&
+      React.createElement(
+        "section",
+        { className: "detail-content-section" },
+        React.createElement("h2", null, "줄거리"),
+        React.createElement("p", null, movie.overview),
+      ),
+    movie.movieCode && React.createElement(
       "section",
       { className: "movie-rating-panel" },
       React.createElement("h2", { className: "rating-label" }, "관객 평점"),
@@ -780,6 +797,12 @@ function MovieDetail() {
       "section",
       { className: "detail-content-section" },
       React.createElement("h2", null, "영화 메모"),
+      !movie.movieCode &&
+        React.createElement(
+          "p",
+          { className: "people-empty" },
+          "이 작품은 외부 영화 정보로 표시 중입니다. KOBIS 영화 코드가 연결되면 MOMO의 영화 메모와 평가 기능도 사용할 수 있습니다.",
+        ),
       reviewError &&
         React.createElement("p", { className: "people-empty" }, reviewError),
       React.createElement(
@@ -791,6 +814,7 @@ function MovieDetail() {
             type: "button",
             className: "review-write-toggle",
             onClick: () => setIsReviewOpen((prev) => !prev),
+            disabled: !movie.movieCode,
           },
           React.createElement(
             "span",
@@ -861,7 +885,7 @@ function MovieDetail() {
                 {
                   type: "button",
                   onClick: addReview,
-                  disabled: isReviewSubmitting,
+                  disabled: !movie.movieCode || isReviewSubmitting,
                 },
                 isReviewSubmitting ? "저장 중..." : "✏️ 기록하기",
               ),
