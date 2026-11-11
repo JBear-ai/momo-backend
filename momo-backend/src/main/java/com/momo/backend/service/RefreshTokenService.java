@@ -36,7 +36,7 @@ public class RefreshTokenService {
             return;
         }
 
-        refreshTokenRepository.save(new RefreshToken(lockedUser, token));
+        refreshTokenRepository.save(new RefreshToken(lockedUser, hashToken(token)));
     }
 
     // 검증과 DB 교체를 한 트랜잭션에서 수행하여 Rotation의 원자성을 보장한다.
