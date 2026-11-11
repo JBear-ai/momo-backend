@@ -6,6 +6,8 @@ import com.momo.backend.security.TokenProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
@@ -14,7 +16,10 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@AutoConfigureMockMvc
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:momo;DB_CLOSE_DELAY=-1;MODE=MySQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
@@ -30,7 +35,17 @@ class MomoBackendApplicationTests {
     private TokenProvider tokenProvider;
 
     @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
     private MoviePosterCacheRepository posterCacheRepository;
+
+    @Test
+    void localPosterImageCanBeRequestedWithoutAnAuthorizationHeader() throws Exception {
+        // 존재하지 않는 파일은 404여야 하며, 인증 누락으로 차단되는 401이면 안 된다.
+        mockMvc.perform(get("/posters/security-regression-test.jpg"))
+                .andExpect(status().isNotFound());
+    }
 
     @Test
     void contextLoads() {
