@@ -27,7 +27,7 @@ public class MoviePersistenceService {
 
         List<String> codes = movies.stream()
                 .filter(item -> item != null)
-                .map(MovieSearchResponse::movieCode)
+                .map(item -> item == null ? null : item.movieCode())
                 .filter(code -> code != null && !code.isBlank())
                 .distinct()
                 .toList();
