@@ -176,7 +176,7 @@ public class MovieRatingService {
                                 user.getUserId(),
                                 movieCode
                         )
-                        .map(MovieRating::getLiked)
+                        .map(rating -> rating == null ? null : rating.getLiked())
                         .orElse(null);
             }
         }
