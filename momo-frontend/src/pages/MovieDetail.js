@@ -202,7 +202,7 @@ function MovieDetail() {
 
         if (!active) return;
         let moviePeople = Array.isArray(detailData.people) ? detailData.people : [];
-        if (movieCode) {
+        if (movieCode && !tmdbId) {
           try {
             const peopleResponse = await AxiosApi.moviePeople(movieCode, controller.signal);
             moviePeople = Array.isArray(peopleResponse.data) ? peopleResponse.data : [];
