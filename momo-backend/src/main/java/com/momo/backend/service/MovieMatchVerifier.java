@@ -53,11 +53,9 @@ final class MovieMatchVerifier {
             return true;
         }
 
-        // 개봉연도가 없으면 영문 원제 또는 감독까지 일치해야 한다.
-        boolean originalTitleMatches = !requestedTitleEn.isBlank()
-                && matches(requestedTitleEn, foundTitle, foundOriginalTitle);
-        boolean directorMatches = matchesDirector(kobisDirector, candidateDirector);
-        return originalTitleMatches || directorMatches;
+        // 한쪽 공급원의 개봉연도가 누락된 경우에도 제목이 정확히 일치하면 동일 후보로 인정한다.
+        // 양쪽 연도가 모두 존재하면서 다르면 위에서 이미 제외했으므로 동명 작품 오매칭은 방지된다.
+        return true;
     }
 
     // 동일 영화 후보 중 제목·개봉일·감독 일치도가 높은 포스터를 우선한다.
