@@ -59,12 +59,13 @@ public class MoviePosterRetryScheduler {
             }
 
             try {
-                posterAsyncService.searchPosterAsync(
-                        candidate.getMovieCode(),
-                        candidate.getTitle(),
-                        candidate.getReleaseDate(),
-                        claimToken
-                );
+                if (candidate.getPriority() == 0) {
+                    posterAsyncService.searchBoxOfficePosterAsync(
+                            candidate.getMovieCode(), candidate.getTitle(), candidate.getReleaseDate(), claimToken);
+                } else {
+                    posterAsyncService.searchPosterAsync(
+                            candidate.getMovieCode(), candidate.getTitle(), candidate.getReleaseDate(), claimToken);
+                }
                 submitted++;
             } catch (RuntimeException exception) {
                 posterCacheService.releaseProcessingClaim(candidate.getMovieCode(), claimToken);
