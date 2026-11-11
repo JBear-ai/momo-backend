@@ -10,6 +10,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -26,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
+        "momo.storage.poster-dir=${java.io.tmpdir}/momo-poster-security-test",
         "JWT_SECRET=TW9tb1Rlc3RPbmx5U2VjcmV0S2V5Rm9ySlZUVGVzdHMxMjM0NQ==",
 })
 @ActiveProfiles("test")
@@ -42,9 +45,24 @@ class MomoBackendApplicationTests {
 
     @Test
     void localPosterImageCanBeRequestedWithoutAnAuthorizationHeader() throws Exception {
-        // 존재하지 않는 파일은 404여야 하며, 인증 누락으로 차단되는 401이면 안 된다.
-        mockMvc.perform(get("/posters/security-regression-test.jpg"))
-                .andExpect(status().isNotFound());
+        Path posterDirectory = Path.of(
+                System.getProperty("java.io.tmpdir"),
+                "momo-poster-security-test");
+        Files.createDirectories(posterDirectory);
+
+        String fileName = "anonymous-" + UUID.randomUUID() + ".jpg";
+        Path posterFile = posterDirectory.resolve(fileName);
+        Files.write(posterFile, new byte[] {
+                (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00
+        });
+
+        try {
+            // 브라우저 img 요청처럼 Authorization 헤더 없이 실제 파일을 받아야 한다.
+            mockMvc.perform(get("/posters/" + fileName))
+                    .andExpect(status().isOk());
+        } finally {
+            Files.deleteIfExists(posterFile);
+        }
     }
 
     @Test
