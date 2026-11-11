@@ -28,7 +28,7 @@ public class MoviePosterIntegrityScheduler {
     private final MoviePosterCacheService posterCacheService;
 
     // 5분마다 로컬 포스터 경로를 확인한다. 커서 방식이라 복구 중인 행 때문에 누락되지 않는다.
-    @Scheduled(fixedDelayString = "${momo.poster.integrity.delay-ms:300000}")
+    @Scheduled(fixedDelayString = "${momo.poster.integrity.delay-ms:300000}", initialDelayString = "${momo.poster.integrity.initial-delay-ms:30000}")
     public void repairMissingPosterFiles() {
         String afterMovieCode = null;
         int repaired = 0;
