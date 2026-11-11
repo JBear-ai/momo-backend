@@ -118,11 +118,12 @@ public class PersonService {
             }
 
             // 동명 작품이 여러 편이면 TMDb와 KOBIS 양쪽에 있는 감독 정보로 한 번 더 좁힌다.
-            boolean kobisHasDirectorInfo = matched.values().stream()
-                    .anyMatch(candidate -> candidate.path("directors").isArray()
-                            && !candidate.path("directors").isEmpty());
+            boolean hasConfirmedDirectorMatch = !tmdbDirectors.isEmpty()
+                    && matched.values().stream()
+                            .anyMatch(candidate -> matchesKobisDirector(candidate, tmdbDirectors));
 
-            if (matched.size() > 1 && !tmdbDirectors.isEmpty() && kobisHasDirectorInfo) {
+            // 감독 이름 표기가 달라 전혀 일치하지 않는 경우에는 후보를 전부 제거하지 않고 모호한 상태로 남긴다.
+            if (matched.size() > 1 && hasConfirmedDirectorMatch) {
                 matched.entrySet().removeIf(entry ->
                         !matchesKobisDirector(entry.getValue(), tmdbDirectors));
             }
