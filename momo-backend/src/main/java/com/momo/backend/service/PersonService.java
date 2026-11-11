@@ -614,48 +614,129 @@ public class PersonService {
         }
     }
 
+    /**
+     * 검색어에 포함된 문자 체계를 기준으로 우선 검색 언어를 정하고,
+     * TMDb 검색 결과가 비어 있거나 역할 분야가 맞지 않으면 보조 언어로 재검색한다.
+     *
+     * language는 검색어 자체의 언어를 강제하는 값이 아니라 TMDb 응답의
+     * 현지화 기준이므로, 한 언어의 첫 결과를 무조건 선택하지 않고
+     * 모든 후보를 모아 이름 유사도와 인물 분야를 함께 평가한다.
+     */
     private JsonNode findPerson(String name, String type) throws Exception {
-        JsonNode person = findPersonByLanguage(name, type, "ko-KR");
+        LinkedHashSet<String> languages = new LinkedHashSet<>();
+        languages.add(detectPrimaryLanguage(name));
+        languages.add("en-US");
+        languages.add("ko-KR");
+        languages.add("ja-JP");
+        languages.add("zh-CN");
 
-        if (person == null) {
-            person = findPersonByLanguage(name, type, "ja-JP");
+        Map<Long, ScoredPersonCandidate> candidates = new HashMap<>();
+
+        for (String language : languages) {
+            String json;
+            try {
+                json = tmdbApiClient.searchPerson(name, language);
+            } catch (Exception searchError) {
+                log.warn("TMDb 인물 검색 언어 실패. language={}, name={}",
+                        language, name, searchError);
+                continue;
+            }
+
+            if (json == null || json.isBlank()) continue;
+
+            JsonNode results = objectMapper.readTree(json).path("results");
+            if (!results.isArray()) continue;
+
+            for (JsonNode candidate : results) {
+                long id = candidate.path("id").asLong(0);
+                if (id <= 0 || !matchesPersonDepartment(candidate, type)) continue;
+
+                int score = scorePersonName(name, candidate);
+                ScoredPersonCandidate previous = candidates.get(id);
+                if (previous == null || score > previous.score()) {
+                    candidates.put(id, new ScoredPersonCandidate(candidate, score));
+                }
+            }
         }
 
-        return person;
+        return candidates.values().stream()
+                .filter(candidate -> candidate.score() >= 55)
+                .sorted(Comparator.comparingInt(ScoredPersonCandidate::score).reversed())
+                .map(ScoredPersonCandidate::person)
+                .findFirst()
+                .orElse(null);
     }
 
-    private JsonNode findPersonByLanguage(
-            String name,
-            String type,
-            String language
-    ) throws Exception {
-        String json = tmdbApiClient.searchPerson(name, language);
+    private String detectPrimaryLanguage(String name) {
+        if (name.matches(".*[\\uAC00-\\uD7A3].*")) return "ko-KR";
+        if (name.matches(".*[\\u3040-\\u30FF].*")) return "ja-JP";
+        if (name.matches(".*[\\u4E00-\\u9FFF].*")) return "zh-CN";
+        if (name.matches(".*[\\u0400-\\u04FF].*")) return "ru-RU";
+        if (name.matches(".*[\\u0600-\\u06FF].*")) return "ar-SA";
+        if (name.matches(".*[\\u0900-\\u097F].*")) return "hi-IN";
+        return "en-US";
+    }
 
-        if (json == null || json.isBlank()) {
-            return null;
+    private boolean matchesPersonDepartment(JsonNode candidate, String type) {
+        String department = text(candidate, "known_for_department");
+        if ("director".equals(type)) {
+            return "Directing".equalsIgnoreCase(department)
+                    || "Director".equalsIgnoreCase(department);
         }
+        return "Acting".equalsIgnoreCase(department);
+    }
 
-        JsonNode results = objectMapper.readTree(json).path("results");
-        if (!results.isArray()) {
-            return null;
-        }
+    private int scorePersonName(String requestedName, JsonNode candidate) {
+        String candidateName = text(candidate, "name");
+        String normalizedRequested = normalizePersonName(requestedName);
+        String normalizedCandidate = normalizePersonName(candidateName);
 
-        for (JsonNode candidate : results) {
-            String department = text(candidate, "known_for_department");
+        if (normalizedRequested.isBlank() || normalizedCandidate.isBlank()) return 0;
+        if (normalizedRequested.equals(normalizedCandidate)) return 100;
 
-            if ("director".equals(type)
-                    && ("Directing".equalsIgnoreCase(department)
-                    || "Director".equalsIgnoreCase(department))) {
-                return candidate;
+        // TMDb 검색 결과는 입력 이름과 연관된 후보이므로, 공백·악센트·문장부호
+        // 차이를 정규화한 뒤 유사도를 계산한다. 이름이 전혀 다른 첫 결과는 선택하지 않는다.
+        String compactRequested = normalizeSearchName(requestedName);
+        String compactCandidate = normalizeSearchName(candidateName);
+        if (compactRequested.equals(compactCandidate)) return 95;
+
+        int distance = levenshteinDistance(compactRequested, compactCandidate);
+        int maxLength = Math.max(compactRequested.length(), compactCandidate.length());
+        if (maxLength == 0) return 0;
+
+        double similarity = 1.0 - (double) distance / maxLength;
+        return (int) Math.round(similarity * 80);
+    }
+
+    private String normalizeSearchName(String value) {
+        return Normalizer.normalize(value == null ? "" : value,
+                        Normalizer.Form.NFKD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[\\s\\p{Punct}\\p{IsPunctuation}]", "")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private int levenshteinDistance(String left, String right) {
+        int[] previous = new int[right.length() + 1];
+        int[] current = new int[right.length() + 1];
+        for (int j = 0; j <= right.length(); j++) previous[j] = j;
+
+        for (int i = 1; i <= left.length(); i++) {
+            current[0] = i;
+            for (int j = 1; j <= right.length(); j++) {
+                int cost = left.charAt(i - 1) == right.charAt(j - 1) ? 0 : 1;
+                current[j] = Math.min(
+                        Math.min(current[j - 1] + 1, previous[j] + 1),
+                        previous[j - 1] + cost);
             }
-
-            if ("actor".equals(type)
-                    && "Acting".equalsIgnoreCase(department)) {
-                return candidate;
-            }
+            int[] temporary = previous;
+            previous = current;
+            current = temporary;
         }
+        return previous[right.length()];
+    }
 
-        return null;
+    private record ScoredPersonCandidate(JsonNode person, int score) {
     }
 
     private List<FilmographyItem> extractFilmography(
