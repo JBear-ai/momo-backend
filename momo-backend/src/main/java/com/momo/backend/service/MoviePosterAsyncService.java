@@ -20,7 +20,17 @@ public class MoviePosterAsyncService {
     private final MovieRepository movieRepository;
 
     @Async("posterTaskExecutor")
-    public void searchPosterAsync(
+    public void searchPosterAsync(String movieCode, String title, String releaseDate, String claimToken) {
+        searchPoster(movieCode, title, releaseDate, claimToken);
+    }
+
+    // 홈 박스오피스는 별도 실행기로 분리해 대량 사전 수집 작업에 막히지 않게 한다.
+    @Async("boxOfficePosterTaskExecutor")
+    public void searchBoxOfficePosterAsync(String movieCode, String title, String releaseDate, String claimToken) {
+        searchPoster(movieCode, title, releaseDate, claimToken);
+    }
+
+    private void searchPoster(
             String movieCode,
             String title,
             String releaseDate,
