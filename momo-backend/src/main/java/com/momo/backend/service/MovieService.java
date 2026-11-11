@@ -51,6 +51,7 @@ public class MovieService {
     private final MoviePosterCacheService posterCacheService;
     private final MoviePersistenceService moviePersistenceService;
     private final MoviePosterCacheRepository moviePosterCacheRepository;
+    private final PosterFileStorageService posterFileStorageService;
     private final Cache<String, MovieCache> movieApiMemoryCache;
 
     private static final Object[] CACHE_LOCKS = createCacheLocks();
@@ -829,30 +830,55 @@ public class MovieService {
 
     // DB와 포스터 캐시를 이용한 포스터 조회
 
-    private String findSavedPosterUrl(String movieCode) {
+    private boolean isPosterUrlAvailable(String posterUrl) {
+        if (isBlank(posterUrl)) {
+            return false;
+        }
+        return !posterUrl.startsWith("/posters/")
+                || posterFileStorageService.exists(posterUrl);
+    }
 
+    private boolean isMissingLocalPosterFile(String posterUrl) {
+        return !isBlank(posterUrl)
+                && posterUrl.startsWith("/posters/")
+                && !posterFileStorageService.exists(posterUrl);
+    }
+
+    // DB의 URL뿐 아니라 로컬 파일의 실제 존재 여부까지 확인한다.
+    private String findSavedPosterUrl(String movieCode) {
         if (isBlank(movieCode)) {
             return "";
         }
 
-        // 1. Movie 테이블의 포스터
-        Movie movie = movieRepository.findById(movieCode)
-                .orElse(null);
+        Movie movie = movieRepository.findById(movieCode).orElse(null);
+        String moviePosterUrl = movie == null ? "" : movie.getPosterUrl();
 
-        if (movie != null && !isBlank(movie.getPosterUrl())) {
-            return movie.getPosterUrl();
+        if (isPosterUrlAvailable(moviePosterUrl)) {
+            return moviePosterUrl;
         }
 
-        // 2. MoviePosterCache의 포스터
-        MoviePosterCache posterCache = posterCacheService
-                .findCache(movieCode)
-                .orElse(null);
-
-        if (posterCache != null
+        MoviePosterCache posterCache = posterCacheService.findCache(movieCode).orElse(null);
+        String cachedPosterUrl = posterCache != null
                 && posterCache.getStatus() == PosterStatus.SUCCESS
-                && !isBlank(posterCache.getPosterUrl())) {
+                ? posterCache.getPosterUrl()
+                : "";
 
-            return posterCache.getPosterUrl();
+        if (isPosterUrlAvailable(cachedPosterUrl)) {
+            return cachedPosterUrl;
+        }
+
+        if (isMissingLocalPosterFile(moviePosterUrl)
+                || isMissingLocalPosterFile(cachedPosterUrl)) {
+            if (movie != null && isMissingLocalPosterFile(moviePosterUrl)) {
+                movie.updatePosterUrl(null);
+                movieRepository.save(movie);
+            }
+
+            posterCacheService.resetMissingPoster(
+                    movieCode,
+                    movie == null ? "" : movie.getTitle(),
+                    movie == null ? "" : movie.getReleaseDate()
+            );
         }
 
         return "";
@@ -910,11 +936,16 @@ public class MovieService {
     // 박스오피스 포스터 캐시 보완
 
     private List<BoxOfficeResponse> enrichBoxOfficePosters(List<BoxOfficeResponse> movies) {
-        if (movies == null || movies.isEmpty())
+        if (movies == null || movies.isEmpty()) {
             return List.of();
+        }
 
-        List<String> codes = movies.stream().filter(item -> item != null).map(item -> item.movieCode())
-                .filter(code -> !isBlank(code)).distinct().toList();
+        List<String> codes = movies.stream()
+                .filter(item -> item != null)
+                .map(BoxOfficeResponse::movieCode)
+                .filter(code -> !isBlank(code))
+                .distinct()
+                .toList();
 
         Map<String, Movie> savedMovies = new HashMap<>();
         movieRepository.findAllById(codes)
@@ -929,18 +960,48 @@ public class MovieService {
             String code = item.movieCode();
             Movie savedMovie = savedMovies.get(code);
             MoviePosterCache posterCache = posterCaches.get(code);
-            String posterUrl = savedMovie != null && !isBlank(savedMovie.getPosterUrl())
-                    ? savedMovie.getPosterUrl()
-                    : posterCache != null && posterCache.getStatus() == PosterStatus.SUCCESS
-                            && !isBlank(posterCache.getPosterUrl())
-                                    ? posterCache.getPosterUrl()
-                                    : item.posterUrl() == null ? "" : item.posterUrl();
 
-            if (posterUrl.isBlank())
+            String moviePosterUrl = savedMovie == null ? "" : savedMovie.getPosterUrl();
+            String cachePosterUrl = posterCache != null
+                    && posterCache.getStatus() == PosterStatus.SUCCESS
+                    ? posterCache.getPosterUrl()
+                    : "";
+            String responsePosterUrl = item.posterUrl() == null ? "" : item.posterUrl();
+
+            String posterUrl = isPosterUrlAvailable(moviePosterUrl) ? moviePosterUrl
+                    : isPosterUrlAvailable(cachePosterUrl) ? cachePosterUrl
+                    : isPosterUrlAvailable(responsePosterUrl) ? responsePosterUrl
+                    : "";
+
+            if (posterUrl.isBlank()) {
+                boolean missingLocalFile = isMissingLocalPosterFile(moviePosterUrl)
+                        || isMissingLocalPosterFile(cachePosterUrl)
+                        || isMissingLocalPosterFile(responsePosterUrl);
+
+                if (missingLocalFile) {
+                    if (savedMovie != null && isMissingLocalPosterFile(moviePosterUrl)) {
+                        savedMovie.updatePosterUrl(null);
+                        movieRepository.save(savedMovie);
+                    }
+
+                    posterCacheService.resetMissingPoster(
+                            code, item.title(), item.releaseDate());
+                }
+
                 enqueuePosterSearchWithoutLookup(code, item.title(), item.releaseDate());
-            result.add(new BoxOfficeResponse(item.rank(), code, item.title(), item.releaseDate(),
-                    item.audienceCount(), item.totalAudience(), posterUrl));
+            }
+
+            result.add(new BoxOfficeResponse(
+                    item.rank(),
+                    code,
+                    item.title(),
+                    item.releaseDate(),
+                    item.audienceCount(),
+                    item.totalAudience(),
+                    posterUrl
+            ));
         }
+
         return result;
     }
 
