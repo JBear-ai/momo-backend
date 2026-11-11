@@ -102,10 +102,14 @@ public interface MoviePosterCacheRepository
                SET poster_url = NULL, status = 'PENDING',
                    claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
+               AND (status <> 'PROCESSING'
+                    OR updated_at IS NULL
+                    OR updated_at < :processingBefore)
             """, nativeQuery = true)
     int resetMissingPoster(
             @Param("movieCode") String movieCode,
-            @Param("now") LocalDateTime now
+            @Param("now") LocalDateTime now,
+            @Param("processingBefore") LocalDateTime processingBefore
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
