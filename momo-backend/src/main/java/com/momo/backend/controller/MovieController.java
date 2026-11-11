@@ -43,7 +43,8 @@ public class MovieController {
                                 movieService.searchMovies(keyword, page, size));
         }
 
-        @GetMapping("/{movieCode:[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]}/reviews")
+        // KOBIS 영화 코드는 숫자뿐 아니라 영문자가 포함될 수 있다.
+        @GetMapping("/{movieCode:[A-Za-z0-9]{8}}/reviews")
         public ResponseEntity<Page<ReviewResponse>> getMovieReviews(
                         @PathVariable String movieCode,
                         @RequestParam(defaultValue = "0") int page) {
@@ -52,7 +53,7 @@ public class MovieController {
                                 reviewService.getMovieReviews(movieCode, page));
         }
 
-        @GetMapping("/{movieCode:[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]}")
+        @GetMapping("/{movieCode:[A-Za-z0-9]{8}}")
         public ResponseEntity<MovieDetailResponse> getMovieDetail(
                         @PathVariable String movieCode) {
 
