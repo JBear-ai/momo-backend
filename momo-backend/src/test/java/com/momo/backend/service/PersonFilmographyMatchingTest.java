@@ -2,7 +2,6 @@ package com.momo.backend.service;
 
 import com.momo.backend.client.KobisApiClient;
 import com.momo.backend.client.TmdbApiClient;
-import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.repository.MovieCacheRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
@@ -32,10 +31,16 @@ class PersonFilmographyMatchingTest {
                   "release_dates": {
                     "results": [{
                       "iso_3166_1": "KR",
-                      "release_dates": [{
-                        "release_date": "2024-12-25T00:00:00.000Z",
-                        "type": 3
-                      }]
+                      "release_dates": [
+                        {
+                          "release_date": "2023-12-20T00:00:00.000Z",
+                          "type": 1
+                        },
+                        {
+                          "release_date": "2024-12-25T00:00:00.000Z",
+                          "type": 3
+                        }
+                      ]
                     }]
                   },
                   "credits": {
