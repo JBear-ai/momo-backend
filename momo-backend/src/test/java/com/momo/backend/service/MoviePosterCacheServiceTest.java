@@ -19,7 +19,7 @@ class MoviePosterCacheServiceTest {
                 any(LocalDateTime.class), any(LocalDateTime.class)
         )).thenReturn(1);
 
-        MoviePosterCacheService service = new MoviePosterCacheService(repository);
+        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
 
         String token = service.tryMarkAsProcessing("20260001");
 
