@@ -28,14 +28,31 @@ public class MoviePosterRetryScheduler {
     private final MoviePosterAsyncService posterAsyncService;
     private final MovieRepository movieRepository;
 
+    private boolean isRetryReady(MoviePosterCache cache) {
+        if (cache.getUpdatedAt() == null) {
+            return true;
+        }
+
+        long retryDelayMinutes = switch (cache.getRetryCount()) {
+            case 0, 1 -> 2;
+            case 2 -> 10;
+            case 3 -> 30;
+            default -> 120;
+        };
+
+        return !cache.getUpdatedAt().isAfter(LocalDateTime.now().minusMinutes(retryDelayMinutes));
+    }
+
     // 신규 수집으로 스레드 풀에 등록되지 못한 포스터 작업을 작은 배치로 다시 등록한다.
     @Scheduled(fixedDelayString = "${momo.poster.retry.delay-ms:15000}")
     public void retryPendingPosterDownloads() {
         List<MoviePosterCache> candidates = new ArrayList<>();
         candidates.addAll(posterCacheRepository.findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus.PENDING));
-        // 실패 작업은 2분 대기 후 재시도한다. 신규 PENDING 작업보다 뒤에서 처리된다.
-        candidates.addAll(posterCacheRepository.findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
-                PosterStatus.FAILED, LocalDateTime.now().minusMinutes(2)));
+        // 실패 횟수에 따라 2분 → 10분 → 30분 → 2시간으로 재시도 간격을 늘린다.
+        posterCacheRepository.findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus.FAILED)
+                .stream()
+                .filter(this::isRetryReady)
+                .forEach(candidates::add);
         candidates.addAll(posterCacheRepository.findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
                 PosterStatus.PROCESSING, LocalDateTime.now().minusMinutes(10)));
         candidates.sort(java.util.Comparator.comparingInt(MoviePosterCache::getPriority)
