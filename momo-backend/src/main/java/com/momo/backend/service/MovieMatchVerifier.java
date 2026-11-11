@@ -53,8 +53,17 @@ final class MovieMatchVerifier {
             return true;
         }
 
-        // 한쪽 공급원의 개봉연도가 누락된 경우에도 제목이 정확히 일치하면 동일 후보로 인정한다.
-        // 양쪽 연도가 모두 존재하면서 다르면 위에서 이미 제외했으므로 동명 작품 오매칭은 방지된다.
+        // 개봉연도 한쪽이 누락된 경우에는 정확한 제목과 감독 정보를 함께 확인한다.
+        // 감독명이 같은 문자 체계로 모두 제공됐는데 다르면 동명 작품일 가능성이 있어 제외한다.
+        boolean directorsProvided = kobisDirector != null && !kobisDirector.isBlank()
+                && candidateDirector != null && !candidateDirector.isBlank();
+        if (directorsProvided
+                && sameNameScript(kobisDirector, candidateDirector)
+                && !matchesDirector(kobisDirector, candidateDirector)) {
+            return false;
+        }
+
+        // 감독 정보가 없거나 문자 체계가 달라 직접 비교할 수 없으면 정확한 제목 일치를 허용한다.
         return true;
     }
 
