@@ -328,6 +328,14 @@ const AxiosApi = {
     });
   },
 
+  // TMDb ID로 KOBIS 미등록 영화의 상세정보도 조회한다.
+  movieDetailByTmdbId: async (tmdbId, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/movies/tmdb/${encodeURIComponent(tmdbId)}`,
+      { signal },
+    );
+  },
+
   // 6-2. 영화 상세정보 조회
   movieDetail: async (movieCode, signal) => {
     return await axios.get(
