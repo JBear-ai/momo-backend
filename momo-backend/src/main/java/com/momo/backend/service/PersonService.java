@@ -260,7 +260,7 @@ public class PersonService {
                 new ArrayList<>(uniqueMovies.values());
 
         result.sort(Comparator.comparing(
-                FilmographyItem::releaseDate,
+                item -> item == null ? null : item.releaseDate(),
                 Comparator.nullsLast(Comparator.reverseOrder())
         ));
 
@@ -361,7 +361,7 @@ public class PersonService {
             return "";
         }
 
-        return value.asText("").trim();
+        return value.asString("").trim();
     }
 
     private String nullableText(JsonNode node, String field) {
