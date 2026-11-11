@@ -12,6 +12,21 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableAsync
 public class AsyncConfig {
 
+    // 홈 박스오피스 포스터는 일반 사전 수집 작업과 분리해 먼저 처리한다.
+    @Bean(name = "boxOfficePosterTaskExecutor")
+    public Executor boxOfficePosterTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(30);
+        executor.setThreadNamePrefix("boxoffice-poster-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
+
     @Bean(name = "posterTaskExecutor")
     public Executor posterTaskExecutor() {
 

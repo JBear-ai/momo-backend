@@ -71,7 +71,7 @@ function Home() {
     let refreshTimer = null;
 
     const refreshPosterStatuses = (movieCodes, attempt = 0) => {
-      if (cancelled || attempt >= 20 || movieCodes.length === 0) {
+      if (cancelled || attempt >= 180 || movieCodes.length === 0) {
         return;
       }
 
@@ -104,7 +104,7 @@ function Home() {
           );
 
           if (!cancelled) {
-            // 수집 작업이 끝날 때까지 최대 80초간 상태를 확인한다.
+            // 수집 작업이 끝날 때까지 최대 12분간 상태를 확인한다.
             const allHavePosters = movieCodes.every((code) => {
               const status = statusByCode.get(code);
               return status && status.status === "SUCCESS" && status.posterUrl;

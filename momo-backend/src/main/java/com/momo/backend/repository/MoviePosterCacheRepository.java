@@ -16,10 +16,10 @@ import java.util.List;
 public interface MoviePosterCacheRepository
         extends JpaRepository<MoviePosterCache, String> {
 
-    // 재시도 대기열에서 오래된 작업부터 제한된 수만 가져온다.
-    List<MoviePosterCache> findTop10ByStatusOrderByUpdatedAtAsc(PosterStatus status);
+    // 우선순위가 높은 영화부터 처리하고 같은 우선순위에서는 오래 기다린 작업을 먼저 처리한다.
+    List<MoviePosterCache> findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus status);
 
-    List<MoviePosterCache> findTop10ByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+    List<MoviePosterCache> findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
             PosterStatus status,
             LocalDateTime updatedBefore
     );
@@ -31,14 +31,18 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             INSERT INTO movie_poster_cache
-                (movie_code, title, release_date, poster_url, status, updated_at)
-            VALUES (:movieCode, :title, :releaseDate, NULL, 'PENDING', :now)
-            ON DUPLICATE KEY UPDATE title = VALUES(title), release_date = VALUES(release_date)
+                (movie_code, title, release_date, poster_url, status, priority, retry_count, updated_at)
+            VALUES (:movieCode, :title, :releaseDate, NULL, 'PENDING', :priority, 0, :now)
+            ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                release_date = VALUES(release_date),
+                priority = LEAST(priority, VALUES(priority))
             """, nativeQuery = true)
     void insertIfAbsent(
             @Param("movieCode") String movieCode,
             @Param("title") String title,
             @Param("releaseDate") String releaseDate,
+            @Param("priority") int priority,
             @Param("now") LocalDateTime now
     );
 
@@ -81,7 +85,7 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET poster_url = :posterUrl, status = 'SUCCESS',
+               SET poster_url = :posterUrl, status = 'SUCCESS', retry_count = 0,
                    claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
                AND status = 'PROCESSING'
@@ -99,7 +103,7 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET poster_url = NULL, status = 'PENDING',
+               SET poster_url = NULL, status = 'PENDING', retry_count = 0,
                    claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
                AND (status <> 'PROCESSING'
@@ -116,7 +120,7 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET poster_url = NULL, status = 'FAILED',
+               SET poster_url = NULL, status = 'FAILED', retry_count = retry_count + 1,
                    claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
                AND status = 'PROCESSING'

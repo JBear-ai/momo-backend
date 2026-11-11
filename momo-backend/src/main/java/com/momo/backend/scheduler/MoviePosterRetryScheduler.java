@@ -28,18 +28,40 @@ public class MoviePosterRetryScheduler {
     private final MoviePosterAsyncService posterAsyncService;
     private final MovieRepository movieRepository;
 
+    private boolean isRetryReady(MoviePosterCache cache) {
+        if (cache.getUpdatedAt() == null) {
+            return true;
+        }
+
+        long retryDelayMinutes = switch (cache.getRetryCount()) {
+            case 0, 1 -> 2;
+            case 2 -> 10;
+            case 3 -> 30;
+            default -> 120;
+        };
+
+        return !cache.getUpdatedAt().isAfter(LocalDateTime.now().minusMinutes(retryDelayMinutes));
+    }
+
     // 신규 수집으로 스레드 풀에 등록되지 못한 포스터 작업을 작은 배치로 다시 등록한다.
     @Scheduled(fixedDelayString = "${momo.poster.retry.delay-ms:15000}")
     public void retryPendingPosterDownloads() {
         List<MoviePosterCache> candidates = new ArrayList<>();
-        candidates.addAll(posterCacheRepository.findTop10ByStatusOrderByUpdatedAtAsc(PosterStatus.PENDING));
-        candidates.addAll(posterCacheRepository.findTop10ByStatusOrderByUpdatedAtAsc(PosterStatus.FAILED));
-        candidates.addAll(posterCacheRepository.findTop10ByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+        candidates.addAll(posterCacheRepository.findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus.PENDING));
+        // 실패 횟수에 따라 2분 → 10분 → 30분 → 2시간으로 재시도 간격을 늘린다.
+        posterCacheRepository.findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus.FAILED)
+                .stream()
+                .filter(this::isRetryReady)
+                .forEach(candidates::add);
+        candidates.addAll(posterCacheRepository.findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
                 PosterStatus.PROCESSING, LocalDateTime.now().minusMinutes(10)));
+        candidates.sort(java.util.Comparator.comparingInt(MoviePosterCache::getPriority)
+                .thenComparing(MoviePosterCache::getUpdatedAt,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
 
         int submitted = 0;
         for (MoviePosterCache candidate : candidates) {
-            if (submitted >= 3) {
+            if (submitted >= 5) {
                 break;
             }
 
@@ -54,12 +76,13 @@ public class MoviePosterRetryScheduler {
             }
 
             try {
-                posterAsyncService.searchPosterAsync(
-                        candidate.getMovieCode(),
-                        candidate.getTitle(),
-                        candidate.getReleaseDate(),
-                        claimToken
-                );
+                if (candidate.getPriority() == 0) {
+                    posterAsyncService.searchBoxOfficePosterAsync(
+                            candidate.getMovieCode(), candidate.getTitle(), candidate.getReleaseDate(), claimToken);
+                } else {
+                    posterAsyncService.searchPosterAsync(
+                            candidate.getMovieCode(), candidate.getTitle(), candidate.getReleaseDate(), claimToken);
+                }
                 submitted++;
             } catch (RuntimeException exception) {
                 posterCacheService.releaseProcessingClaim(candidate.getMovieCode(), claimToken);

@@ -21,7 +21,7 @@ public class MoviePosterCacheService {
     private final MoviePosterCacheRepository posterCacheRepository;
     private final PosterFileStorageService posterFileStorageService;
 
-    private static final long FAILED_RETRY_HOURS = 6;
+    private static final long FAILED_RETRY_MINUTES = 2;
     private static final long PROCESSING_TIMEOUT_MINUTES = 10;
 
     public Optional<MoviePosterCache> findCache(String movieCode) {
@@ -30,7 +30,13 @@ public class MoviePosterCacheService {
 
     @Transactional
     public MoviePosterCache createCache(String movieCode, String title, String releaseDate) {
-        posterCacheRepository.insertIfAbsent(movieCode, title, releaseDate, LocalDateTime.now());
+        return createCache(movieCode, title, releaseDate, 500);
+    }
+
+    @Transactional
+    public MoviePosterCache createCache(String movieCode, String title, String releaseDate, int priority) {
+        posterCacheRepository.insertIfAbsent(
+                movieCode, title, releaseDate, Math.max(0, priority), LocalDateTime.now());
         return posterCacheRepository.findById(movieCode)
                 .orElseThrow(() -> new IllegalStateException("포스터 캐시 생성 실패: " + movieCode));
     }
@@ -54,7 +60,7 @@ public class MoviePosterCacheService {
                 movieCode,
                 claimToken,
                 now,
-                now.minusHours(FAILED_RETRY_HOURS),
+                now.minusMinutes(FAILED_RETRY_MINUTES),
                 now.minusMinutes(PROCESSING_TIMEOUT_MINUTES)
         );
         return claimed == 1 ? claimToken : null;

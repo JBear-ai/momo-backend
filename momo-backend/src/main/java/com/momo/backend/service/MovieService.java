@@ -371,13 +371,18 @@ public class MovieService {
 
     // 전체 카탈로그 수집 결과도 기존 포스터 중복 방지·비동기 작업 흐름을 재사용한다.
     public void enqueueCatalogPosterSearches(List<MovieSearchResponse> movies) {
-        enqueuePosterSearches(movies);
+        enqueuePosterSearches(movies, 900);
     }
 
     // 포스터 비동기 검색 등록
 
+    private void enqueuePosterSearches(List<MovieSearchResponse> movies) {
+        enqueuePosterSearches(movies, 200);
+    }
+
     private void enqueuePosterSearches(
-            List<MovieSearchResponse> movies) {
+            List<MovieSearchResponse> movies,
+            int priority) {
 
         if (movies == null || movies.isEmpty()) {
             return;
@@ -407,7 +412,13 @@ public class MovieService {
                 posterCacheService.createCache(
                         movieCode,
                         title,
-                        releaseDate);
+                        releaseDate,
+                        priority);
+
+                // 전체 카탈로그는 대기열에만 적재한다. 사용자 요청과 박스오피스 작업이 먼저 처리된다.
+                if (priority >= 900) {
+                    continue;
+                }
 
                 String claimToken = posterCacheService.tryMarkAsProcessing(movieCode);
 
@@ -904,7 +915,8 @@ public class MovieService {
             posterCacheService.createCache(
                     movieCode,
                     title,
-                    releaseDate);
+                    releaseDate,
+                    100);
 
             String claimToken = posterCacheService.tryMarkAsProcessing(movieCode);
 
@@ -987,7 +999,7 @@ public class MovieService {
                             code, item.title(), item.releaseDate());
                 }
 
-                enqueuePosterSearchWithoutLookup(code, item.title(), item.releaseDate());
+                enqueuePosterSearchWithoutLookup(code, item.title(), item.releaseDate(), 0);
             }
 
             result.add(new BoxOfficeResponse(
@@ -1004,11 +1016,11 @@ public class MovieService {
         return result;
     }
 
-    private void enqueuePosterSearchWithoutLookup(String movieCode, String title, String releaseDate) {
+    private void enqueuePosterSearchWithoutLookup(String movieCode, String title, String releaseDate, int priority) {
         if (isBlank(movieCode) || isBlank(title))
             return;
         try {
-            posterCacheService.createCache(movieCode, title, releaseDate);
+            posterCacheService.createCache(movieCode, title, releaseDate, priority);
 
             String claimToken = posterCacheService.tryMarkAsProcessing(movieCode);
             if (claimToken == null) {
@@ -1016,7 +1028,7 @@ public class MovieService {
             }
 
             try {
-                posterAsyncService.searchPosterAsync(movieCode, title, releaseDate, claimToken);
+                posterAsyncService.searchBoxOfficePosterAsync(movieCode, title, releaseDate, claimToken);
             } catch (RuntimeException schedulingException) {
                 // 박스오피스 경로도 스레드 풀 등록 실패 시 PROCESSING 점유를 즉시 해제한다.
                 posterCacheService.releaseProcessingClaim(movieCode, claimToken);

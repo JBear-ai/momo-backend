@@ -46,7 +46,7 @@ class MoviePosterCacheServiceTest {
                 any(LocalDateTime.class)
         );
         verify(repository, never()).insertIfAbsent(
-                anyString(), anyString(), anyString(), any(LocalDateTime.class));
+                anyString(), anyString(), anyString(), anyInt(), any(LocalDateTime.class));
     }
 
     @Test
