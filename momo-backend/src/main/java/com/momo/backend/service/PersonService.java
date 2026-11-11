@@ -90,77 +90,52 @@ public class PersonService {
             JsonNode detail = objectMapper.readTree(tmdbApiClient.getMovieDetail(tmdbId));
             String localizedTitle = text(detail, "title");
             String originalTitle = text(detail, "original_title");
-            String releaseDate = text(detail, "release_date");
-            String releaseYear = releaseDate.length() >= 4 ? releaseDate.substring(0, 4) : "";
-
-            if (localizedTitle.isBlank() || releaseYear.isBlank()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "TMDb 영화의 제목 또는 개봉 연도 정보가 없습니다.");
+            String releaseYear = findKoreanReleaseYear(detail);
+            if (releaseYear.isBlank()) {
+                String releaseDate = text(detail, "release_date");
+                releaseYear = releaseDate.length() >= 4 ? releaseDate.substring(0, 4) : "";
             }
 
+            if (localizedTitle.isBlank() && originalTitle.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "TMDb 영화의 제목 정보가 없어 KOBIS 작품을 확인할 수 없습니다.");
+            }
+
+            List<String> tmdbDirectors = extractDirectorNames(detail);
             List<String> searchTitles = new ArrayList<>();
-            searchTitles.add(localizedTitle);
-            if (!originalTitle.isBlank() && !searchTitles.contains(originalTitle)) {
+            if (!localizedTitle.isBlank()) searchTitles.add(localizedTitle);
+            if (!originalTitle.isBlank()
+                    && searchTitles.stream().noneMatch(value -> sameMovieTitle(value, originalTitle))) {
                 searchTitles.add(originalTitle);
             }
 
             Map<String, JsonNode> matched = new HashMap<>();
             for (String searchTitle : searchTitles) {
-                JsonNode root = objectMapper.readTree(kobisApiClient.searchMovies(searchTitle, 1, 100));
-                JsonNode candidates = root.path("movieListResult").path("movieList");
-                if (!candidates.isArray()) continue;
-
-                for (JsonNode candidate : candidates) {
-                    String movieCode = text(candidate, "movieCd");
-                    String koreanTitle = text(candidate, "movieNm");
-                    String englishTitle = text(candidate, "movieNmEn");
-                    String candidateYear = text(candidate, "openDt");
-
-                    if (movieCode.isBlank() || !candidateYear.startsWith(releaseYear)) continue;
-
-                    boolean titleMatches =
-                            sameMovieTitle(localizedTitle, koreanTitle)
-                            || sameMovieTitle(localizedTitle, englishTitle)
-                            || sameMovieTitle(originalTitle, koreanTitle)
-                            || sameMovieTitle(originalTitle, englishTitle);
-
-                    if (titleMatches) matched.put(movieCode, candidate);
-                }
+                collectFilmographyCandidates(
+                        searchTitle, localizedTitle, originalTitle,
+                        releaseYear, tmdbDirectors, matched
+                );
             }
 
-            if (matched.size() > 1) {
-                List<String> tmdbDirectors = new ArrayList<>();
-                JsonNode crew = detail.path("credits").path("crew");
-                if (crew.isArray()) {
-                    for (JsonNode member : crew) {
-                        if ("Director".equalsIgnoreCase(text(member, "job"))) {
-                            String name = normalizePersonName(text(member, "name"));
-                            if (!name.isBlank()) tmdbDirectors.add(name);
-                        }
-                    }
-                }
+            // 동명 작품이 여러 편이면 TMDb와 KOBIS 양쪽에 있는 감독 정보로 한 번 더 좁힌다.
+            boolean kobisHasDirectorInfo = matched.values().stream()
+                    .anyMatch(candidate -> candidate.path("directors").isArray()
+                            && !candidate.path("directors").isEmpty());
 
-                if (!tmdbDirectors.isEmpty()) {
-                    matched.entrySet().removeIf(entry -> {
-                        JsonNode directors = entry.getValue().path("directors");
-                        if (!directors.isArray()) return true;
-                        for (JsonNode director : directors) {
-                            if (tmdbDirectors.contains(normalizePersonName(text(director, "peopleNm")))) {
-                                return false;
-                            }
-                        }
-                        return true;
-                    });
-                }
+            if (matched.size() > 1 && !tmdbDirectors.isEmpty() && kobisHasDirectorInfo) {
+                matched.entrySet().removeIf(entry ->
+                        !matchesKobisDirector(entry.getValue(), tmdbDirectors));
             }
 
             if (matched.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "MOMO 영화 목록에서 제목과 개봉 연도가 일치하는 작품을 찾을 수 없습니다.");
+                        "TMDb 제목·한국 개봉연도·감독 정보를 기준으로 일치하는 KOBIS 작품을 찾을 수 없습니다.");
             }
             if (matched.size() > 1) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "동일한 제목과 개봉 연도의 영화가 여러 편입니다. 정확한 작품을 자동으로 선택할 수 없습니다.");
+                        "동일 작품으로 판단되는 KOBIS 영화가 여러 편입니다. 잘못된 영화로 연결하지 않도록 자동 선택을 중단했습니다.");
             }
+
             return matched.keySet().iterator().next();
         } catch (ResponseStatusException e) {
             throw e;
@@ -169,6 +144,108 @@ public class PersonService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "필모그래피 영화 정보를 확인하는 중 외부 API 오류가 발생했습니다.", e);
         }
+    }
+
+    // TMDb의 KR 지역 개봉일을 우선 사용한다. 해외 최초 개봉연도와 국내 개봉연도가 다른 작품을 보정한다.
+    private String findKoreanReleaseYear(JsonNode detail) {
+        JsonNode countries = detail.path("release_dates").path("results");
+        if (!countries.isArray()) return "";
+
+        for (JsonNode country : countries) {
+            if (!"KR".equalsIgnoreCase(text(country, "iso_3166_1"))) continue;
+
+            JsonNode releases = country.path("release_dates");
+            if (!releases.isArray()) continue;
+
+            for (JsonNode release : releases) {
+                String date = text(release, "release_date");
+                if (date.length() >= 4 && date.substring(0, 4).matches("\\d{4}")) {
+                    return date.substring(0, 4);
+                }
+            }
+        }
+        return "";
+    }
+
+    private List<String> extractDirectorNames(JsonNode detail) {
+        List<String> names = new ArrayList<>();
+        JsonNode crew = detail.path("credits").path("crew");
+        if (!crew.isArray()) return names;
+
+        for (JsonNode member : crew) {
+            if ("Director".equalsIgnoreCase(text(member, "job"))) {
+                String name = normalizePersonName(text(member, "name"));
+                if (!name.isBlank() && !names.contains(name)) names.add(name);
+            }
+        }
+        return names;
+    }
+
+    // 첫 페이지에 일치 후보가 없을 때만 다음 페이지를 조회해 검색 결과 상한에 걸리는 문제를 줄인다.
+    private void collectFilmographyCandidates(
+            String searchTitle,
+            String localizedTitle,
+            String originalTitle,
+            String releaseYear,
+            List<String> tmdbDirectors,
+            Map<String, JsonNode> matched
+    ) throws Exception {
+        int maxPages = 1;
+
+        for (int page = 1; page <= maxPages; page++) {
+            JsonNode root = objectMapper.readTree(
+                    kobisApiClient.searchMovies(searchTitle, page, 100)
+            );
+            JsonNode result = root.path("movieListResult");
+            JsonNode candidates = result.path("movieList");
+            if (!candidates.isArray()) return;
+
+            int totalCount = result.path("totCnt").asInt(candidates.size());
+            maxPages = Math.min(5, Math.max(1, (totalCount + 99) / 100));
+            boolean foundOnPage = false;
+
+            for (JsonNode candidate : candidates) {
+                String movieCode = text(candidate, "movieCd");
+                if (movieCode.isBlank()) continue;
+
+                String koreanTitle = text(candidate, "movieNm");
+                String englishTitle = text(candidate, "movieNmEn");
+                boolean titleMatches =
+                        sameMovieTitle(localizedTitle, koreanTitle)
+                        || sameMovieTitle(localizedTitle, englishTitle)
+                        || sameMovieTitle(originalTitle, koreanTitle)
+                        || sameMovieTitle(originalTitle, englishTitle);
+                if (!titleMatches) continue;
+
+                String candidateYear = text(candidate, "openDt");
+                boolean yearMatches = !releaseYear.isBlank()
+                        && candidateYear.length() >= 4
+                        && releaseYear.equals(candidateYear.substring(0, 4));
+                boolean directorMatches = !tmdbDirectors.isEmpty()
+                        && matchesKobisDirector(candidate, tmdbDirectors);
+
+                // 국내 개봉연도 또는 감독이 확인되지 않는 후보는 오매칭 방지를 위해 제외한다.
+                if (!yearMatches && !directorMatches) continue;
+
+                matched.put(movieCode, candidate);
+                foundOnPage = true;
+            }
+
+            if (foundOnPage || candidates.size() < 100) return;
+        }
+    }
+
+    private boolean matchesKobisDirector(JsonNode candidate, List<String> tmdbDirectors) {
+        JsonNode directors = candidate.path("directors");
+        if (!directors.isArray()) return false;
+
+        for (JsonNode director : directors) {
+            String kobisName = normalizePersonName(text(director, "peopleNm"));
+            if (!kobisName.isBlank() && tmdbDirectors.contains(kobisName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String normalizePersonName(String name) {
