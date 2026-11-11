@@ -402,6 +402,10 @@ const HomeAndMovieStyles = createGlobalStyle`
   box-shadow: var(--momo-shadow);
 }
 
+.movie-detail-header-no-poster {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .movie-detail-poster {
   width: 100%;
   overflow: hidden;

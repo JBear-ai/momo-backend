@@ -456,22 +456,22 @@ function MovieDetail() {
     ),
     React.createElement(
       "section",
-      { className: "movie-detail-header" },
-      React.createElement(
-        "div",
-        { className: "movie-detail-poster" },
-        movie.posterUrl
-          ? React.createElement("img", {
+      { className: `movie-detail-header ${movie.posterUrl ? "" : "movie-detail-header-no-poster"}` },
+      movie.posterUrl
+        ? React.createElement(
+            "div",
+            { className: "movie-detail-poster" },
+            React.createElement("img", {
               src: resolvePosterUrl(movie.posterUrl),
               alt: movie.title,
-            })
-          : React.createElement(
-              "div",
-              { className: "poster-placeholder" },
-              React.createElement("span", null, "🎬"),
-              React.createElement("p", null, movie.title),
-            ),
-      ),
+              onError: (event) => {
+                event.currentTarget.closest(".movie-detail-poster")?.remove();
+                event.currentTarget.closest(".movie-detail-header")
+                  ?.classList.add("movie-detail-header-no-poster");
+              },
+            }),
+          )
+        : null,
       React.createElement(
         "div",
         { className: "movie-detail-info" },
