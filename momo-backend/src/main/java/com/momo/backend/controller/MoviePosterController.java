@@ -22,7 +22,7 @@ public class MoviePosterController {
     private final MovieService movieService;
     private final MoviePosterCacheService posterCacheService;
 
-    @GetMapping("/{movieCode:[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]}/poster")
+    @GetMapping("/{movieCode:[A-Za-z0-9]{8}}/poster")
     public ResponseEntity<MoviePosterResponse> getMoviePoster(
             @PathVariable String movieCode) {
 
@@ -37,7 +37,7 @@ public class MoviePosterController {
                 || movieCodes.isEmpty()
                 || movieCodes.size() > MAX_STATUS_CODES
                 || movieCodes.stream().anyMatch(code ->
-                        code == null || !code.matches("\\d{8}"))) {
+                        code == null || !code.matches("[A-Za-z0-9]{8}"))) {
             return ResponseEntity.badRequest().build();
         }
 
