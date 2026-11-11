@@ -5,7 +5,10 @@ import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.service.MovieService;
+import com.momo.backend.service.PersonService;
+import com.momo.backend.service.TmdbService;
 import com.momo.backend.service.ReviewService;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +28,8 @@ public class MovieController {
 
         private final ReviewService reviewService;
         private final MovieService movieService;
+        private final PersonService personService;
+        private final TmdbService tmdbService;
 
         @GetMapping("/recommendations")
         public ResponseEntity<List<Map<String, Object>>> getBoxOfficeRecommendations(
@@ -41,6 +46,34 @@ public class MovieController {
 
                 return ResponseEntity.ok(
                                 movieService.searchMovies(keyword, page, size));
+        }
+
+        // TMDb ID로 진입하고, KOBIS에 연결되면 기존 영화 기능을 그대로 사용한다.
+        @GetMapping("/tmdb/{tmdbId}")
+        public ResponseEntity<?> getMovieDetailByTmdbId(@PathVariable long tmdbId) {
+                if (tmdbId <= 0) {
+                        throw new ResponseStatusException(
+                                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                                        "올바르지 않은 TMDb 영화 ID입니다.");
+                }
+
+                String movieCode = null;
+                try {
+                        movieCode = personService.resolveFilmographyMovie(tmdbId);
+                } catch (ResponseStatusException mappingError) {
+                        // KOBIS 미등록·동명 후보·외부 검색 장애가 TMDb 상세 화면까지 막지 않게 한다.
+                        if (mappingError.getStatusCode().value() == 400) {
+                                throw mappingError;
+                        }
+                        log.info("KOBIS 영화 코드 미연결. TMDb 상세정보로 표시합니다. tmdbId={}, status={}",
+                                        tmdbId, mappingError.getStatusCode().value());
+                }
+
+                if (movieCode != null && movieCode.matches("[A-Za-z0-9]{8}")) {
+                        return ResponseEntity.ok(movieService.getMovieDetail(movieCode));
+                }
+
+                return ResponseEntity.ok(tmdbService.getMovieDetailById(tmdbId));
         }
 
         // KOBIS 영화 코드는 숫자뿐 아니라 영문자가 포함될 수 있다.
