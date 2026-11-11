@@ -497,8 +497,12 @@ function MovieDetail() {
 
     if (!identifier || identifier === "이름 없음") return;
 
-    // 백엔드는 TMDb ID가 아닌 인물 이름으로 검색한다.
-    navigate(`/person/${type}/${encodeURIComponent(identifier)}`);
+    // 영화 출연진에서 확보한 TMDb ID를 우선 전달해 동명이인 오연결을 방지한다.
+    const personId = Number(person.personId);
+    const query = Number.isSafeInteger(personId) && personId > 0
+      ? `?tmdbId=${encodeURIComponent(personId)}`
+      : "";
+    navigate(`/person/${type}/${encodeURIComponent(identifier)}${query}`);
   }
 
   // =========================================================
