@@ -23,6 +23,13 @@ public class PersonController {
         ));
     }
 
+    @GetMapping("/by-id/{type}/{personId}")
+    public ResponseEntity<PersonDetailResponse> getPersonDetailById(
+            @PathVariable String type,
+            @PathVariable long personId) {
+        return ResponseEntity.ok(personService.getPersonDetailById(type, personId));
+    }
+
     @GetMapping("/{type}/{name}")
     public ResponseEntity<PersonDetailResponse> getPersonDetail(
             @PathVariable String type,
