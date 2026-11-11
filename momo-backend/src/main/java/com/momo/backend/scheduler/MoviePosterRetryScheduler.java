@@ -66,7 +66,15 @@ public class MoviePosterRetryScheduler {
             }
 
             Movie movie = movieRepository.findById(candidate.getMovieCode()).orElse(null);
-            if (movie == null || (movie.getPosterUrl() != null && !movie.getPosterUrl().isBlank())) {
+            if (movie == null) {
+                continue;
+            }
+
+            // FAILED는 Movie 테이블에 오래된 URL이 남아 있어도 재수집을 막지 않는다.
+            // PENDING 작업만 기존 포스터 URL이 있으면 중복 수집을 피한다.
+            if (candidate.getStatus() != PosterStatus.FAILED
+                    && movie.getPosterUrl() != null
+                    && !movie.getPosterUrl().isBlank()) {
                 continue;
             }
 
