@@ -126,7 +126,7 @@ public class TmdbService {
                             candidateTitleEn,
                             koreanReleaseDate,
                             detail.path("runtime").asInt(0) > 0
-                                    ? detail.path("runtime").asText()
+                                    ? detail.path("runtime").asString()
                                     : "",
                             genre,
                             director,
@@ -202,7 +202,7 @@ public class TmdbService {
 
         return value.isMissingNode() || value.isNull()
                 ? ""
-                : value.asText("").trim();
+                : value.asString("").trim();
     }
 
     // 3. 영화 포스터 검색
@@ -523,11 +523,6 @@ public class TmdbService {
                 || requestedTitleEn.equals(foundOriginalTitle)));
     }
 
-    private String releaseYear(String date) {
-        String digits = normalizeDate(date);
-        return digits.length() >= 4 ? digits.substring(0, 4) : "";
-    }
-
     // 6. 공통 보조 메서드
 
     // TMDb 포스터 주소 생성
@@ -551,7 +546,7 @@ public class TmdbService {
             return "";
         }
 
-        return value.asText("").trim();
+        return value.asString("").trim();
     }
 
     // 개봉일 정규화
