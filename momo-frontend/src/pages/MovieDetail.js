@@ -74,15 +74,27 @@ function normalizePeople(people) {
 
   source.forEach((person) => {
     const normalized = typeof person === "string"
-      ? { personId: null, name: person.trim(), role: "" }
+      ? {
+        personId: null,
+        name: person.trim(),
+        originalName: person.trim(),
+        alsoKnownAs: [],
+        profileUrl: "",
+        role: "",
+      }
       : {
-          personId: person.personId || person.tmdbPersonId || person.peopleId || null,
+          personId: person.personId || person.tmdbPersonId || person.peopleId || person.id || null,
           name:
             person.name ||
             person.peopleNm ||
             person.actorName ||
             person.directorName ||
             "",
+          originalName: person.originalName || person.original_name || person.name || "",
+          alsoKnownAs: Array.isArray(person.alsoKnownAs || person.also_known_as)
+            ? (person.alsoKnownAs || person.also_known_as)
+            : [],
+          profileUrl: person.profileUrl || person.profile_url || "",
           role: person.role || person.cast || person.character || person.castName || "",
         };
 
@@ -186,10 +198,22 @@ function MovieDetail() {
         }
 
         if (!active) return;
+        let moviePeople = [];
+        try {
+          const peopleResponse = await AxiosApi.moviePeople(id, controller.signal);
+          moviePeople = Array.isArray(peopleResponse.data) ? peopleResponse.data : [];
+        } catch (peopleError) {
+          if (peopleError.code === "ERR_CANCELED") throw peopleError;
+          console.warn("영화 인물 프로필 조회 실패:", peopleError);
+        }
+
+        if (!active) return;
         setMovie({
           ...detailData,
           id: detailData.movieCode,
           posterUrl,
+          directorPeople: moviePeople.filter((person) => person.department === "director"),
+          actorPeople: moviePeople.filter((person) => person.department === "actor"),
         });
 
         // 최초 포스터 응답이 비어 있으면 비동기 수집 완료를 확인한다.
@@ -510,8 +534,8 @@ function MovieDetail() {
   // 13. 감독과 배우 데이터 변환
   // =========================================================
 
-  const directors = normalizePeople(movie.director);
-  const actors = normalizePeople(movie.actors);
+  const directors = normalizePeople(movie.directorPeople?.length ? movie.directorPeople : movie.director);
+  const actors = normalizePeople(movie.actorPeople?.length ? movie.actorPeople : movie.actors);
 
   // =========================================================
   // 14. 화면 출력
@@ -667,7 +691,26 @@ function MovieDetail() {
                   key: `${person.name}-${index}`,
                   onClick: () => moveToPersonDetail(person, "director"),
                 },
-                person.name,
+                person.profileUrl
+                  ? React.createElement("img", {
+                      src: person.profileUrl,
+                      alt: person.name,
+                      loading: "lazy",
+                      onError: (event) => event.currentTarget.remove(),
+                    })
+                  : React.createElement(
+                      "div",
+                      null,
+                      React.createElement("span", null, "👤"),
+                    ),
+                React.createElement(
+                  "div",
+                  null,
+                  React.createElement("strong", null, person.name),
+                  person.originalName && person.originalName !== person.name
+                    ? React.createElement("span", null, person.originalName)
+                    : null,
+                ),
               ),
             ),
           )
@@ -694,15 +737,32 @@ function MovieDetail() {
                   key: `${person.name}-${index}`,
                   onClick: () => moveToPersonDetail(person, "actor"),
                 },
-                person.name,
-                person.role &&
-                  React.createElement(
-                    "span",
-                    { className: "person-role" },
-                    " (",
-                    person.role,
-                    ")",
-                  ),
+                person.profileUrl
+                  ? React.createElement("img", {
+                      src: person.profileUrl,
+                      alt: person.name,
+                      loading: "lazy",
+                      onError: (event) => event.currentTarget.remove(),
+                    })
+                  : React.createElement(
+                      "div",
+                      null,
+                      React.createElement("span", null, "👤"),
+                    ),
+                React.createElement(
+                  "div",
+                  null,
+                  React.createElement("strong", null, person.name),
+                  person.originalName && person.originalName !== person.name
+                    ? React.createElement("span", null, person.originalName)
+                    : null,
+                  person.role &&
+                    React.createElement(
+                      "span",
+                      { className: "person-role" },
+                      person.role,
+                    ),
+                ),
               ),
             ),
           )
