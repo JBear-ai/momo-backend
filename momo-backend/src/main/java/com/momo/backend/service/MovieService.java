@@ -1023,7 +1023,7 @@ public class MovieService {
             }
 
             try {
-                posterAsyncService.searchPosterAsync(movieCode, title, releaseDate, claimToken);
+                posterAsyncService.searchBoxOfficePosterAsync(movieCode, title, releaseDate, claimToken);
             } catch (RuntimeException schedulingException) {
                 // 박스오피스 경로도 스레드 풀 등록 실패 시 PROCESSING 점유를 즉시 해제한다.
                 posterCacheService.releaseProcessingClaim(movieCode, claimToken);
