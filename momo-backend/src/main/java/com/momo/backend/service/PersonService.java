@@ -257,7 +257,7 @@ public class PersonService {
         if (!countries.isArray()) return "";
 
         String selectedYear = "";
-        int selectedPriority = 0;
+        int selectedPriority = -1;
 
         for (JsonNode country : countries) {
             if (!"KR".equalsIgnoreCase(text(country, "iso_3166_1"))) continue;
