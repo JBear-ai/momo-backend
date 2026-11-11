@@ -448,6 +448,18 @@ public class MovieService {
         }
     }
 
+    // 영화 상세 화면에 연결할 TMDb 감독·배우 메타데이터 조회
+    public List<Map<String, Object>> getMoviePeople(String movieCode) {
+        Movie movie = movieRepository.findById(movieCode).orElse(null);
+        if (movie == null) {
+            getMovieDetail(movieCode);
+            movie = movieRepository.findById(movieCode).orElse(null);
+        }
+        if (movie == null) return List.of();
+        return tmdbService.findMoviePeople(
+                movie.getTitle(), movie.getTitleEn(), movie.getReleaseDate(), movie.getDirector());
+    }
+
     // 영화 상세정보 조회
 
     @Transactional
