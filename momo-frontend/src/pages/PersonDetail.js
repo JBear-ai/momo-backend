@@ -68,14 +68,6 @@ function formatReleaseDate(value) {
   return value;
 }
 
-// 영화 제목 비교용 정규화
-function normalizeTitle(title) {
-  return String(title || "")
-    .normalize("NFKC")
-    .replace(/[\s\p{P}\p{S}]/gu, "")
-    .toLowerCase();
-}
-
 function PersonDetail() {
   const { type, identifier } = useParams();
   const navigate = useNavigate();
