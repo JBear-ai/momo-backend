@@ -19,10 +19,7 @@ public interface MoviePosterCacheRepository
     // 우선순위가 높은 영화부터 처리하고 같은 우선순위에서는 오래 기다린 작업을 먼저 처리한다.
     List<MoviePosterCache> findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus status);
 
-    List<MoviePosterCache> findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
-            PosterStatus status,
-            LocalDateTime updatedBefore
-    );
+    List<MoviePosterCache> findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus status);
 
     // 여러 영화 코드에 해당하는 포스터 캐시를 한 번에 조회
     List<MoviePosterCache> findAllByMovieCodeIn(Collection<String> movieCodes);
@@ -31,8 +28,8 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             INSERT INTO movie_poster_cache
-                (movie_code, title, release_date, poster_url, status, priority, updated_at)
-            VALUES (:movieCode, :title, :releaseDate, NULL, 'PENDING', :priority, :now)
+                (movie_code, title, release_date, poster_url, status, priority, retry_count, updated_at)
+            VALUES (:movieCode, :title, :releaseDate, NULL, 'PENDING', :priority, 0, :now)
             ON DUPLICATE KEY UPDATE
                 title = VALUES(title),
                 release_date = VALUES(release_date),
@@ -120,7 +117,7 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET poster_url = NULL, status = 'FAILED',
+               SET poster_url = NULL, status = 'FAILED', retry_count = retry_count + 1,
                    claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
                AND status = 'PROCESSING'
