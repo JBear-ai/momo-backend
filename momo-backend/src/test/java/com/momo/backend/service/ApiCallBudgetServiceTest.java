@@ -32,13 +32,13 @@ class ApiCallBudgetServiceTest {
         ReflectionTestUtils.setField(service, "kmdbDailyLimit", 1_000L);
         ReflectionTestUtils.setField(service, "tmdbDailyLimit", 1_000L);
         when(repository.insertIfAbsent(anyString(), anyString(), any(LocalDate.class))).thenReturn(1);
-        when(repository.incrementPrefetchIfAvailable(anyString(), anyLong())).thenAnswer(invocation -> {
+        lenient().when(repository.incrementPrefetchIfAvailable(anyString(), anyLong())).thenAnswer(invocation -> {
             long limit = invocation.getArgument(1);
             if (prefetchUsed >= limit) return 0;
             prefetchUsed++;
             return 1;
         });
-        when(repository.incrementDemandIfAvailable(anyString(), anyLong())).thenAnswer(invocation -> {
+        lenient().when(repository.incrementDemandIfAvailable(anyString(), anyLong())).thenAnswer(invocation -> {
             long limit = invocation.getArgument(1);
             if (demandUsed >= limit) return 0;
             demandUsed++;
