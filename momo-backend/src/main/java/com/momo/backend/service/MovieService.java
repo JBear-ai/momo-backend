@@ -847,12 +847,6 @@ public class MovieService {
                 && posterFileStorageService.exists(posterUrl);
     }
 
-    private boolean isMissingLocalPosterFile(String posterUrl) {
-        return !isBlank(posterUrl)
-                && posterUrl.startsWith("/posters/")
-                && !posterFileStorageService.exists(posterUrl);
-    }
-
     // DB의 URL뿐 아니라 로컬 파일의 실제 존재 여부까지 확인한다.
     private String findSavedPosterUrl(String movieCode) {
         if (isBlank(movieCode)) {
@@ -988,7 +982,8 @@ public class MovieService {
             // FAILED 캐시는 Movie 테이블에 과거 URL이 남아 있어도 화면에 반환하지 않는다.
             // 그래야 홈 화면이 누락 포스터로 인식하고 상태 조회를 이어갈 수 있다.
             boolean posterSearchFailed = posterCache != null
-                    && posterCache.getStatus() == PosterStatus.FAILED;
+                    && posterCache.getStatus() == PosterStatus.FAILED
+                    && !isPosterUrlAvailable(moviePosterUrl);
 
             String posterUrl = posterSearchFailed ? ""
                     : isPosterUrlAvailable(moviePosterUrl) ? moviePosterUrl

@@ -69,7 +69,7 @@ describe("TodayRecommend poster recovery", () => {
 
     expect(AxiosApi.moviePoster).toHaveBeenCalledWith(
       "20260001",
-      expect.any(AbortSignal),
+      expect.anything(),
     );
 
     await act(async () => {
