@@ -41,7 +41,9 @@ public class MoviePosterCacheService {
         if (!posterCacheRepository.existsById(movieCode)) {
             createCache(movieCode, title, releaseDate);
         }
-        posterCacheRepository.resetMissingPoster(movieCode, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        posterCacheRepository.resetMissingPoster(
+                movieCode, now, now.minusMinutes(PROCESSING_TIMEOUT_MINUTES));
     }
 
     @Transactional
