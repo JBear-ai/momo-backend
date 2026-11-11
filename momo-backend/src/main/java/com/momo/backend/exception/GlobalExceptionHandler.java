@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
 @RestControllerAdvice // 모든 Controller에서 발생하는 예외를 공통으로 처리
@@ -91,6 +92,28 @@ public class GlobalExceptionHandler {
                         "DB_ERROR",
                         "데이터베이스 오류가 발생했습니다."
                 ));
+    }
+
+    // ResponseStatusException의 HTTP 상태와 메시지를 그대로 응답한다.
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(
+            ResponseStatusException error) {
+
+        HttpStatusCode status = error.getStatusCode();
+        String message = error.getReason() == null || error.getReason().isBlank()
+                ? "요청한 리소스를 처리할 수 없습니다."
+                : error.getReason();
+        String code = switch (status.value()) {
+            case 404 -> "NOT_FOUND";
+            case 409 -> "CONFLICT";
+            case 400 -> "INVALID_REQUEST";
+            case 401 -> "UNAUTHORIZED";
+            case 403 -> "FORBIDDEN";
+            default -> "REQUEST_FAILED";
+        };
+
+        log.warn("요청 처리 거부. status={}, message={}", status.value(), message);
+        return ResponseEntity.status(status).body(new ErrorResponse(code, message));
     }
 
     // 5. 그 외 예상하지 못한 서버 오류 처리
