@@ -39,7 +39,7 @@ class MoviePosterCacheServiceTest {
                 any(LocalDateTime.class), any(LocalDateTime.class)
         )).thenReturn(0);
 
-        MoviePosterCacheService service = new MoviePosterCacheService(repository);
+        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
 
         assertNull(service.tryMarkAsProcessing("20260001"));
     }
@@ -47,7 +47,7 @@ class MoviePosterCacheServiceTest {
     @Test
     void releasesOnlyTheClaimOwnedByTheGivenToken() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
-        MoviePosterCacheService service = new MoviePosterCacheService(repository);
+        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
 
         service.releaseProcessingClaim("20260001", "claim-token");
 
@@ -58,7 +58,7 @@ class MoviePosterCacheServiceTest {
     @Test
     void doesNotReleaseWhenClaimTokenIsMissing() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
-        MoviePosterCacheService service = new MoviePosterCacheService(repository);
+        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
 
         service.releaseProcessingClaim("20260001", null);
 
