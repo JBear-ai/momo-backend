@@ -53,6 +53,12 @@ public class MovieController {
                                 reviewService.getMovieReviews(movieCode, page));
         }
 
+        @GetMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}/people")
+        public ResponseEntity<List<Map<String, Object>>> getMoviePeople(
+                        @PathVariable String movieCode) {
+                return ResponseEntity.ok(movieService.getMoviePeople(movieCode));
+        }
+
         @GetMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}")
         public ResponseEntity<MovieDetailResponse> getMovieDetail(
                         @PathVariable String movieCode) {
