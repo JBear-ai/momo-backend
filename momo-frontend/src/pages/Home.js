@@ -63,8 +63,67 @@ function Home() {
   // 어제 날짜의 박스오피스 목록 조회
   useEffect(() => {
     const targetDate = getYesterdayDate();
+    const apiBaseUrl = (
+      process.env.REACT_APP_API_BASE_URL || "http://localhost:8111"
+    ).replace(/\/+$/, "");
 
-    fetch("http://localhost:8111/api/boxoffice/daily?targetDate=" + targetDate)
+    let cancelled = false;
+    let refreshTimer = null;
+
+    const refreshPosterStatuses = (movieCodes, attempt = 0) => {
+      if (cancelled || attempt >= 20 || movieCodes.length === 0) {
+        return;
+      }
+
+      refreshTimer = window.setTimeout(async () => {
+        try {
+          const response = await fetch(apiBaseUrl + "/api/movies/posters/status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(movieCodes),
+          });
+
+          if (!response.ok) {
+            throw new Error("포스터 상태 조회 실패");
+          }
+
+          const statuses = await response.json();
+          const statusByCode = new Map(
+            statuses.map((item) => [item.movieCode, item]),
+          );
+
+          setMovies((currentMovies) =>
+            currentMovies.map((movie) => {
+              const status = statusByCode.get(movie.movieCode);
+              if (status && status.posterUrl) {
+                return { ...movie, posterUrl: status.posterUrl };
+              }
+
+              return movie;
+            }),
+          );
+
+          if (!cancelled) {
+            // 수집 작업이 끝날 때까지 최대 80초간 상태를 확인한다.
+            const allHavePosters = movieCodes.every((code) => {
+              const status = statusByCode.get(code);
+              return status && status.status === "SUCCESS" && status.posterUrl;
+            });
+
+            if (!allHavePosters) {
+              refreshPosterStatuses(movieCodes, attempt + 1);
+            }
+          }
+        } catch (error) {
+          console.error(error);
+          if (!cancelled) {
+            refreshPosterStatuses(movieCodes, attempt + 1);
+          }
+        }
+      }, 4000);
+    };
+
+    fetch(apiBaseUrl + "/api/boxoffice/daily?targetDate=" + targetDate)
       .then((response) => {
         if (!response.ok) {
           throw new Error("박스오피스 조회 실패");
@@ -73,6 +132,10 @@ function Home() {
         return response.json();
       })
       .then((data) => {
+        if (cancelled) {
+          return;
+        }
+
         const list = Array.isArray(data)
           ? data
           : data.movies || data.dailyBoxOfficeList || data.boxOfficeList || [];
@@ -90,14 +153,31 @@ function Home() {
         }));
 
         setMovies(normalized);
+
+        const missingCodes = normalized
+          .filter((movie) => !movie.posterUrl && movie.movieCode)
+          .map((movie) => movie.movieCode);
+
+        refreshPosterStatuses(missingCodes);
       })
       .catch((error) => {
-        console.error(error);
-        setMovies([]);
+        if (!cancelled) {
+          console.error(error);
+          setMovies([]);
+        }
       })
       .finally(() => {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+    };
   }, []);
 
   // 영화 상세 페이지로 이동

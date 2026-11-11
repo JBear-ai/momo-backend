@@ -364,6 +364,7 @@ class MovieMetadataMatchingTest {
                 mock(MoviePosterCacheService.class),
                 mock(MoviePersistenceService.class),
                 mock(com.momo.backend.repository.MoviePosterCacheRepository.class),
+                mock(PosterFileStorageService.class),
                 Caffeine.newBuilder().maximumSize(10).build()
         );
 

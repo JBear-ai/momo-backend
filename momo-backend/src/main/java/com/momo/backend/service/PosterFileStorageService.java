@@ -79,6 +79,23 @@ public class PosterFileStorageService {
         return "/posters/" + fileName;
     }
 
+    // DB에 저장된 로컬 포스터 경로가 실제 파일로 남아 있는지 확인한다.
+    public boolean exists(String posterPath) {
+        if (posterPath == null || !posterPath.startsWith("/posters/")) {
+            return false;
+        }
+
+        String fileName = posterPath.substring("/posters/".length());
+        if (fileName.isBlank() || fileName.contains("/") || fileName.contains("\\")) {
+            return false;
+        }
+
+        Path file = posterDirectory.resolve(fileName).normalize();
+        return file.startsWith(posterDirectory)
+                && Files.isRegularFile(file)
+                && Files.isReadable(file);
+    }
+
     public void delete(String posterPath) {
         if (posterPath == null || !posterPath.startsWith("/posters/")) {
             return;
