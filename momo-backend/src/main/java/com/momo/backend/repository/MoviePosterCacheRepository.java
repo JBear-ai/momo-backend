@@ -35,7 +35,7 @@ public interface MoviePosterCacheRepository
             VALUES (:movieCode, :title, :releaseDate, NULL, 'PENDING', :priority, :now)
             ON DUPLICATE KEY UPDATE
                 title = VALUES(title),
-                release_date = VALUES(releaseDate),
+                release_date = VALUES(release_date),
                 priority = LEAST(priority, VALUES(priority))
             """, nativeQuery = true)
     void insertIfAbsent(
