@@ -44,7 +44,7 @@ public class MovieController {
         }
 
         // KOBIS 영화 코드는 숫자뿐 아니라 영문자가 포함될 수 있다.
-        @GetMapping("/{movieCode:[A-Za-z0-9]{8}}/reviews")
+        @GetMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}/reviews")
         public ResponseEntity<Page<ReviewResponse>> getMovieReviews(
                         @PathVariable String movieCode,
                         @RequestParam(defaultValue = "0") int page) {
@@ -53,7 +53,7 @@ public class MovieController {
                                 reviewService.getMovieReviews(movieCode, page));
         }
 
-        @GetMapping("/{movieCode:[A-Za-z0-9]{8}}")
+        @GetMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}")
         public ResponseEntity<MovieDetailResponse> getMovieDetail(
                         @PathVariable String movieCode) {
 
