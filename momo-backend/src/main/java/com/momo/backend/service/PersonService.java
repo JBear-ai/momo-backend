@@ -81,6 +81,42 @@ public class PersonService {
         }
     }
 
+    // 영화 상세 화면에서 전달한 TMDb 인물 ID를 우선 사용해 이름 검색 오연결을 방지한다.
+    public PersonDetailResponse getPersonDetailById(String type, long personId) {
+        String normalizedType = normalizeType(type);
+        if (personId <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "올바르지 않은 TMDb 인물 ID입니다.");
+        }
+        try {
+            String detailJson = tmdbApiClient.getPersonDetail(personId, "ko-KR");
+            if (detailJson == null || detailJson.isBlank()) {
+                throw new IllegalStateException("TMDb 인물 상세 응답이 비어 있습니다.");
+            }
+            JsonNode detail = objectMapper.readTree(detailJson);
+            if (detail.path("id").asLong(0) != personId) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "요청한 TMDb 인물 ID와 응답이 일치하지 않습니다.");
+            }
+            List<FilmographyItem> filmography = extractFilmography(detail, normalizedType);
+            PersonInfo personInfo = new PersonInfo(
+                    personId,
+                    text(detail, "name"),
+                    imageUrl(text(detail, "profile_path")),
+                    nullableText(detail, "birthday"),
+                    nullableText(detail, "deathday"),
+                    nullableText(detail, "place_of_birth"),
+                    nullableText(detail, "biography"),
+                    nullableText(detail, "known_for_department")
+            );
+            return new PersonDetailResponse(personInfo, filmography);
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("TMDb 인물 ID 조회 실패. type={}, personId={}", normalizedType, personId, e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "TMDb 인물 ID 조회 중 외부 API 오류가 발생했습니다.", e);
+        }
+    }
+
     /**
      * TMDb 필모그래피 ID를 KOBIS의 고유 영화 코드로 연결한다.
      * 현지화 제목/원제와 개봉 연도를 비교하고, 동명 작품은 감독으로 추가 판별한다.
@@ -614,48 +650,174 @@ public class PersonService {
         }
     }
 
+    /**
+     * 검색어에 포함된 문자 체계를 기준으로 우선 검색 언어를 정하고,
+     * TMDb 검색 결과가 비어 있거나 역할 분야가 맞지 않으면 보조 언어로 재검색한다.
+     *
+     * language는 검색어 자체의 언어를 강제하는 값이 아니라 TMDb 응답의
+     * 현지화 기준이므로, 한 언어의 첫 결과를 무조건 선택하지 않고
+     * 모든 후보를 모아 이름 유사도와 인물 분야를 함께 평가한다.
+     */
     private JsonNode findPerson(String name, String type) throws Exception {
-        JsonNode person = findPersonByLanguage(name, type, "ko-KR");
+        // 검색어의 문자 체계에 맞는 TMDb 응답 언어와 기본 영어 응답만 사용한다.
+        // TMDb 검색은 입력 문자열 자체를 기준으로 하므로 특정 국가 언어를 전부 순회하지 않는다.
+        LinkedHashSet<String> languages = new LinkedHashSet<>();
+        languages.add(detectPrimaryLanguage(name));
+        languages.add("en-US");
 
-        if (person == null) {
-            person = findPersonByLanguage(name, type, "ja-JP");
+        Map<Long, ScoredPersonCandidate> candidates = new HashMap<>();
+
+        for (String language : languages) {
+            String json;
+            try {
+                json = tmdbApiClient.searchPerson(name, language);
+            } catch (Exception searchError) {
+                log.warn("TMDb 인물 검색 언어 실패. language={}, name={}",
+                        language, name, searchError);
+                continue;
+            }
+
+            if (json == null || json.isBlank()) continue;
+
+            JsonNode results = objectMapper.readTree(json).path("results");
+            if (!results.isArray()) continue;
+
+            for (JsonNode candidate : results) {
+                long id = candidate.path("id").asLong(0);
+                if (id <= 0 || !matchesPersonDepartment(candidate, type)) continue;
+
+                int score = scorePersonName(name, candidate);
+                ScoredPersonCandidate previous = candidates.get(id);
+                if (previous == null || score > previous.score()) {
+                    candidates.put(id, new ScoredPersonCandidate(candidate, score));
+                }
+            }
         }
 
-        return person;
+        // 검색 결과 상위 후보의 TMDb 상세정보에서 원어 이름과 also_known_as를 확인한다.
+        // 검색어와 문자 체계가 다른 별칭도 같은 인물 ID로 연결하되, 분야까지 재검증한다.
+        List<ScoredPersonCandidate> ranked = candidates.values().stream()
+                .sorted(Comparator.comparingInt(ScoredPersonCandidate::score).reversed())
+                .limit(5)
+                .toList();
+
+        JsonNode bestPerson = null;
+        int bestScore = 0;
+        for (ScoredPersonCandidate candidate : ranked) {
+            long personId = candidate.person().path("id").asLong(0);
+            if (personId <= 0) continue;
+
+            int score = candidate.score();
+            try {
+                String detailJson = tmdbApiClient.getPersonDetail(personId, "en-US");
+                if (detailJson != null && !detailJson.isBlank()) {
+                    JsonNode detail = objectMapper.readTree(detailJson);
+                    if (!matchesPersonDepartment(detail, type)) continue;
+
+                    score = Math.max(score, scorePersonName(name, detail));
+                    JsonNode aliases = detail.path("also_known_as");
+                    if (aliases.isArray()) {
+                        for (JsonNode alias : aliases) {
+                            score = Math.max(score, scoreNameVariant(name, alias.asString("")));
+                        }
+                    }
+                    score = Math.max(score, scoreNameVariant(name, text(detail, "original_name")));
+                }
+            } catch (Exception detailError) {
+                log.debug("TMDb 인물 별칭 검증 실패. personId={}", personId, detailError);
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestPerson = candidate.person();
+            }
+        }
+
+        return bestScore >= 55 ? bestPerson : null;
     }
 
-    private JsonNode findPersonByLanguage(
-            String name,
-            String type,
-            String language
-    ) throws Exception {
-        String json = tmdbApiClient.searchPerson(name, language);
+    private int scoreNameVariant(String requestedName, String candidateName) {
+        String requested = normalizeSearchName(requestedName);
+        String candidate = normalizeSearchName(candidateName);
+        if (requested.isBlank() || candidate.isBlank()) return 0;
+        if (requested.equals(candidate)) return 100;
 
-        if (json == null || json.isBlank()) {
-            return null;
+        int maxLength = Math.max(requested.length(), candidate.length());
+        if (maxLength == 0) return 0;
+        double similarity = 1.0 - (double) levenshteinDistance(requested, candidate) / maxLength;
+        return (int) Math.round(similarity * 80);
+    }
+
+    private String detectPrimaryLanguage(String name) {
+        if (name.matches(".*[\\uAC00-\\uD7A3].*")) return "ko-KR";
+        if (name.matches(".*[\\u3040-\\u30FF].*")) return "ja-JP";
+        if (name.matches(".*[\\u4E00-\\u9FFF].*")) return "zh-CN";
+        if (name.matches(".*[\\u0400-\\u04FF].*")) return "ru-RU";
+        if (name.matches(".*[\\u0600-\\u06FF].*")) return "ar-SA";
+        if (name.matches(".*[\\u0900-\\u097F].*")) return "hi-IN";
+        return "en-US";
+    }
+
+    private boolean matchesPersonDepartment(JsonNode candidate, String type) {
+        String department = text(candidate, "known_for_department");
+        if ("director".equals(type)) {
+            return "Directing".equalsIgnoreCase(department)
+                    || "Director".equalsIgnoreCase(department);
         }
+        return "Acting".equalsIgnoreCase(department);
+    }
 
-        JsonNode results = objectMapper.readTree(json).path("results");
-        if (!results.isArray()) {
-            return null;
-        }
+    private int scorePersonName(String requestedName, JsonNode candidate) {
+        String candidateName = text(candidate, "name");
+        String normalizedRequested = normalizePersonName(requestedName);
+        String normalizedCandidate = normalizePersonName(candidateName);
 
-        for (JsonNode candidate : results) {
-            String department = text(candidate, "known_for_department");
+        if (normalizedRequested.isBlank() || normalizedCandidate.isBlank()) return 0;
+        if (normalizedRequested.equals(normalizedCandidate)) return 100;
 
-            if ("director".equals(type)
-                    && ("Directing".equalsIgnoreCase(department)
-                    || "Director".equalsIgnoreCase(department))) {
-                return candidate;
+        // TMDb 검색 결과는 입력 이름과 연관된 후보이므로, 공백·악센트·문장부호
+        // 차이를 정규화한 뒤 유사도를 계산한다. 이름이 전혀 다른 첫 결과는 선택하지 않는다.
+        String compactRequested = normalizeSearchName(requestedName);
+        String compactCandidate = normalizeSearchName(candidateName);
+        if (compactRequested.equals(compactCandidate)) return 95;
+
+        int distance = levenshteinDistance(compactRequested, compactCandidate);
+        int maxLength = Math.max(compactRequested.length(), compactCandidate.length());
+        if (maxLength == 0) return 0;
+
+        double similarity = 1.0 - (double) distance / maxLength;
+        return (int) Math.round(similarity * 80);
+    }
+
+    private String normalizeSearchName(String value) {
+        return Normalizer.normalize(value == null ? "" : value,
+                        Normalizer.Form.NFKD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[\\s\\p{Punct}\\p{IsPunctuation}]", "")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private int levenshteinDistance(String left, String right) {
+        int[] previous = new int[right.length() + 1];
+        int[] current = new int[right.length() + 1];
+        for (int j = 0; j <= right.length(); j++) previous[j] = j;
+
+        for (int i = 1; i <= left.length(); i++) {
+            current[0] = i;
+            for (int j = 1; j <= right.length(); j++) {
+                int cost = left.charAt(i - 1) == right.charAt(j - 1) ? 0 : 1;
+                current[j] = Math.min(
+                        Math.min(current[j - 1] + 1, previous[j] + 1),
+                        previous[j - 1] + cost);
             }
-
-            if ("actor".equals(type)
-                    && "Acting".equalsIgnoreCase(department)) {
-                return candidate;
-            }
+            int[] temporary = previous;
+            previous = current;
+            current = temporary;
         }
+        return previous[right.length()];
+    }
 
-        return null;
+    private record ScoredPersonCandidate(JsonNode person, int score) {
     }
 
     private List<FilmographyItem> extractFilmography(

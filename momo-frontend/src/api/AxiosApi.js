@@ -336,6 +336,14 @@ const AxiosApi = {
     );
   },
 
+  // 영화 상세 화면의 TMDb 인물 ID·프로필 사진 조회
+  moviePeople: async (movieCode, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/movies/${encodeURIComponent(movieCode)}/people`,
+      { signal },
+    );
+  },
+
   // 7. 장르별 영화 목록 조회
   moviesByGenre: async (genre, page, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/movies/genre`, {
@@ -537,6 +545,14 @@ const AxiosApi = {
     return await axios.get(
       `${HM_DOMAIN}/api/auth/users/${encodeURIComponent(userId)}/profile-image`,
       { responseType: "blob", signal },
+    );
+  },
+
+  // TMDb 고유 인물 ID로 상세정보 조회 (다국어 이름 재검색에 의존하지 않음)
+  getPersonDetailById: async (type, personId, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/persons/by-id/${encodeURIComponent(type)}/${encodeURIComponent(personId)}`,
+      { signal },
     );
   },
 
