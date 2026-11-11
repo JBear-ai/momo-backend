@@ -695,12 +695,58 @@ public class PersonService {
             }
         }
 
-        return candidates.values().stream()
-                .filter(candidate -> candidate.score() >= 55)
+        // 검색 결과 상위 후보의 TMDb 상세정보에서 원어 이름과 also_known_as를 확인한다.
+        // 검색어와 문자 체계가 다른 별칭도 같은 인물 ID로 연결하되, 분야까지 재검증한다.
+        List<ScoredPersonCandidate> ranked = candidates.values().stream()
                 .sorted(Comparator.comparingInt(ScoredPersonCandidate::score).reversed())
-                .map(ScoredPersonCandidate::person)
-                .findFirst()
-                .orElse(null);
+                .limit(5)
+                .toList();
+
+        JsonNode bestPerson = null;
+        int bestScore = 0;
+        for (ScoredPersonCandidate candidate : ranked) {
+            long personId = candidate.person().path("id").asLong(0);
+            if (personId <= 0) continue;
+
+            int score = candidate.score();
+            try {
+                String detailJson = tmdbApiClient.getPersonDetail(personId, "en-US");
+                if (detailJson != null && !detailJson.isBlank()) {
+                    JsonNode detail = objectMapper.readTree(detailJson);
+                    if (!matchesPersonDepartment(detail, type)) continue;
+
+                    score = Math.max(score, scorePersonName(name, detail));
+                    JsonNode aliases = detail.path("also_known_as");
+                    if (aliases.isArray()) {
+                        for (JsonNode alias : aliases) {
+                            score = Math.max(score, scoreNameVariant(name, alias.asString("")));
+                        }
+                    }
+                    score = Math.max(score, scoreNameVariant(name, text(detail, "original_name")));
+                }
+            } catch (Exception detailError) {
+                log.debug("TMDb 인물 별칭 검증 실패. personId={}", personId, detailError);
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestPerson = candidate.person();
+            }
+        }
+
+        return bestScore >= 55 ? bestPerson : null;
+    }
+
+    private int scoreNameVariant(String requestedName, String candidateName) {
+        String requested = normalizeSearchName(requestedName);
+        String candidate = normalizeSearchName(candidateName);
+        if (requested.isBlank() || candidate.isBlank()) return 0;
+        if (requested.equals(candidate)) return 100;
+
+        int maxLength = Math.max(requested.length(), candidate.length());
+        if (maxLength == 0) return 0;
+        double similarity = 1.0 - (double) levenshteinDistance(requested, candidate) / maxLength;
+        return (int) Math.round(similarity * 80);
     }
 
     private String detectPrimaryLanguage(String name) {
