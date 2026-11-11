@@ -92,17 +92,11 @@ function Home() {
             statuses.map((item) => [item.movieCode, item]),
           );
 
-          let hasMissingPoster = false;
-
           setMovies((currentMovies) =>
             currentMovies.map((movie) => {
               const status = statusByCode.get(movie.movieCode);
               if (status && status.posterUrl) {
                 return { ...movie, posterUrl: status.posterUrl };
-              }
-
-              if (!movie.posterUrl) {
-                hasMissingPoster = true;
               }
 
               return movie;
@@ -116,7 +110,7 @@ function Home() {
               return status && status.status === "SUCCESS" && status.posterUrl;
             });
 
-            if (!allHavePosters && hasMissingPoster) {
+            if (!allHavePosters) {
               refreshPosterStatuses(movieCodes, attempt + 1);
             }
           }
