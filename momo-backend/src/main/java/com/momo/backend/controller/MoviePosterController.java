@@ -37,17 +37,17 @@ public class MoviePosterController {
             return ResponseEntity.badRequest().build();
         }
 
-        // 중복 코드를 제거한 실제 조회 대상 수를 기준으로 제한을 검사한다.
+        // 잘못된 코드가 섞인 요청은 거부하고, 중복 제거 후 실제 조회 수를 제한한다.
+        if (movieCodes.stream().anyMatch(code ->
+                code == null || !code.matches("[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]"))) {
+            return ResponseEntity.badRequest().build();
+        }
+
         List<String> distinctMovieCodes = movieCodes.stream()
-                .filter(code -> code != null)
                 .distinct()
                 .toList();
 
-        if (distinctMovieCodes.isEmpty()
-                || distinctMovieCodes.size() > MAX_STATUS_CODES
-                || distinctMovieCodes.size() != movieCodes.stream().filter(code -> code != null).distinct().count()
-                || distinctMovieCodes.stream().anyMatch(code ->
-                        !code.matches("[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]"))) {
+        if (distinctMovieCodes.size() > MAX_STATUS_CODES) {
             return ResponseEntity.badRequest().build();
         }
 
