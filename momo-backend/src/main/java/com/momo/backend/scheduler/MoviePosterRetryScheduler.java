@@ -32,14 +32,19 @@ public class MoviePosterRetryScheduler {
     @Scheduled(fixedDelayString = "${momo.poster.retry.delay-ms:15000}")
     public void retryPendingPosterDownloads() {
         List<MoviePosterCache> candidates = new ArrayList<>();
-        candidates.addAll(posterCacheRepository.findTop10ByStatusOrderByUpdatedAtAsc(PosterStatus.PENDING));
-        candidates.addAll(posterCacheRepository.findTop10ByStatusOrderByUpdatedAtAsc(PosterStatus.FAILED));
-        candidates.addAll(posterCacheRepository.findTop10ByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+        candidates.addAll(posterCacheRepository.findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus.PENDING));
+        // 실패 작업은 2분 대기 후 재시도한다. 신규 PENDING 작업보다 뒤에서 처리된다.
+        candidates.addAll(posterCacheRepository.findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
+                PosterStatus.FAILED, LocalDateTime.now().minusMinutes(2)));
+        candidates.addAll(posterCacheRepository.findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
                 PosterStatus.PROCESSING, LocalDateTime.now().minusMinutes(10)));
+        candidates.sort(java.util.Comparator.comparingInt(MoviePosterCache::getPriority)
+                .thenComparing(MoviePosterCache::getUpdatedAt,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
 
         int submitted = 0;
         for (MoviePosterCache candidate : candidates) {
-            if (submitted >= 3) {
+            if (submitted >= 5) {
                 break;
             }
 
