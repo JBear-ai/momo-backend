@@ -1,8 +1,11 @@
 import React from "react";
 import { act, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
 import AxiosApi from "../../api/AxiosApi";
 import TodayRecommend from "./TodayRecommend";
+
+jest.mock("react-router-dom", () => ({
+  useNavigate: () => jest.fn(),
+}));
 
 jest.mock("../../api/AxiosApi", () => ({
   boxOfficeRecommendations: jest.fn(),
@@ -53,13 +56,7 @@ describe("TodayRecommend poster recovery", () => {
   });
 
   test("requests a missing poster and refreshes the recommendation when it is ready", async () => {
-    render(
-      React.createElement(
-        MemoryRouter,
-        null,
-        React.createElement(TodayRecommend),
-      ),
-    );
+    render(React.createElement(TodayRecommend));
 
     await act(async () => {
       for (let i = 0; i < 12; i += 1) {
