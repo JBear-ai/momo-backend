@@ -86,7 +86,7 @@ public class PosterFileStorageService {
         }
 
         String fileName = posterPath.substring("/posters/".length());
-        if (fileName.isBlank() || fileName.contains("/") || fileName.contains("\\\\")) {
+        if (fileName.isBlank() || fileName.contains("/") || fileName.contains("\\")) {
             return false;
         }
 
