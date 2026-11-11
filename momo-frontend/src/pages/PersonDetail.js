@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { resolvePosterUrl } from "../utils/mediaUrl";
 
@@ -70,6 +70,8 @@ function formatReleaseDate(value) {
 
 function PersonDetail() {
   const { type, identifier } = useParams();
+  const { search } = useLocation();
+  const personId = new URLSearchParams(search).get("tmdbId");
   const navigate = useNavigate();
 
   const [person, setPerson] = useState(null);
@@ -99,11 +101,9 @@ function PersonDetail() {
         setFilmography([]);
         setVisibleCount(10);
 
-        const response = await AxiosApi.getPersonDetail(
-          type,
-          identifier,
-          controller.signal,
-        );
+        const response = personId
+          ? await AxiosApi.getPersonDetailById(type, personId, controller.signal)
+          : await AxiosApi.getPersonDetail(type, identifier, controller.signal);
 
         const personData = response?.data?.personInfo;
         const movies = response?.data?.filmography;
@@ -149,7 +149,7 @@ function PersonDetail() {
       active = false;
       controller.abort();
     };
-  }, [type, identifier]);
+  }, [type, identifier, personId]);
 
   // 필모그래피 작품을 MOMO 영화 상세 페이지와 연결
   const handleFilmographyClick = async (movie) => {
