@@ -122,15 +122,15 @@ public class MovieCatalogSyncService {
     private List<MovieSearchResponse> parseMovies(JsonNode movieList) {
         List<MovieSearchResponse> movies = new ArrayList<>();
         for (JsonNode movie : movieList) {
-            String movieCode = movie.path("movieCd").asText("");
-            String title = movie.path("movieNm").asText("");
+            String movieCode = movie.path("movieCd").asString("");
+            String title = movie.path("movieNm").asString("");
             if (!movieCode.matches("\\d{8}") || title.isBlank()) {
                 continue;
             }
 
             String director = StreamSupport.stream(
                             movie.path("directors").spliterator(), false)
-                    .map(node -> node.path("peopleNm").asText(""))
+                    .map(node -> node.path("peopleNm").asString(""))
                     .filter(name -> !name.isBlank())
                     .distinct()
                     .limit(5)
@@ -140,8 +140,8 @@ public class MovieCatalogSyncService {
             movies.add(new MovieSearchResponse(
                     movieCode,
                     title,
-                    movie.path("openDt").asText(""),
-                    movie.path("genreAlt").asText(""),
+                    movie.path("openDt").asString(""),
+                    movie.path("genreAlt").asString(""),
                     director
             ));
         }

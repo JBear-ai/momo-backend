@@ -76,7 +76,7 @@ public class CommentService {
         Long currentUserId = null;
         if (loginId != null && !loginId.isBlank()) {
             currentUserId = userRepository.findByLoginId(loginId)
-                    .map(User::getUserId)
+                    .map(user -> user == null ? null : user.getUserId())
                     .orElse(null);
         }
 

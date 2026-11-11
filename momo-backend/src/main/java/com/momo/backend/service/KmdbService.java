@@ -327,19 +327,7 @@ public class KmdbService {
             return "";
         }
 
-        return value.asText("").trim();
-    }
-
-    /**
-     * 개봉일 정규화
-     */
-    private String normalizeDate(String date) {
-
-        if (date == null || date.isBlank()) {
-            return "";
-        }
-
-        return date.replaceAll("[^0-9]", "");
+        return value.asString("").trim();
     }
 
     /**

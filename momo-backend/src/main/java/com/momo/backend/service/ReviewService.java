@@ -97,14 +97,14 @@ public class ReviewService {
 
         Set<String> movieCodes = reviews.getContent()
                 .stream()
-                .map(Review::getMovieCode)
+                .map(review -> review == null ? null : review.getMovieCode())
                 .collect(Collectors.toSet());
 
         Map<String, Movie> movieMap =
                 movieRepository.findAllById(movieCodes)
                         .stream()
                         .collect(Collectors.toMap(
-                                Movie::getMovieCode,
+                                movie -> movie == null ? null : movie.getMovieCode(),
                                 movie -> movie
                         ));
 

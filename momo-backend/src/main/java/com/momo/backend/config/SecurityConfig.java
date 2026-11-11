@@ -170,7 +170,7 @@ public class SecurityConfig {
 
                 config.setAllowedOrigins(
                                 Arrays.stream(allowedOrigins.split(","))
-                                                .map(String::trim)
+                                                .map(origin -> origin == null ? "" : origin.trim())
                                                 .filter(origin -> !origin.isEmpty())
                                                 .distinct()
                                                 .toList());
