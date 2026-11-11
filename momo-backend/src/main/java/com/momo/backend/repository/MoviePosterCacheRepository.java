@@ -94,6 +94,20 @@ public interface MoviePosterCacheRepository
             @Param("now") LocalDateTime now
     );
 
+    // 파일이 사라진 SUCCESS 캐시를 다시 수집 가능한 PENDING 상태로 되돌린다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(value = """
+            UPDATE movie_poster_cache
+               SET poster_url = NULL, status = 'PENDING',
+                   claim_token = NULL, updated_at = :now
+             WHERE movie_code = :movieCode
+            """, nativeQuery = true)
+    int resetMissingPoster(
+            @Param("movieCode") String movieCode,
+            @Param("now") LocalDateTime now
+    );
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(value = """
