@@ -81,12 +81,16 @@ function TodayRecommend() {
         );
 
         let likedMovies = [];
-        try {
-          const likedResponse = await AxiosApi.myLikedMovies(controller.signal);
-          likedMovies = Array.isArray(likedResponse.data) ? likedResponse.data : [];
-        } catch (likedError) {
-          if (likedError.code === "ERR_CANCELED") throw likedError;
-          console.warn("좋아요 영화 목록 조회 실패. 관심 영화로 대체합니다.", likedError);
+
+        // 비로그인 사용자는 개인별 좋아요 API를 호출하지 않고 관심 영화로 추천한다.
+        if (localStorage.getItem("accessToken")) {
+          try {
+            const likedResponse = await AxiosApi.myLikedMovies(controller.signal);
+            likedMovies = Array.isArray(likedResponse.data) ? likedResponse.data : [];
+          } catch (likedError) {
+            if (likedError.code === "ERR_CANCELED") throw likedError;
+            console.warn("좋아요 영화 목록 조회 실패. 관심 영화로 대체합니다.", likedError);
+          }
         }
 
         // 좋아요 및 관심 영화는 추천 후보에서 제외한다.

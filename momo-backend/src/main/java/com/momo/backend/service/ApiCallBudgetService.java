@@ -47,35 +47,25 @@ public class ApiCallBudgetService {
         // 트랜잭션이 커밋되기 전에 Java synchronized 락이 풀리는 기존 구조의 경합을 제거한다.
         repository.insertIfAbsent(budgetId, normalizedProvider, today);
 
-        // 카운터 확인과 증가 전체를 행 잠금 안에서 수행해 서버 간 동시 호출도 보호한다.
-        ApiCallBudgetState state = repository.findByIdForUpdate(budgetId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "API 예산 행을 생성했지만 조회할 수 없습니다: " + budgetId));
-
-        // Apply the 90:10 reservation only when the provider's actual daily quota is known.
-        // Unknown quotas are counted, but are not artificially capped at an assumed number.
+        // 90:10 예약 한도. 공급처 한도가 설정되지 않으면 호출량만 집계한다.
+        long maxCalls = Long.MAX_VALUE;
         if (dailyLimit > 0) {
             long prefetchLimit = (long) Math.floor(dailyLimit * PREFETCH_RATIO);
-            long demandLimit = dailyLimit - prefetchLimit;
-
-            if (trafficType == TrafficType.PREFETCH
-                    && state.getPrefetchCalls() >= prefetchLimit) {
-                throw new ApiBudgetExceededException(normalizedProvider,
-                        "사전 수집 예산(90%)을 모두 사용했습니다.");
-            }
-            if (trafficType == TrafficType.USER_SEARCH
-                    && state.getDemandCalls() >= demandLimit) {
-                throw new ApiBudgetExceededException(normalizedProvider,
-                        "사용자 검색 예산(10%)을 모두 사용했습니다.");
-            }
+            maxCalls = trafficType == TrafficType.PREFETCH
+                    ? prefetchLimit : dailyLimit - prefetchLimit;
         }
 
-        if (trafficType == TrafficType.PREFETCH) {
-            state.increasePrefetch();
-        } else {
-            state.increaseDemand();
+        // DB 단일 UPDATE가 증가와 한도 검사를 원자적으로 수행한다.
+        int updated = trafficType == TrafficType.PREFETCH
+                ? repository.incrementPrefetchIfAvailable(budgetId, maxCalls)
+                : repository.incrementDemandIfAvailable(budgetId, maxCalls);
+
+        if (updated != 1) {
+            String message = trafficType == TrafficType.PREFETCH
+                    ? "사전 수집 예산(90%)을 모두 사용했습니다."
+                    : "사용자 검색 예산(10%)을 모두 사용했습니다.";
+            throw new ApiBudgetExceededException(normalizedProvider, message);
         }
-        repository.save(state);
     }
 
     @Transactional(readOnly = true)

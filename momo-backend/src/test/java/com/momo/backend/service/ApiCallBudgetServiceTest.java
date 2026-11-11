@@ -1,6 +1,5 @@
 package com.momo.backend.service;
 
-import com.momo.backend.entity.ApiCallBudgetState;
 import com.momo.backend.repository.ApiCallBudgetStateRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,12 +10,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,7 +22,8 @@ class ApiCallBudgetServiceTest {
     private ApiCallBudgetStateRepository repository;
 
     private ApiCallBudgetService service;
-    private ApiCallBudgetState[] savedState;
+    private long prefetchUsed;
+    private long demandUsed;
 
     @BeforeEach
     void setUp() {
@@ -34,37 +31,27 @@ class ApiCallBudgetServiceTest {
         ReflectionTestUtils.setField(service, "kobisDailyLimit", 1_000L);
         ReflectionTestUtils.setField(service, "kmdbDailyLimit", 1_000L);
         ReflectionTestUtils.setField(service, "tmdbDailyLimit", 1_000L);
-        savedState = new ApiCallBudgetState[1];
-
-        when(repository.insertIfAbsent(anyString(), anyString(), any(LocalDate.class)))
-                .thenAnswer(invocation -> {
-                    if (savedState[0] == null) {
-                        savedState[0] = ApiCallBudgetState.create(
-                                invocation.getArgument(1),
-                                invocation.getArgument(2)
-                        );
-                    }
-                    return 1;
-                });
-        when(repository.findByIdForUpdate(anyString()))
-                .thenAnswer(invocation -> Optional.ofNullable(savedState[0]));
-        when(repository.save(any(ApiCallBudgetState.class)))
-                .thenAnswer(invocation -> {
-                    savedState[0] = invocation.getArgument(0);
-                    return savedState[0];
-                });
+        when(repository.insertIfAbsent(anyString(), anyString(), any(LocalDate.class))).thenReturn(1);
+        lenient().when(repository.incrementPrefetchIfAvailable(anyString(), anyLong())).thenAnswer(invocation -> {
+            long limit = invocation.getArgument(1);
+            if (prefetchUsed >= limit) return 0;
+            prefetchUsed++;
+            return 1;
+        });
+        lenient().when(repository.incrementDemandIfAvailable(anyString(), anyLong())).thenAnswer(invocation -> {
+            long limit = invocation.getArgument(1);
+            if (demandUsed >= limit) return 0;
+            demandUsed++;
+            return 1;
+        });
     }
 
     @Test
-    void createsBudgetRowBeforeLockingAndUpdatingIt() {
+    void insertsRowThenUsesAtomicCounterUpdate() {
         service.acquire("KOBIS", ApiCallBudgetService.TrafficType.PREFETCH);
-
         InOrder order = inOrder(repository);
-        order.verify(repository).insertIfAbsent(
-                startsWith("KOBIS_"), eq("KOBIS"), any(LocalDate.class));
-        order.verify(repository).findByIdForUpdate(startsWith("KOBIS_"));
-        order.verify(repository).save(any(ApiCallBudgetState.class));
-        assertEquals(1L, savedState[0].getPrefetchCalls());
+        order.verify(repository).insertIfAbsent(startsWith("KOBIS_"), eq("KOBIS"), any(LocalDate.class));
+        order.verify(repository).incrementPrefetchIfAvailable(startsWith("KOBIS_"), eq(900L));
     }
 
     @Test
@@ -72,11 +59,8 @@ class ApiCallBudgetServiceTest {
         for (int i = 0; i < 900; i++) {
             service.acquire("KOBIS", ApiCallBudgetService.TrafficType.PREFETCH);
         }
-
         assertThrows(ApiCallBudgetService.ApiBudgetExceededException.class,
                 () -> service.acquire("KOBIS", ApiCallBudgetService.TrafficType.PREFETCH));
-
-        // 사전 수집이 90%를 모두 사용해도 검색용 10%는 남아 있어야 한다.
         service.acquire("KOBIS", ApiCallBudgetService.TrafficType.USER_SEARCH);
     }
 
@@ -85,10 +69,15 @@ class ApiCallBudgetServiceTest {
         for (int i = 0; i < 100; i++) {
             service.acquire("KOBIS", ApiCallBudgetService.TrafficType.USER_SEARCH);
         }
-
         assertThrows(ApiCallBudgetService.ApiBudgetExceededException.class,
                 () -> service.acquire("KOBIS", ApiCallBudgetService.TrafficType.USER_SEARCH));
-
         service.acquire("KOBIS", ApiCallBudgetService.TrafficType.PREFETCH);
+    }
+
+    @Test
+    void unknownDailyLimitStillCountsWithoutInventingACap() {
+        ReflectionTestUtils.setField(service, "kmdbDailyLimit", 0L);
+        service.acquire("KMDB", ApiCallBudgetService.TrafficType.PREFETCH);
+        verify(repository).incrementPrefetchIfAvailable(startsWith("KMDB_"), eq(Long.MAX_VALUE));
     }
 }

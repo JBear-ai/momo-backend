@@ -38,12 +38,17 @@ public class KmdbApiClient {
     }
 
     public String searchMovie(String title) {
-        apiCallBudgetService.acquire("KMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
 
-        return metrics.record("KMDB", "searchMovie", () -> ExternalApiRetry.execute(() -> restClient.get()
+        return metrics.record("KMDB", "searchMovie", () -> ExternalApiRetry.execute(() -> {
+                // 재시도 요청도 실제 외부 호출이므로 매 시도마다 예산을 차감한다.
+                apiCallBudgetService.acquire(
+                        "KMDB",
+                        com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH
+                );
+                return restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search_api/search_json2.jsp")
                         .queryParam("ServiceKey", apiKey)
                         .queryParam("collection", "kmdb_new2")
@@ -52,6 +57,7 @@ public class KmdbApiClient {
                         .queryParam("query", title.trim())
                         .build())
                 .retrieve()
-                .body(String.class)));
+                .body(String.class);
+        }));
     }
 }

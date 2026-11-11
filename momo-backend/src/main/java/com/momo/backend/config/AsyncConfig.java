@@ -22,9 +22,9 @@ public class AsyncConfig {
         executor.setMaxPoolSize(3);
         executor.setQueueCapacity(100);
 
-        // 작업 추적과 스레드 풀 포화 시 명시적인 복구 처리를 위해 거부 정책을 지정한다.
+        // 대기열이 가득 차면 호출 스레드가 직접 처리해 작업 유실 없이 자연스럽게 속도를 제한한다.
         executor.setThreadNamePrefix("poster-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
 
         // 서버 종료 시 진행 중인 작업에 종료 유예 시간을 제공한다.
         executor.setWaitForTasksToCompleteOnShutdown(true);
