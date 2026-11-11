@@ -51,7 +51,7 @@ class ApiCallBudgetServiceTest {
         service.acquire("KOBIS", ApiCallBudgetService.TrafficType.PREFETCH);
         InOrder order = inOrder(repository);
         order.verify(repository).insertIfAbsent(startsWith("KOBIS_"), eq("KOBIS"), any(LocalDate.class));
-        order.verify(repository).incrementPrefetchIfAvailable(startsWith("KOBIS_"), 900L);
+        order.verify(repository).incrementPrefetchIfAvailable(startsWith("KOBIS_"), eq(900L));
     }
 
     @Test
@@ -78,6 +78,6 @@ class ApiCallBudgetServiceTest {
     void unknownDailyLimitStillCountsWithoutInventingACap() {
         ReflectionTestUtils.setField(service, "kmdbDailyLimit", 0L);
         service.acquire("KMDB", ApiCallBudgetService.TrafficType.PREFETCH);
-        verify(repository).incrementPrefetchIfAvailable(startsWith("KMDB_"), Long.MAX_VALUE);
+        verify(repository).incrementPrefetchIfAvailable(startsWith("KMDB_"), eq(Long.MAX_VALUE));
     }
 }
