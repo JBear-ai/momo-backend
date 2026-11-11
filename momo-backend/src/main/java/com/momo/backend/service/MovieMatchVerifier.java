@@ -53,18 +53,47 @@ final class MovieMatchVerifier {
             return true;
         }
 
-        // 개봉연도 한쪽이 누락된 경우에는 정확한 제목과 감독 정보를 함께 확인한다.
-        // 감독명이 같은 문자 체계로 모두 제공됐는데 다르면 동명 작품일 가능성이 있어 제외한다.
-        boolean directorsProvided = kobisDirector != null && !kobisDirector.isBlank()
-                && candidateDirector != null && !candidateDirector.isBlank();
-        if (directorsProvided
-                && sameNameScript(kobisDirector, candidateDirector)
-                && !matchesDirector(kobisDirector, candidateDirector)) {
+        // 개봉연도가 없으면 영문 원제 또는 감독까지 일치해야 한다.
+        boolean originalTitleMatches = !requestedTitleEn.isBlank()
+                && matches(requestedTitleEn, foundTitle, foundOriginalTitle);
+        boolean directorMatches = matchesDirector(kobisDirector, candidateDirector);
+        return originalTitleMatches || directorMatches;
+    }
+
+    // 포스터 검색은 한쪽 공급원의 개봉연도가 누락되는 경우가 많아, 정확한 제목을 기준으로 보완한다.
+    // 두 개봉연도가 모두 존재하고 다르거나, 같은 문자 체계의 감독명이 충돌하면 제외한다.
+    static boolean isSamePosterCandidate(
+            String kobisTitle,
+            String kobisTitleEn,
+            String kobisReleaseDate,
+            String kobisDirector,
+            String candidateTitle,
+            String candidateOriginalTitle,
+            String candidateReleaseDate,
+            String candidateDirector) {
+
+        String requestedTitle = normalizeTitle(kobisTitle);
+        String requestedTitleEn = normalizeTitle(kobisTitleEn);
+        String foundTitle = normalizeTitle(candidateTitle);
+        String foundOriginalTitle = normalizeTitle(candidateOriginalTitle);
+
+        boolean titleMatches = matches(requestedTitle, foundTitle, foundOriginalTitle)
+                || (!requestedTitleEn.isBlank()
+                && matches(requestedTitleEn, foundTitle, foundOriginalTitle));
+        if (!titleMatches) return false;
+
+        String requestedYear = releaseYear(kobisReleaseDate);
+        String foundYear = releaseYear(candidateReleaseDate);
+        if (!requestedYear.isBlank() && !foundYear.isBlank()
+                && !requestedYear.equals(foundYear)) {
             return false;
         }
 
-        // 감독 정보가 없거나 문자 체계가 달라 직접 비교할 수 없으면 정확한 제목 일치를 허용한다.
-        return true;
+        boolean directorsProvided = kobisDirector != null && !kobisDirector.isBlank()
+                && candidateDirector != null && !candidateDirector.isBlank();
+        return !directorsProvided
+                || !sameNameScript(kobisDirector, candidateDirector)
+                || matchesDirector(kobisDirector, candidateDirector);
     }
 
     // 동일 영화 후보 중 제목·개봉일·감독 일치도가 높은 포스터를 우선한다.
@@ -78,7 +107,7 @@ final class MovieMatchVerifier {
             String candidateReleaseDate,
             String candidateDirector) {
 
-        if (!isSameMovie(
+        if (!isSamePosterCandidate(
                 kobisTitle, kobisTitleEn, kobisReleaseDate, kobisDirector,
                 candidateTitle, candidateOriginalTitle,
                 candidateReleaseDate, candidateDirector)) {
