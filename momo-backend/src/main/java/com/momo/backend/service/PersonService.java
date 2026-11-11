@@ -81,6 +81,42 @@ public class PersonService {
         }
     }
 
+    // 영화 상세 화면에서 전달한 TMDb 인물 ID를 우선 사용해 이름 검색 오연결을 방지한다.
+    public PersonDetailResponse getPersonDetailById(String type, long personId) {
+        String normalizedType = normalizeType(type);
+        if (personId <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "올바르지 않은 TMDb 인물 ID입니다.");
+        }
+        try {
+            String detailJson = tmdbApiClient.getPersonDetail(personId, "ko-KR");
+            if (detailJson == null || detailJson.isBlank()) {
+                throw new IllegalStateException("TMDb 인물 상세 응답이 비어 있습니다.");
+            }
+            JsonNode detail = objectMapper.readTree(detailJson);
+            if (detail.path("id").asLong(0) != personId) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "요청한 TMDb 인물 ID와 응답이 일치하지 않습니다.");
+            }
+            List<FilmographyItem> filmography = extractFilmography(detail, normalizedType);
+            PersonInfo personInfo = new PersonInfo(
+                    personId,
+                    text(detail, "name"),
+                    imageUrl(text(detail, "profile_path")),
+                    nullableText(detail, "birthday"),
+                    nullableText(detail, "deathday"),
+                    nullableText(detail, "place_of_birth"),
+                    nullableText(detail, "biography"),
+                    nullableText(detail, "known_for_department")
+            );
+            return new PersonDetailResponse(personInfo, filmography);
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("TMDb 인물 ID 조회 실패. type={}, personId={}", normalizedType, personId, e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "TMDb 인물 ID 조회 중 외부 API 오류가 발생했습니다.", e);
+        }
+    }
+
     /**
      * TMDb 필모그래피 ID를 KOBIS의 고유 영화 코드로 연결한다.
      * 현지화 제목/원제와 개봉 연도를 비교하고, 동명 작품은 감독으로 추가 판별한다.
