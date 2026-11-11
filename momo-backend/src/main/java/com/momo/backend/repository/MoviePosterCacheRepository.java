@@ -85,7 +85,7 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET poster_url = :posterUrl, status = 'SUCCESS',
+               SET poster_url = :posterUrl, status = 'SUCCESS', retry_count = 0,
                    claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
                AND status = 'PROCESSING'
@@ -103,7 +103,7 @@ public interface MoviePosterCacheRepository
     @Transactional
     @Query(value = """
             UPDATE movie_poster_cache
-               SET poster_url = NULL, status = 'PENDING',
+               SET poster_url = NULL, status = 'PENDING', retry_count = 0,
                    claim_token = NULL, updated_at = :now
              WHERE movie_code = :movieCode
                AND (status <> 'PROCESSING'
