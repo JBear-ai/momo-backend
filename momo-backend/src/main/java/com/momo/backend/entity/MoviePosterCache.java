@@ -33,6 +33,10 @@ public class MoviePosterCache {
     @Column(nullable = false, length = 20)
     private PosterStatus status;
 
+    // 숫자가 낮을수록 먼저 처리한다.
+    @Column(nullable = false, columnDefinition = "int not null default 500")
+    private int priority = 500;
+
     // 현재 비동기 작업의 소유권 토큰
     @Column(length = 36)
     private String claimToken;
