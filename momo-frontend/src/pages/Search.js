@@ -287,9 +287,6 @@ function Search() {
   // KOBIS에서 받아온 전체 영화 후보
   const [movies, setMovies] = useState([]);
 
-  // 포스터가 확인된 영화만 저장하는 화면 목록
-  const [visibleMovies, setVisibleMovies] = useState([]);
-
   // 영화별 포스터 상태
   const [posterStatuses, setPosterStatuses] = useState({});
 
@@ -540,8 +537,6 @@ function Search() {
         const nextStatuses = {};
         const nextUrls = {};
 
-        const newlyVisibleMovies = [];
-
         invalidMovies.forEach((movie) => {
           nextStatuses[movie.movieCode] = "failed";
           nextUrls[movie.movieCode] = "";
@@ -552,7 +547,9 @@ function Search() {
           const item = statusMap.get(movie.movieCode);
 
           if (!item) {
-            nextStatuses[movie.movieCode] = "loading";
+            // 상태가 없는 결과도 포스터 확인 실패로 종료해 검색 결과에 남기지 않는다.
+            nextStatuses[movie.movieCode] = "failed";
+            nextUrls[movie.movieCode] = "";
             return;
           }
 
@@ -565,7 +562,6 @@ function Search() {
             nextStatuses[movie.movieCode] = "success";
             nextUrls[movie.movieCode] = url;
 
-            newlyVisibleMovies.push(movie);
           } else if (
             status === "FAILED" ||
             blockedUrl ||
@@ -589,19 +585,6 @@ function Search() {
           ...prev,
           ...nextUrls,
         }));
-
-        // 성공한 영화만 기존 목록 뒤에 추가
-        if (newlyVisibleMovies.length > 0) {
-          setVisibleMovies((prev) => {
-            const existingCodes = new Set(prev.map((movie) => movie.movieCode));
-
-            const uniqueMovies = newlyVisibleMovies.filter(
-              (movie) => !existingCodes.has(movie.movieCode),
-            );
-
-            return [...prev, ...uniqueMovies];
-          });
-        }
 
         // 아직 처리 중인 영화가 있으면 계속 조회
         const hasPending = validPendingMovies.some((movie) => {
@@ -660,7 +643,6 @@ function Search() {
     hasNextRef.current = false;
 
     setMovies([]);
-    setVisibleMovies([]);
     setPosterStatuses({});
     setPosterUrls({});
 
@@ -678,7 +660,6 @@ function Search() {
 
     if (cached) {
       setMovies(cached.movies || []);
-      setVisibleMovies(cached.visibleMovies || []);
       setPosterStatuses(cached.posterStatuses || {});
       setPosterUrls(cached.posterUrls || {});
 
@@ -719,7 +700,6 @@ function Search() {
 
     saveSearchCache(searchValue, isGenreMode, {
       movies,
-      visibleMovies,
       posterStatuses,
       posterUrls,
       hasNext,
@@ -729,7 +709,6 @@ function Search() {
     searchValue,
     isGenreMode,
     movies,
-    visibleMovies,
     posterStatuses,
     posterUrls,
     hasNext,
@@ -743,6 +722,13 @@ function Search() {
 
     return status !== "success" && status !== "failed";
   }).length;
+
+  // 포스터 파일이 실제로 확인된 영화만 검색 결과로 노출한다.
+  // 포스터가 없거나 파일 로딩에 실패한 작품은 카드 전체를 표시하지 않는다.
+  const displayMovies = movies.filter((movie) =>
+    posterStatuses[movie.movieCode] === "success"
+    && Boolean(posterUrls[movie.movieCode]?.trim())
+  );
 
   // 무한 스크롤
 
@@ -781,7 +767,6 @@ function Search() {
     initialLoading,
     loadingMore,
     pendingCount,
-    visibleMovies.length,
     movies.length,
     loadPage,
   ]);
@@ -887,14 +872,14 @@ function Search() {
       React.createElement(
         MovieGrid,
         null,
-        movies.map((movie, index) =>
+        displayMovies.map((movie, index) =>
           React.createElement(
             MovieItem,
             {
               key: movie.movieCode,
               movie,
               index,
-              posterUrl: posterUrls[movie.movieCode] || "",
+              posterUrl: posterUrls[movie.movieCode],
               onClick: handleMovieClick,
               onImageError: handlePosterImageError,
             }
@@ -928,16 +913,21 @@ function Search() {
                   )
           )
                 )),
-      (!hasNext &&
-                  !loadingMore &&
-                  movies.length > 0 && (
-                    React.createElement(
+      (displayMovies.length === 0 && pendingCount > 0 && (
+                  React.createElement(
             SearchMessage,
             null,
-            "검색된 영화는 있지만 포스터를 불러오지 못했습니다. 영화 제목을 눌러 상세정보를 확인할 수 있습니다."
+            "포스터가 확인된 영화를 불러오고 있습니다."
           )
-                  )),
-      (!hasNext && !loadingMore && visibleMovies.length > 0 && (
+                )),
+      (!hasNext && !loadingMore && movies.length > 0 && displayMovies.length === 0 && pendingCount === 0 && (
+                  React.createElement(
+            SearchMessage,
+            null,
+            "표시할 포스터가 있는 영화가 없습니다."
+          )
+                )),
+      (!hasNext && !loadingMore && displayMovies.length > 0 && (
                   React.createElement(
             LoadingMessage,
             null,

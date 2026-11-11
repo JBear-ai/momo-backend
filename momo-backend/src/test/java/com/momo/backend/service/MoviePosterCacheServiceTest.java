@@ -1,8 +1,10 @@
 package com.momo.backend.service;
 
+import com.momo.backend.entity.Movie;
 import com.momo.backend.entity.MoviePosterCache;
 import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MoviePosterCacheRepository;
+import com.momo.backend.repository.MovieRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -23,7 +25,8 @@ class MoviePosterCacheServiceTest {
                 any(LocalDateTime.class), any(LocalDateTime.class)
         )).thenReturn(1);
 
-        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, mock(MovieRepository.class), mock(PosterFileStorageService.class));
 
         String token = service.tryMarkAsProcessing("20260001");
 
@@ -40,7 +43,8 @@ class MoviePosterCacheServiceTest {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
         when(repository.existsById("20260005")).thenReturn(true);
         MoviePosterCacheService service =
-                new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
+                new MoviePosterCacheService(
+                repository, mock(MovieRepository.class), mock(PosterFileStorageService.class));
 
         service.resetMissingPoster("20260005", "테스트 영화", "20260101");
 
@@ -66,7 +70,7 @@ class MoviePosterCacheServiceTest {
                 .thenReturn(List.of(cache));
 
         MoviePosterCacheService service =
-                new MoviePosterCacheService(repository, storageService);
+                new MoviePosterCacheService(repository, mock(MovieRepository.class), storageService);
 
         var statuses = service.findPosterStatuses(List.of("20260009"));
 
@@ -77,6 +81,54 @@ class MoviePosterCacheServiceTest {
     }
 
     @Test
+    void exposesSavedMoviePosterEvenWhenPosterCacheRowDoesNotExist() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+        Movie movie = new Movie(
+                "20260010", "테스트 영화", "", "20260101", "", "", "", "", "");
+        movie.updatePosterUrl("/posters/20260010-existing.jpg");
+
+        when(movieRepository.findAllById(List.of("20260010")))
+                .thenReturn(List.of(movie));
+        when(repository.findAllByMovieCodeIn(List.of("20260010")))
+                .thenReturn(List.of());
+        when(storageService.exists("/posters/20260010-existing.jpg"))
+                .thenReturn(true);
+
+        MoviePosterCacheService service =
+                new MoviePosterCacheService(repository, movieRepository, storageService);
+
+        var statuses = service.findPosterStatuses(List.of("20260010"));
+
+        assertEquals(1, statuses.size());
+        assertEquals(PosterStatus.SUCCESS, statuses.get(0).status());
+        assertEquals("/posters/20260010-existing.jpg", statuses.get(0).posterUrl());
+    }
+
+    @Test
+    void returnsFailedForMoviesWithoutPosterCacheOrSavedPoster() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        Movie movie = new Movie(
+                "20260011", "포스터 없는 영화", "", "20260101", "", "", "", "", "");
+
+        when(movieRepository.findAllById(List.of("20260011")))
+                .thenReturn(List.of(movie));
+        when(repository.findAllByMovieCodeIn(List.of("20260011")))
+                .thenReturn(List.of());
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, movieRepository, mock(PosterFileStorageService.class));
+
+        var statuses = service.findPosterStatuses(List.of("20260011"));
+
+        assertEquals(1, statuses.size());
+        assertEquals(PosterStatus.FAILED, statuses.get(0).status());
+        assertEquals("", statuses.get(0).posterUrl());
+    }
+
+    @Test
     void returnsNullWhenAnotherWorkerOwnsTheClaim() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
         when(repository.tryClaim(
@@ -84,7 +136,8 @@ class MoviePosterCacheServiceTest {
                 any(LocalDateTime.class), any(LocalDateTime.class)
         )).thenReturn(0);
 
-        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, mock(MovieRepository.class), mock(PosterFileStorageService.class));
 
         assertNull(service.tryMarkAsProcessing("20260001"));
     }
@@ -92,7 +145,8 @@ class MoviePosterCacheServiceTest {
     @Test
     void releasesOnlyTheClaimOwnedByTheGivenToken() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
-        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, mock(MovieRepository.class), mock(PosterFileStorageService.class));
 
         service.releaseProcessingClaim("20260001", "claim-token");
 
@@ -103,7 +157,8 @@ class MoviePosterCacheServiceTest {
     @Test
     void doesNotReleaseWhenClaimTokenIsMissing() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
-        MoviePosterCacheService service = new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, mock(MovieRepository.class), mock(PosterFileStorageService.class));
 
         service.releaseProcessingClaim("20260001", null);
 
