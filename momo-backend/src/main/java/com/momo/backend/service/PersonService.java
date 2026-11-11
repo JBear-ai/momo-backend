@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -102,17 +103,13 @@ public class PersonService {
             }
 
             List<String> tmdbDirectors = extractDirectorNames(detail);
-            List<String> searchTitles = new ArrayList<>();
-            if (!localizedTitle.isBlank()) searchTitles.add(localizedTitle);
-            if (!originalTitle.isBlank()
-                    && searchTitles.stream().noneMatch(value -> sameMovieTitle(value, originalTitle))) {
-                searchTitles.add(originalTitle);
-            }
+            List<String> searchTitles = findFilmographySearchTitles(
+                    tmdbId, localizedTitle, originalTitle);
 
             Map<String, JsonNode> matched = new HashMap<>();
             for (String searchTitle : searchTitles) {
                 collectFilmographyCandidates(
-                        searchTitle, localizedTitle, originalTitle,
+                        searchTitle, searchTitles,
                         releaseYear, tmdbDirectors, matched
                 );
             }
@@ -145,6 +142,42 @@ public class PersonService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "필모그래피 영화 정보를 확인하는 중 외부 API 오류가 발생했습니다.", e);
         }
+    }
+
+    // TMDb 기본 제목에 없는 한국 개봉명·배급사 표기까지 KOBIS 검색어에 포함한다.
+    private List<String> findFilmographySearchTitles(
+            long tmdbId,
+            String localizedTitle,
+            String originalTitle
+    ) {
+        LinkedHashSet<String> titles = new LinkedHashSet<>();
+        if (!localizedTitle.isBlank()) titles.add(localizedTitle.trim());
+        if (!originalTitle.isBlank()) titles.add(originalTitle.trim());
+
+        try {
+            JsonNode alternatives = objectMapper.readTree(
+                    tmdbApiClient.getMovieAlternativeTitles(tmdbId)
+            ).path("titles");
+
+            if (alternatives.isArray()) {
+                for (JsonNode alternative : alternatives) {
+                    if (!"KR".equalsIgnoreCase(text(alternative, "iso_3166_1"))) {
+                        continue;
+                    }
+
+                    String title = text(alternative, "title");
+                    if (!title.isBlank()) titles.add(title.trim());
+
+                    // 과도한 외부 API 호출을 막되, 한국 대체 제목은 여러 표기를 확인한다.
+                    if (titles.size() >= 6) break;
+                }
+            }
+        } catch (Exception exception) {
+            // 대체 제목 API가 실패해도 기본 제목과 원제로 연결을 계속 시도한다.
+            log.debug("TMDb 한국 대체 제목 조회 실패. tmdbId={}", tmdbId, exception);
+        }
+
+        return new ArrayList<>(titles);
     }
 
     // TMDb의 KR 지역 개봉일을 우선 사용한다. 해외 최초 개봉연도와 국내 개봉연도가 다른 작품을 보정한다.
@@ -185,8 +218,7 @@ public class PersonService {
     // 첫 페이지에 일치 후보가 없을 때만 다음 페이지를 조회해 검색 결과 상한에 걸리는 문제를 줄인다.
     private void collectFilmographyCandidates(
             String searchTitle,
-            String localizedTitle,
-            String originalTitle,
+            List<String> searchTitles,
             String releaseYear,
             List<String> tmdbDirectors,
             Map<String, JsonNode> matched
@@ -207,26 +239,26 @@ public class PersonService {
 
             for (JsonNode candidate : candidates) {
                 String movieCode = text(candidate, "movieCd");
-                if (movieCode.isBlank()) continue;
+                if (!PosterFileStorageService.isValidMovieCode(movieCode)) continue;
 
                 String koreanTitle = text(candidate, "movieNm");
                 String englishTitle = text(candidate, "movieNmEn");
-                boolean titleMatches =
-                        sameMovieTitle(localizedTitle, koreanTitle)
-                        || sameMovieTitle(localizedTitle, englishTitle)
-                        || sameMovieTitle(originalTitle, koreanTitle)
-                        || sameMovieTitle(originalTitle, englishTitle);
+                boolean titleMatches = searchTitles.stream().anyMatch(alias ->
+                        sameMovieTitle(alias, koreanTitle)
+                        || sameMovieTitle(alias, englishTitle));
                 if (!titleMatches) continue;
 
                 String candidateYear = text(candidate, "openDt");
-                boolean yearMatches = !releaseYear.isBlank()
-                        && candidateYear.length() >= 4
+                boolean hasBothReleaseYears = !releaseYear.isBlank()
+                        && candidateYear.length() >= 4;
+                boolean yearMatches = hasBothReleaseYears
                         && releaseYear.equals(candidateYear.substring(0, 4));
                 boolean directorMatches = !tmdbDirectors.isEmpty()
                         && matchesKobisDirector(candidate, tmdbDirectors);
 
-                // 국내 개봉연도 또는 감독이 확인되지 않는 후보는 오매칭 방지를 위해 제외한다.
-                if (!yearMatches && !directorMatches) continue;
+                // 두 개봉연도가 모두 확인되면 연도가 다를 때 감독까지 일치해야 한다.
+                // 한쪽 연도가 누락된 경우에는 한국 대체 제목을 포함한 정확한 제목 일치로 후보를 유지한다.
+                if (hasBothReleaseYears && !yearMatches && !directorMatches) continue;
 
                 matched.put(movieCode, candidate);
                 foundOnPage = true;
