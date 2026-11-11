@@ -974,11 +974,10 @@ public class MovieService {
                     : "";
 
             if (posterUrl.isBlank()) {
-                boolean missingLocalFile = isMissingLocalPosterFile(moviePosterUrl)
-                        || isMissingLocalPosterFile(cachePosterUrl)
-                        || isMissingLocalPosterFile(responsePosterUrl);
+                boolean missingSavedFile = isMissingLocalPosterFile(moviePosterUrl)
+                        || isMissingLocalPosterFile(cachePosterUrl);
 
-                if (missingLocalFile) {
+                if (missingSavedFile) {
                     if (savedMovie != null && isMissingLocalPosterFile(moviePosterUrl)) {
                         savedMovie.updatePosterUrl(null);
                         movieRepository.save(savedMovie);
