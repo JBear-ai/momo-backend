@@ -11,10 +11,12 @@ function Profile() {
   const [profileUserId, setProfileUserId] = useState(null);
   const [hasProfileImage, setHasProfileImage] = useState(false);
 
-  // 관심 영화 개수
+  // 영화 활동 개수
   const [favoriteCount, setFavoriteCount] = useState(
     () => getFavoriteMovies().length,
   );
+  const [reviewCount, setReviewCount] = useState(null);
+  const [likedReviewCount, setLikedReviewCount] = useState(null);
 
   // 브라우저에 저장된 회원 정보 불러오기
   useEffect(() => {
@@ -37,25 +39,71 @@ function Profile() {
     };
   }, []);
 
-  // 공용 프로필 이미지 컴포넌트에 필요한 회원 정보를 조회한다.
+  // 프로필 및 영화 활동 정보 조회
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     const loadProfile = async () => {
       try {
         const response = await AxiosApi.memberMe();
-        if (!active) return;
+
+        if (controller.signal.aborted) return;
 
         setProfileUserId(response.data.userId || null);
         setHasProfileImage(Boolean(response.data.profileImage));
       } catch (error) {
-        console.error("프로필 정보 조회 실패:", error);
+        if (error.name !== "CanceledError") {
+          console.error("프로필 정보 조회 실패:", error);
+        }
+      }
+    };
+
+    // 작성한 리뷰와 좋아요한 리뷰의 전체 개수 조회
+    const loadReviewCounts = async () => {
+      const [myReviewsResult, likedReviewsResult] = await Promise.allSettled([
+        AxiosApi.myReviews(0, controller.signal),
+        AxiosApi.myLikedReviews(0, controller.signal),
+      ]);
+
+      if (controller.signal.aborted) return;
+
+      // Spring Data Page 응답의 전체 데이터 개수 추출
+      const getTotalCount = (result) => {
+        if (result.status !== "fulfilled") return null;
+
+        const data = result.value.data;
+
+        return data.page?.totalElements ?? data.totalElements ?? null;
+      };
+
+      const myCount = getTotalCount(myReviewsResult);
+      const likedCount = getTotalCount(likedReviewsResult);
+
+      if (myCount !== null) {
+        setReviewCount(myCount);
+      }
+
+      if (likedCount !== null) {
+        setLikedReviewCount(likedCount);
+      }
+
+      if (myReviewsResult.status === "rejected") {
+        console.error("작성한 리뷰 개수 조회 실패:", myReviewsResult.reason);
+      }
+
+      if (likedReviewsResult.status === "rejected") {
+        console.error(
+          "좋아요한 리뷰 개수 조회 실패:",
+          likedReviewsResult.reason,
+        );
       }
     };
 
     loadProfile();
+    loadReviewCounts();
+
     return () => {
-      active = false;
+      controller.abort();
     };
   }, []);
 
@@ -122,52 +170,43 @@ function Profile() {
             </div>
           </div>
 
-          {/* 작성한 리뷰 */}
-          <Link
-            to="/profile/reviews"
-            className="profile-activity-item profile-reviews-link"
-          >
-            <span className="profile-activity-icon">✎</span>
-
-            <div>
+          {/* 영화 활동 3개 가로 배치 */}
+          <div className="profile-activity-grid">
+            {/* 작성한 리뷰 */}
+            <Link
+              to="/profile/reviews"
+              className="profile-activity-item profile-reviews-link"
+            >
+              <span className="profile-activity-icon">✎</span>
               <h3>작성한 리뷰</h3>
-              <p>내가 작성한 영화 리뷰를 확인할 수 있어요.</p>
-            </div>
+              <strong>{reviewCount === null ? "-" : reviewCount} 개</strong>
+              <p>작성한 리뷰 보기 →</p>
+            </Link>
 
-            <span className="profile-reviews-count">리뷰 보기 →</span>
-          </Link>
-
-          {/* 좋아요한 리뷰 */}
-          <Link
-            to="/profile/liked-reviews"
-            className="profile-activity-item profile-liked-reviews-link"
-          >
-            <span className="profile-activity-icon">♥</span>
-
-            <div>
+            {/* 좋아요한 리뷰 */}
+            <Link
+              to="/profile/liked-reviews"
+              className="profile-activity-item profile-liked-reviews-link"
+            >
+              <span className="profile-activity-icon">♥</span>
               <h3>좋아요한 리뷰</h3>
-              <p>마음에 들었던 리뷰를 모아볼 수 있어요.</p>
-            </div>
+              <strong>
+                {likedReviewCount === null ? "-" : likedReviewCount} 개
+              </strong>
+              <p>좋아요한 리뷰 보기 →</p>
+            </Link>
 
-            <span className="profile-liked-reviews-count">리뷰 보기 →</span>
-          </Link>
-
-          {/* 관심 영화 */}
-          <Link
-            to="/profile/favorites"
-            className="profile-activity-item profile-favorites-link"
-          >
-            <span className="profile-activity-icon">★</span>
-
-            <div>
+            {/* 관심 영화 */}
+            <Link
+              to="/profile/favorites"
+              className="profile-activity-item profile-favorites-link"
+            >
+              <span className="profile-activity-icon">★</span>
               <h3>관심 영화</h3>
-              <p>관심 있는 영화를 관리할 수 있어요.</p>
-            </div>
-
-            <span className="profile-favorites-count">
-              {favoriteCount}개 보기 →
-            </span>
-          </Link>
+              <strong>{favoriteCount} 편</strong>
+              <p>관심 영화 보기 →</p>
+            </Link>
+          </div>
         </section>
 
         {/* 회원 탈퇴 */}

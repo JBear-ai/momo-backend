@@ -201,7 +201,9 @@ body {
 }
 
 /* 영화 활동 섹션 */
-.profile-activity {
+
+/* 영화 활동 섹션 */
+.profile-activity-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
@@ -210,20 +212,28 @@ body {
 .profile-activity-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 145px;
+  padding: 20px 12px;
   background: var(--momo-note);
   border: 1px solid var(--momo-note-border);
   border-radius: 10px;
-  transition: transform 0.2s ease;
+  text-align: center;
+  text-decoration: none;
+  color: var(--momo-text);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .profile-activity-item:hover {
   transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.06);
 }
 
 .profile-activity-icon {
-  font-size: 18px;
+  font-size: 22px;
 }
 
 .profile-activity-item h3 {
@@ -237,6 +247,32 @@ body {
   color: var(--momo-muted);
   font-size: 12px;
 }
+
+.profile-reviews-count,
+.profile-liked-reviews-count,
+.profile-favorites-count {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--momo-accent-ink);
+}
+
+@media (max-width: 600px) {
+  .profile-activity-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .profile-activity-item {
+    min-height: 125px;
+    padding: 14px 6px;
+  }
+
+  .profile-activity-item p {
+    display: none;
+  }
+}
+
 
 .profile-coming {
   display: inline-block;
@@ -305,9 +341,20 @@ body {
 }
 
 @media (max-width: 600px) {
-  .profile-activity {
-    grid-template-columns: 1fr;
+  .profile-activity-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
+
+  .profile-activity-item {
+    min-height: 125px;
+    padding: 14px 6px;
+  }
+
+  .profile-activity-item p {
+    display: none;
+  }
+
   .profile-delete-section {
     flex-direction: column;
     align-items: flex-start;
