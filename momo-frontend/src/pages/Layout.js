@@ -11,10 +11,6 @@ import styled from "styled-components";
 import textlogo from "../textlogo.png";
 import AxiosApi from "../api/AxiosApi";
 
-// ========================================
-// 전체 레이아웃
-// ========================================
-
 const Container = styled.div`
   min-height: 100vh;
   display: flex;
@@ -390,14 +386,10 @@ function Layout() {
       // Spring Boot 서버 로그아웃 요청
       await AxiosApi.memberLogout();
 
-      // 서버 로그아웃 성공 후 클라이언트 인증 정보 정리
-      localStorage.removeItem("accessToken");
+      // 로그아웃 성공 후 브라우저 사용자 정보 삭제
       localStorage.removeItem("username");
       localStorage.removeItem("nickname");
-
-      setNickname("");
-
-      // 다른 컴포넌트에도 인증 변경 알림
+      localStorage.removeItem("accessToken");
       window.dispatchEvent(new Event("momo-auth-changed"));
 
       // 메인 화면 이동
