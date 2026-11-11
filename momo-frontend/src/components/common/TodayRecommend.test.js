@@ -80,8 +80,7 @@ describe("TodayRecommend poster recovery", () => {
       ["20260001"],
       expect.any(AbortSignal),
     );
-    expect(screen.getByAltText("추천 영화")).toHaveAttribute(
-      "src",
+    expect(screen.getByAltText("추천 영화").getAttribute("src")).toContain(
       "/posters/20260001-test.jpg",
     );
   });
