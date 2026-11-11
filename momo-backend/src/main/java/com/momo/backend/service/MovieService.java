@@ -415,6 +415,11 @@ public class MovieService {
                         releaseDate,
                         priority);
 
+                // 전체 카탈로그는 대기열에만 적재한다. 사용자 요청과 박스오피스 작업이 먼저 처리된다.
+                if (priority >= 900) {
+                    continue;
+                }
+
                 String claimToken = posterCacheService.tryMarkAsProcessing(movieCode);
 
                 if (claimToken == null) {
