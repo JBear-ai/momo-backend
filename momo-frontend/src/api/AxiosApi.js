@@ -548,6 +548,14 @@ const AxiosApi = {
     );
   },
 
+  // TMDb 고유 인물 ID로 상세정보 조회 (다국어 이름 재검색에 의존하지 않음)
+  getPersonDetailById: async (type, personId, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/persons/by-id/${encodeURIComponent(type)}/${encodeURIComponent(personId)}`,
+      { signal },
+    );
+  },
+
   // 23. 인물 상세 및 필모그래피 조회
   getPersonDetail: async (type, name, signal) => {
     return await axios.get(
