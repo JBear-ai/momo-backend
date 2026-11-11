@@ -111,7 +111,7 @@ public class ReviewReactionService {
 
         return reactionRepository
                 .findByUser_UserIdAndReview_ReviewId(user.getUserId(), reviewId)
-                .map(ReviewReactions::getLiked)
+                .map(reaction -> reaction == null ? null : reaction.getLiked())
                 .orElse(null);
     }
 
