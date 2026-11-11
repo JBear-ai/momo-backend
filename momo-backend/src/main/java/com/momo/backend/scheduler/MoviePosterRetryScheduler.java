@@ -33,11 +33,12 @@ public class MoviePosterRetryScheduler {
             return true;
         }
 
+        // 포스터 수집은 홈 화면 노출에 직접 영향을 주므로 재시도 간격을 최대 10분으로 제한한다.
         long retryDelayMinutes = switch (cache.getRetryCount()) {
-            case 0, 1 -> 2;
-            case 2 -> 10;
-            case 3 -> 30;
-            default -> 120;
+            case 0 -> 1;
+            case 1 -> 2;
+            case 2 -> 5;
+            default -> 10;
         };
 
         return !cache.getUpdatedAt().isAfter(LocalDateTime.now().minusMinutes(retryDelayMinutes));
@@ -48,7 +49,7 @@ public class MoviePosterRetryScheduler {
     public void retryPendingPosterDownloads() {
         List<MoviePosterCache> candidates = new ArrayList<>();
         candidates.addAll(posterCacheRepository.findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus.PENDING));
-        // 실패 횟수에 따라 2분 → 10분 → 30분 → 2시간으로 재시도 간격을 늘린다.
+        // 실패 횟수에 따라 1분 → 2분 → 5분 → 최대 10분 간격으로 재시도한다.
         posterCacheRepository.findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus.FAILED)
                 .stream()
                 .filter(this::isRetryReady)
@@ -66,7 +67,15 @@ public class MoviePosterRetryScheduler {
             }
 
             Movie movie = movieRepository.findById(candidate.getMovieCode()).orElse(null);
-            if (movie == null || (movie.getPosterUrl() != null && !movie.getPosterUrl().isBlank())) {
+            if (movie == null) {
+                continue;
+            }
+
+            // FAILED는 Movie 테이블에 오래된 URL이 남아 있어도 재수집을 막지 않는다.
+            // PENDING 작업만 기존 포스터 URL이 있으면 중복 수집을 피한다.
+            if (candidate.getStatus() != PosterStatus.FAILED
+                    && movie.getPosterUrl() != null
+                    && !movie.getPosterUrl().isBlank()) {
                 continue;
             }
 

@@ -980,7 +980,13 @@ public class MovieService {
                     : "";
             String responsePosterUrl = item.posterUrl() == null ? "" : item.posterUrl();
 
-            String posterUrl = isPosterUrlAvailable(moviePosterUrl) ? moviePosterUrl
+            // FAILED 캐시는 Movie 테이블에 과거 URL이 남아 있어도 화면에 반환하지 않는다.
+            // 그래야 홈 화면이 누락 포스터로 인식하고 상태 조회를 이어갈 수 있다.
+            boolean posterSearchFailed = posterCache != null
+                    && posterCache.getStatus() == PosterStatus.FAILED;
+
+            String posterUrl = posterSearchFailed ? ""
+                    : isPosterUrlAvailable(moviePosterUrl) ? moviePosterUrl
                     : isPosterUrlAvailable(cachePosterUrl) ? cachePosterUrl
                     : isPosterUrlAvailable(responsePosterUrl) ? responsePosterUrl
                     : "";
