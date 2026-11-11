@@ -19,6 +19,7 @@ import java.util.UUID;
 public class MoviePosterCacheService {
 
     private final MoviePosterCacheRepository posterCacheRepository;
+    private final PosterFileStorageService posterFileStorageService;
 
     private static final long FAILED_RETRY_HOURS = 6;
     private static final long PROCESSING_TIMEOUT_MINUTES = 10;
@@ -71,6 +72,14 @@ public class MoviePosterCacheService {
         }
     }
 
+    private boolean isPosterFileAvailable(String posterUrl) {
+        if (posterUrl == null || posterUrl.isBlank()) {
+            return false;
+        }
+        return !posterUrl.startsWith("/posters/")
+                || posterFileStorageService.exists(posterUrl);
+    }
+
     public List<MoviePosterStatusResponse> findPosterStatuses(Collection<String> movieCodes) {
         if (movieCodes == null || movieCodes.isEmpty()) {
             return List.of();
@@ -80,7 +89,7 @@ public class MoviePosterCacheService {
                 .map(cache -> new MoviePosterStatusResponse(
                         cache.getMovieCode(),
                         cache.getStatus(),
-                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl()
+                        isPosterFileAvailable(cache.getPosterUrl()) ? cache.getPosterUrl() : ""
                 ))
                 .toList();
     }
@@ -90,7 +99,7 @@ public class MoviePosterCacheService {
                 .map(cache -> new MoviePosterStatusResponse(
                         cache.getMovieCode(),
                         cache.getStatus(),
-                        cache.getPosterUrl() == null ? "" : cache.getPosterUrl()
+                        isPosterFileAvailable(cache.getPosterUrl()) ? cache.getPosterUrl() : ""
                 ));
     }
 }
