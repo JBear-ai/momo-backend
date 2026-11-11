@@ -226,38 +226,28 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
   {"role":"button","tabIndex":0,"style":{
           animationDelay: `${(index % 20) * 20}ms`,
         },"onClick":() => onClick(movie.movieCode),"onKeyDown":handleCardKeyDown,"aria-label":`${movie.title} 상세 페이지`},
-  React.createElement(
+  posterUrl &&
+    React.createElement(
       Poster,
       null,
-      posterUrl
-        ? React.createElement(
-            "img",
-            {"src":resolvePosterUrl(posterUrl),"alt":`${movie.title} 포스터`,"loading":"lazy","onError":() => onImageError(movie.movieCode)}
-          )
-        : React.createElement(
-            "div",
-            {
-              role: "img",
-              "aria-label": `${movie.title} 포스터 준비 중`,
-              style: {
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#948b7c",
-                fontSize: "32px",
-              },
-            },
-            "🎬"
-          ),
       React.createElement(
-            FavoriteStar,
-            {"movie":{
-                        ...movie,
-                        posterUrl: posterUrl,
-                      }}
-          )
+        "img",
+        {
+          src: resolvePosterUrl(posterUrl),
+          alt: `${movie.title} 포스터`,
+          loading: "lazy",
+          onError: () => onImageError(movie.movieCode),
+        }
+      ),
+      React.createElement(
+        FavoriteStar,
+        {
+          movie: {
+            ...movie,
+            posterUrl,
+          },
+        }
+      )
     ),
   React.createElement(
       MovieInfo,

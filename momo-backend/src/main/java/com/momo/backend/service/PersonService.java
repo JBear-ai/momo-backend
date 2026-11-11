@@ -5,6 +5,7 @@ import com.momo.backend.client.KobisApiClient;
 import com.momo.backend.dto.person.PersonDetailResponse;
 import com.momo.backend.dto.person.PersonDetailResponse.FilmographyItem;
 import com.momo.backend.dto.person.PersonDetailResponse.PersonInfo;
+import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.entity.MovieCache;
 import com.momo.backend.repository.MovieCacheRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,8 @@ public class PersonService {
     private final TmdbApiClient tmdbApiClient;
     private final KobisApiClient kobisApiClient;
     private final MovieCacheRepository movieCacheRepository;
+    private final MoviePersistenceService moviePersistenceService;
+    private final MoviePosterPersistenceService moviePosterPersistenceService;
     private final ObjectMapper objectMapper;
 
     private static Object[] createCacheLocks() {
@@ -134,7 +137,45 @@ public class PersonService {
                         "동일 작품으로 판단되는 KOBIS 영화가 여러 편입니다. 잘못된 영화로 연결하지 않도록 자동 선택을 중단했습니다.");
             }
 
-            return matched.keySet().iterator().next();
+            String movieCode = matched.keySet().iterator().next();
+            JsonNode kobisMovie = matched.get(movieCode);
+
+            // KOBIS 검색 결과를 영화 테이블에 먼저 저장해 상세 페이지와 포스터가 같은 코드를 사용하게 한다.
+            String kobisTitle = text(kobisMovie, "movieNm");
+            String kobisReleaseDate = text(kobisMovie, "openDt");
+            String kobisGenre = text(kobisMovie, "genreAlt");
+            String kobisDirector = extractKobisDirectorText(kobisMovie);
+
+            try {
+                moviePersistenceService.saveSearchMovies(List.of(
+                        new MovieSearchResponse(
+                                movieCode,
+                                kobisTitle,
+                                kobisReleaseDate,
+                                kobisGenre,
+                                kobisDirector
+                        )
+                ));
+            } catch (Exception persistenceError) {
+                // 영화 연결 자체는 유지하고, 상세 페이지에서 다시 저장할 수 있도록 기록만 남긴다.
+                log.warn("필모그래피 KOBIS 영화 정보 저장 실패. movieCode={}",
+                        movieCode, persistenceError);
+            }
+
+            // 필모그래피 카드가 사용한 TMDb poster_path를 로컬 포스터 파일로 저장한다.
+            String tmdbPosterUrl = findTmdbPosterUrl(detail);
+            if (!tmdbPosterUrl.isBlank()) {
+                try {
+                    moviePosterPersistenceService.saveFilmographyPosterIfMissing(
+                            movieCode, tmdbPosterUrl);
+                } catch (Exception posterError) {
+                    // 포스터 저장 실패가 영화 상세 페이지 연결까지 막아서는 안 된다.
+                    log.warn("필모그래피 TMDb 포스터 저장 실패. movieCode={}",
+                            movieCode, posterError);
+                }
+            }
+
+            return movieCode;
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
@@ -142,6 +183,34 @@ public class PersonService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "필모그래피 영화 정보를 확인하는 중 외부 API 오류가 발생했습니다.", e);
         }
+    }
+
+    private String extractKobisDirectorText(JsonNode candidate) {
+        JsonNode directors = candidate.path("directors");
+        if (!directors.isArray()) {
+            return "";
+        }
+
+        List<String> names = new ArrayList<>();
+        for (JsonNode director : directors) {
+            String name = text(director, "peopleNm");
+            if (!name.isBlank() && !names.contains(name)) {
+                names.add(name);
+            }
+        }
+        return String.join(",", names);
+    }
+
+    private String findTmdbPosterUrl(JsonNode detail) {
+        String posterPath = text(detail, "poster_path");
+        if (posterPath.isBlank()
+                || !posterPath.startsWith("/")
+                || posterPath.contains("..")
+                || posterPath.contains("?")
+                || posterPath.contains("#")) {
+            return "";
+        }
+        return IMAGE_BASE_URL + posterPath;
     }
 
     // TMDb 기본 제목에 없는 한국 개봉명·배급사 표기까지 KOBIS 검색어에 포함한다.
