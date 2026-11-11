@@ -32,7 +32,7 @@ public class RefreshTokenService {
         Optional<RefreshToken> storedToken = refreshTokenRepository.findByUserIdForUpdate(lockedUser.getUserId());
 
         if (storedToken.isPresent()) {
-            storedToken.get().rotate(token);
+            storedToken.get().rotate(hashToken(token));
             return;
         }
 

@@ -62,9 +62,15 @@ class RefreshTokenServiceTest {
         TokenRefreshResponse response = refreshTokenService.reissue(oldRefreshToken);
 
         assertNotEquals(oldRefreshToken, response.refreshToken());
-        assertEquals(response.refreshToken(), storedToken.getToken());
+        assertNotEquals(response.refreshToken(), storedToken.getToken());
+        assertEquals(64, storedToken.getToken().length());
+
         assertThrows(CustomException.class, () -> refreshTokenService.reissue(oldRefreshToken));
-        assertEquals(response.refreshToken(), storedToken.getToken());
+
+        // DB에는 해시만 저장되지만 새 Refresh Token 원문으로 다음 재발급이 가능하다.
+        TokenRefreshResponse nextResponse = refreshTokenService.reissue(response.refreshToken());
+        assertNotEquals(response.refreshToken(), nextResponse.refreshToken());
+        assertEquals(64, storedToken.getToken().length());
     }
 
     @Test
@@ -136,6 +142,7 @@ class RefreshTokenServiceTest {
         InOrder order = inOrder(userRepository, refreshTokenRepository);
         order.verify(userRepository).findByUserIdForUpdate(userId);
         order.verify(refreshTokenRepository).findByUserIdForUpdate(userId);
-        order.verify(refreshTokenRepository).save(org.mockito.ArgumentMatchers.any(RefreshToken.class));
+        order.verify(refreshTokenRepository).save(org.mockito.ArgumentMatchers.argThat(
+                stored -> stored.getToken().length() == 64 && !stored.getToken().equals(refreshToken)));
     }
 }

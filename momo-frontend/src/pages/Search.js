@@ -5,6 +5,7 @@ import styled from "styled-components";
 import AxiosApi from "../api/AxiosApi";
 import FavoriteStar from "../components/common/FavoriteStar";
 import { formatReleaseDate } from "../utils/releaseDate";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 // 검색 페이지 디자인
 
@@ -230,7 +231,7 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
       null,
       React.createElement(
             "img",
-            {"src":posterUrl,"alt":`${movie.title} 포스터`,"loading":"lazy","onError":() => onImageError(movie.movieCode)}
+            {"src":resolvePosterUrl(posterUrl),"alt":`${movie.title} 포스터`,"loading":"lazy","onError":() => onImageError(movie.movieCode)}
           ),
       React.createElement(
             FavoriteStar,

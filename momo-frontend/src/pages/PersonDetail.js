@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 function parseDate(value) {
   if (!value) return null;
@@ -247,7 +248,7 @@ function PersonDetail() {
                               (movie.posterUrl ? (
                                                   React.createElement(
                                           "img",
-                                          {"src":movie.posterUrl,"alt":movie.title || "작품 포스터","loading":"lazy"}
+                                          {"src":resolvePosterUrl(movie.posterUrl),"alt":movie.title || "작품 포스터","loading":"lazy"}
                                         )
                                                 ) : (
                                                   React.createElement(

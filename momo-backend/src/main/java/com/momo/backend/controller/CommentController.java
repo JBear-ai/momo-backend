@@ -47,8 +47,14 @@ public class CommentController {
             @RequestParam(defaultValue = "0") int page,
             Authentication authentication) {
 
+        String loginId = authentication == null
+                || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getName())
+                        ? null
+                        : authentication.getName();
+
         return ResponseEntity.ok(
-                commentService.getComments(reviewId, page, authentication.getName())
+                commentService.getComments(reviewId, page, loginId)
         );
     }
 

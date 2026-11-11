@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import TodayRecommend from "../components/common/TodayRecommend";
 import FavoriteStar from "../components/common/FavoriteStar";
 import { getFavoriteMovies } from "../utils/favorites";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 import {
   HomePage,
@@ -222,7 +223,7 @@ function Home() {
                               (movie.posterUrl ? (
                                                   React.createElement(
                                           "img",
-                                          {"src":movie.posterUrl,"alt":movie.title}
+                                          {"src":resolvePosterUrl(movie.posterUrl),"alt":movie.title}
                                         )
                                                 ) : (
                                                   React.createElement(
@@ -341,7 +342,7 @@ function Home() {
                               (movie.posterUrl ? (
                                                   React.createElement(
                                           "img",
-                                          {"src":movie.posterUrl,"alt":movie.title}
+                                          {"src":resolvePosterUrl(movie.posterUrl),"alt":movie.title}
                                         )
                                                 ) : (
                                                   React.createElement(

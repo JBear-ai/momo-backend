@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { resolvePosterUrl } from "../utils/mediaUrl";
 
 const h = React.createElement;
 
@@ -605,7 +606,7 @@ function ReviewDetail() {
 
       posterUrl
         ? h("img", {
-            src: posterUrl,
+            src: resolvePosterUrl(posterUrl),
             alt: movie?.title || "영화 포스터",
           })
         : h("div", { className: "review-detail-poster-placeholder" }, "MOMO"),
