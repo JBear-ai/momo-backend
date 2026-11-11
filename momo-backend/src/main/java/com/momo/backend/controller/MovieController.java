@@ -1,6 +1,7 @@
 package com.momo.backend.controller;
 
 import com.momo.backend.dto.movie.MovieDetailResponse;
+import com.momo.backend.dto.movie.TmdbMovieDetailResponse;
 import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.dto.review.ReviewResponse;
