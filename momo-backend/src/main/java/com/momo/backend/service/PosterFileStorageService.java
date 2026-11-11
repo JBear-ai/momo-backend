@@ -80,7 +80,11 @@ public class PosterFileStorageService {
         return "/posters/" + fileName;
     }
 
-    static boolean isValidMovieCode(String movieCode) {\n        return movieCode != null && movieCode.matches("[A-Za-z0-9]{8}");\n    }\n\n    // 저장·검증을 지원하는 이미지 형식만 요청한다. AVIF를 요청하면 일부 서버가 AVIF로 응답하지만
+    static boolean isValidMovieCode(String movieCode) {
+        return movieCode != null && movieCode.matches("[A-Za-z0-9]{8}");
+    }
+
+    // 저장·검증을 지원하는 이미지 형식만 요청한다. AVIF를 요청하면 일부 서버가 AVIF로 응답하지만
     // 현재 파일 검증기는 JPEG, PNG, WebP만 처리하므로 이미지 요청 단계에서 AVIF 협상을 제외한다.
     HttpRequest createDownloadRequest(URI uri) {
         return HttpRequest.newBuilder(uri)
