@@ -14,6 +14,10 @@ public interface MovieRepository extends JpaRepository<Movie, String> {
 
     List<Movie> findByBoxOfficeEnteredTrueOrderByBestBoxOfficeRankAscLastBoxOfficeDateDesc();
 
+    // 실제 파일 존재 여부를 점검할 로컬 포스터 경로를 페이지 단위로 조회한다.
+    Page<Movie> findByPosterUrlStartingWith(String posterUrlPrefix, Pageable pageable);
+
+
     Page<Movie> findByGenreContainingIgnoreCaseOrderByReleaseDateDescMovieCodeAsc(String genre, Pageable pageable);
 
     List<Movie> findByBoxOfficeEnteredTrueAndGenreContainingIgnoreCaseOrderByBestBoxOfficeRankAscLastBoxOfficeDateDesc(
