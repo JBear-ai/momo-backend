@@ -229,9 +229,27 @@ function MovieItem({ movie, index, posterUrl, onClick, onImageError }) {
   React.createElement(
       Poster,
       null,
-      React.createElement(
+      posterUrl
+        ? React.createElement(
             "img",
             {"src":resolvePosterUrl(posterUrl),"alt":`${movie.title} 포스터`,"loading":"lazy","onError":() => onImageError(movie.movieCode)}
+          )
+        : React.createElement(
+            "div",
+            {
+              role: "img",
+              "aria-label": `${movie.title} 포스터 준비 중`,
+              style: {
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#948b7c",
+                fontSize: "32px",
+              },
+            },
+            "🎬"
           ),
       React.createElement(
             FavoriteStar,
@@ -334,10 +352,7 @@ function Search() {
       [movieCode]: "",
     }));
 
-    // 이미지가 실제로 로딩되지 않으면 화면에서도 제거
-    setVisibleMovies((prev) =>
-      prev.filter((movie) => movie.movieCode !== movieCode),
-    );
+    // 포스터가 실패해도 영화 검색 결과와 상세 페이지 진입은 유지한다.
   }, []);
 
   // 영화 검색 API
@@ -731,9 +746,7 @@ function Search() {
         if (!hasNextRef.current) return;
         if (isFetchingRef.current) return;
 
-        // 포스터 작업이 지나치게 쌓이지 않도록 대기 영화 수 제한
-        if (pendingCount > 8) return;
-
+        // 포스터 수집 상태와 관계없이 검색 결과 페이지를 계속 불러온다.
         loadPage(pageRef.current);
       },
       {
@@ -856,24 +869,23 @@ function Search() {
           React.createElement(
       React.Fragment,
       null,
-      (visibleMovies.length > 0 ? (
-                  React.createElement(
-            MovieGrid,
-            null,
-            (visibleMovies.map((movie, index) => (
-                            React.createElement(
-                    MovieItem,
-                    {"key":movie.movieCode,"movie":movie,"index":index,"posterUrl":posterUrls[movie.movieCode] || "","onClick":handleMovieClick,"onImageError":handlePosterImageError}
-                  )
-                          )))
+      React.createElement(
+        MovieGrid,
+        null,
+        movies.map((movie, index) =>
+          React.createElement(
+            MovieItem,
+            {
+              key: movie.movieCode,
+              movie,
+              index,
+              posterUrl: posterUrls[movie.movieCode] || "",
+              onClick: handleMovieClick,
+              onImageError: handlePosterImageError,
+            }
           )
-                ) : (
-                  React.createElement(
-            LoadingMessage,
-            null,
-            "포스터가 확인된 영화를 불러오고 있습니다."
-          )
-                )),
+        )
+      ),
       React.createElement(
             ScrollSentinel,
             {"ref":sentinelRef}
@@ -903,12 +915,11 @@ function Search() {
                 )),
       (!hasNext &&
                   !loadingMore &&
-                  pendingCount === 0 &&
-                  visibleMovies.length === 0 && (
+                  movies.length > 0 && (
                     React.createElement(
             SearchMessage,
             null,
-            "표시할 수 있는 포스터가 있는 영화가 없습니다."
+            "검색된 영화는 있지만 포스터를 불러오지 못했습니다. 영화 제목을 눌러 상세정보를 확인할 수 있습니다."
           )
                   )),
       (!hasNext && !loadingMore && visibleMovies.length > 0 && (

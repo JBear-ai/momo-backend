@@ -13,44 +13,51 @@ function formatNumber(value) {
 function normalizePeople(people) {
   if (!people) return [];
 
-  if (typeof people === "string") {
-    return people
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean)
-      .map((name) => ({
-        personId: null,
-        name,
-        role: "",
-      }));
-  }
+  const source = typeof people === "string"
+    ? people.split(",").map((name) => name.trim()).filter(Boolean)
+    : Array.isArray(people)
+      ? people
+      : [people];
 
-  if (!Array.isArray(people)) {
-    people = [people];
-  }
+  const uniquePeople = new Map();
 
-  return people.map((person) => {
-    if (typeof person === "string") {
-      return {
-        personId: null,
-        name: person,
-        role: "",
-      };
+  source.forEach((person) => {
+    const normalized = typeof person === "string"
+      ? { personId: null, name: person.trim(), role: "" }
+      : {
+          personId: person.personId || person.tmdbPersonId || person.peopleId || null,
+          name:
+            person.name ||
+            person.peopleNm ||
+            person.actorName ||
+            person.directorName ||
+            "",
+          role: person.role || person.cast || person.character || person.castName || "",
+        };
+
+    const name = String(normalized.name || "").trim();
+    if (!name) return;
+
+    // ID가 있으면 ID를 우선하고, KOBIS 문자열처럼 ID가 없으면 정규화한 이름으로 중복을 제거한다.
+    const key = normalized.personId
+      ? `id:${normalized.personId}`
+      : `name:${name.normalize("NFKC").replace(/[\\s\\p{P}\\p{S}]/gu, "").toLowerCase()}`;
+
+    const existing = uniquePeople.get(key);
+    if (!existing) {
+      uniquePeople.set(key, { ...normalized, name });
+      return;
     }
 
-    return {
-      personId:
-        person.personId || person.tmdbPersonId || person.peopleId || null,
-      name:
-        person.name ||
-        person.peopleNm ||
-        person.actorName ||
-        person.directorName ||
-        "이름 없음",
-      role:
-        person.role || person.cast || person.character || person.castName || "",
-    };
+    const roles = [existing.role, normalized.role]
+      .flatMap((role) => String(role || "").split(/[,/]/))
+      .map((role) => role.trim())
+      .filter(Boolean);
+
+    existing.role = [...new Set(roles)].join(", ");
   });
+
+  return [...uniquePeople.values()];
 }
 
 function MovieDetail() {

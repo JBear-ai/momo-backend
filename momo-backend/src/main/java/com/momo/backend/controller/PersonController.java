@@ -16,6 +16,13 @@ public class PersonController {
 
     private final PersonService personService;
 
+    @GetMapping("/filmography/{tmdbId}")
+    public ResponseEntity<java.util.Map<String, String>> resolveFilmographyMovie(@PathVariable long tmdbId) {
+        return ResponseEntity.ok(java.util.Map.of(
+                "movieCode", personService.resolveFilmographyMovie(tmdbId)
+        ));
+    }
+
     @GetMapping("/{type}/{name}")
     public ResponseEntity<PersonDetailResponse> getPersonDetail(
             @PathVariable String type,

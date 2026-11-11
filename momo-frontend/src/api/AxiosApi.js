@@ -301,6 +301,13 @@ const AxiosApi = {
     });
   },
 
+  // TMDb 필모그래피 영화 ID를 MOMO 영화 코드로 연결
+  resolveFilmographyMovie: async (tmdbId, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/persons/filmography/${encodeURIComponent(tmdbId)}`, {
+      signal,
+    });
+  },
+
   // 6. 영화 검색
   movieSearch: async (keyword, page, size = 20, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/movies/search`, {
