@@ -1,8 +1,11 @@
 package com.momo.backend.service;
 
 import com.momo.backend.dto.movie.MoviePosterStatusResponse;
+import com.momo.backend.entity.Movie;
 import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MoviePosterCacheRepository;
+import com.momo.backend.repository.MovieRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +24,7 @@ import java.util.UUID;
 public class MoviePosterCacheService {
 
     private final MoviePosterCacheRepository posterCacheRepository;
+    private final MovieRepository movieRepository;
     private final PosterFileStorageService posterFileStorageService;
 
     private static final long FAILED_RETRY_MINUTES = 2;
@@ -93,12 +99,46 @@ public class MoviePosterCacheService {
             return List.of();
         }
 
-        return posterCacheRepository.findAllByMovieCodeIn(movieCodes).stream()
-                .map(cache -> new MoviePosterStatusResponse(
-                        cache.getMovieCode(),
-                        cache.getStatus(),
-                        isPosterFileAvailable(cache.getPosterUrl()) ? cache.getPosterUrl() : ""
-                ))
+        List<String> codes = movieCodes.stream()
+                .filter(code -> code != null && !code.isBlank())
+                .distinct()
+                .toList();
+        if (codes.isEmpty()) {
+            return List.of();
+        }
+
+        // 포스터 캐시가 없어도 movies 테이블에 정상 파일이 저장되어 있을 수 있다.
+        Map<String, Movie> movies = new HashMap<>();
+        movieRepository.findAllById(codes).forEach(movie ->
+                movies.put(movie.getMovieCode(), movie));
+
+        Map<String, MoviePosterCache> caches = new HashMap<>();
+        posterCacheRepository.findAllByMovieCodeIn(codes).forEach(cache ->
+                caches.put(cache.getMovieCode(), cache));
+
+        // 요청한 모든 코드에 상태를 반환한다. 상태가 없는 작품은 포스터 미확인(FAILED)으로 처리한다.
+        return codes.stream()
+                .map(movieCode -> {
+                    Movie movie = movies.get(movieCode);
+                    String moviePosterUrl = movie == null ? "" : movie.getPosterUrl();
+
+                    if (isPosterFileAvailable(moviePosterUrl)) {
+                        return new MoviePosterStatusResponse(
+                                movieCode, PosterStatus.SUCCESS, moviePosterUrl);
+                    }
+
+                    MoviePosterCache cache = caches.get(movieCode);
+                    if (cache == null) {
+                        return new MoviePosterStatusResponse(
+                                movieCode, PosterStatus.FAILED, "");
+                    }
+
+                    String posterUrl = isPosterFileAvailable(cache.getPosterUrl())
+                            ? cache.getPosterUrl()
+                            : "";
+                    return new MoviePosterStatusResponse(
+                            movieCode, cache.getStatus(), posterUrl);
+                })
                 .toList();
     }
 
