@@ -26,6 +26,7 @@ public class PosterFileStorageService {
 
     private static final int MAX_IMAGE_BYTES = 12 * 1024 * 1024;
     private static final int MAX_REDIRECTS = 3;
+    private static final String IMAGE_ACCEPT_HEADER = "image/webp,image/png,image/jpeg";
     private static final Set<String> ALLOWED_HOSTS = Set.of(
             "file.koreafilm.or.kr",
             "image.tmdb.org"
@@ -79,6 +80,16 @@ public class PosterFileStorageService {
         return "/posters/" + fileName;
     }
 
+    // 저장·검증을 지원하는 이미지 형식만 요청한다. AVIF를 요청하면 일부 서버가 AVIF로 응답하지만
+    // 현재 파일 검증기는 JPEG, PNG, WebP만 처리하므로 이미지 요청 단계에서 AVIF 협상을 제외한다.
+    HttpRequest createDownloadRequest(URI uri) {
+        return HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofSeconds(20))
+                .header("Accept", IMAGE_ACCEPT_HEADER)
+                .GET()
+                .build();
+    }
+
     // DB에 저장된 로컬 포스터 경로가 실제 파일로 남아 있는지 확인한다.
     public boolean exists(String posterPath) {
         if (posterPath == null || !posterPath.startsWith("/posters/")) {
@@ -123,11 +134,7 @@ public class PosterFileStorageService {
             throw new IllegalStateException("포스터 다운로드 리다이렉트 횟수를 초과했습니다.");
         }
 
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .timeout(Duration.ofSeconds(20))
-                .header("Accept", "image/avif,image/webp,image/png,image/jpeg")
-                .GET()
-                .build();
+        HttpRequest request = createDownloadRequest(uri);
 
         try {
             HttpResponse<InputStream> response = httpClient.send(

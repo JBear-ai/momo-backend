@@ -1,7 +1,12 @@
 package com.momo.backend.service;
 
+import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MoviePosterCacheRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
 
 import java.time.LocalDateTime;
 
@@ -47,6 +52,29 @@ class MoviePosterCacheServiceTest {
         );
         verify(repository, never()).insertIfAbsent(
                 anyString(), anyString(), anyString(), anyInt(), any(LocalDateTime.class));
+    }
+
+    @Test
+    void doesNotExposeAnExternalUrlAsASuccessfulLocallyStoredPoster() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+        MoviePosterCache cache = new MoviePosterCache(
+                "20260009", "테스트 영화", "20260101");
+        ReflectionTestUtils.setField(cache, "status", PosterStatus.SUCCESS);
+        ReflectionTestUtils.setField(
+                cache, "posterUrl", "https://image.tmdb.org/t/p/w500/old-poster.jpg");
+        when(repository.findAllByMovieCodeIn(anyCollection()))
+                .thenReturn(List.of(cache));
+
+        MoviePosterCacheService service =
+                new MoviePosterCacheService(repository, storageService);
+
+        var statuses = service.findPosterStatuses(List.of("20260009"));
+
+        assertEquals(1, statuses.size());
+        assertEquals(PosterStatus.SUCCESS, statuses.get(0).status());
+        assertEquals("", statuses.get(0).posterUrl());
+        verifyNoInteractions(storageService);
     }
 
     @Test
