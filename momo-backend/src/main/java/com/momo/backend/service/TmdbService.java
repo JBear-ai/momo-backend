@@ -203,6 +203,92 @@ public class TmdbService {
                 : value.asString("").trim();
     }
 
+    // 영화 상세 화면에서 감독·배우의 TMDb 인물 ID와 프로필 사진을 제공한다.
+    // 기존 Movie 테이블의 이름 문자열은 유지하고, 화면 표시용 인물 메타데이터만 실시간 보완한다.
+    public List<java.util.Map<String, Object>> findMoviePeople(
+            String title, String titleEn, String releaseDate, String kobisDirector) {
+        List<java.util.Map<String, Object>> people = new ArrayList<>();
+        if ((title == null || title.isBlank()) && (titleEn == null || titleEn.isBlank())) {
+            return people;
+        }
+
+        for (String searchTitle : searchTitles(title, titleEn)) {
+            try {
+                String searchJson = searchMovie(searchTitle, titleEn);
+                if (searchJson == null || searchJson.isBlank()) continue;
+                JsonNode results = objectMapper.readTree(searchJson).path("results");
+                if (!results.isArray()) continue;
+
+                int checked = 0;
+                for (JsonNode result : results) {
+                    if (checked >= 5) break;
+                    String candidateTitle = getText(result, "title");
+                    String candidateOriginalTitle = getText(result, "original_title");
+                    if (!matchesTitle(title, titleEn, candidateTitle, candidateOriginalTitle)) continue;
+
+                    long movieId = result.path("id").asLong(0);
+                    if (movieId <= 0) continue;
+                    checked++;
+
+                    String detailJson = tmdbApiClient.getMovieDetail(movieId);
+                    if (detailJson == null || detailJson.isBlank()) continue;
+                    JsonNode detail = objectMapper.readTree(detailJson);
+                    List<String> directors = new ArrayList<>();
+                    for (JsonNode crew : detail.path("credits").path("crew")) {
+                        if ("Director".equalsIgnoreCase(getText(crew, "job"))) {
+                            String name = getText(crew, "name");
+                            if (!name.isBlank() && !directors.contains(name)) directors.add(name);
+                        }
+                    }
+                    String localDate = selectKoreanTheatricalReleaseDate(detail.path("release_dates"));
+                    String candidateDate = firstNonBlank(localDate, getText(result, "release_date"));
+                    String candidateDirector = String.join(", ", directors);
+                    if (!MovieMatchVerifier.isSameMovie(title, titleEn, releaseDate, kobisDirector,
+                            candidateTitle, candidateOriginalTitle, candidateDate, candidateDirector)) {
+                        continue;
+                    }
+
+                    java.util.Set<Long> seen = new java.util.HashSet<>();
+                    for (JsonNode crew : detail.path("credits").path("crew")) {
+                        if (!"Director".equalsIgnoreCase(getText(crew, "job"))) continue;
+                        addMoviePerson(people, seen, crew, "director", "Director");
+                    }
+                    for (JsonNode cast : detail.path("credits").path("cast")) {
+                        addMoviePerson(people, seen, cast, "actor", getText(cast, "character"));
+                    }
+                    if (!people.isEmpty()) return people;
+                }
+            } catch (Exception e) {
+                log.warn("TMDb 영화 인물 정보 조회 실패 - 검색어: {}", searchTitle, e);
+            }
+        }
+        return people;
+    }
+
+    private void addMoviePerson(
+            List<java.util.Map<String, Object>> people,
+            java.util.Set<Long> seen,
+            JsonNode person,
+            String department,
+            String role) {
+        long personId = person.path("id").asLong(0);
+        String name = getText(person, "name");
+        if (personId <= 0 || name.isBlank() || !seen.add(personId)) return;
+
+        String profilePath = getText(person, "profile_path");
+        String profileUrl = profilePath.startsWith("/") && !profilePath.contains("..")
+                ? IMAGE_BASE_URL + profilePath : "";
+        java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
+        item.put("personId", personId);
+        item.put("name", name);
+        item.put("originalName", name);
+        item.put("alsoKnownAs", List.of());
+        item.put("profileUrl", profileUrl);
+        item.put("department", department);
+        item.put("role", role);
+        people.add(item);
+    }
+
     // 3. 영화 포스터 검색
 
     // 기존 호출부 호환을 위해 기존 메서드명과 매개변수를 유지한다.
