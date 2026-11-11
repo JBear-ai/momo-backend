@@ -1,3 +1,13 @@
+jest.mock("axios", () => {
+  const mockedAxios = jest.fn();
+  mockedAxios.post = jest.fn();
+  mockedAxios.interceptors = {
+    request: { use: jest.fn() },
+    response: { use: jest.fn() },
+  };
+  return mockedAxios;
+});
+
 import axios from "axios";
 import { clearAuthSession, storeLoginTokens } from "./AxiosApi";
 
