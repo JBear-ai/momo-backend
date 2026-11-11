@@ -176,8 +176,8 @@ public class MovieService {
         try {
             JsonNode root = objectMapper.readTree(json);
             JsonNode detail = root.path("movieInfoResult").path("movieInfo");
-            String responseCode = detail.path("movieCd").asText("");
-            String title = detail.path("movieNm").asText("");
+            String responseCode = detail.path("movieCd").asString("");
+            String title = detail.path("movieNm").asString("");
             if (!detail.isObject() || isBlank(responseCode) || isBlank(title)) {
                 throw new IllegalStateException("KOBIS 상세 응답에 영화 코드 또는 제목이 없습니다.");
             }
@@ -219,16 +219,16 @@ public class MovieService {
         List<MovieSearchResponse> movies = new ArrayList<>();
 
         for (JsonNode movie : root.path("content")) {
-            if (isBlank(movie.path("movieCode").asText(""))
-                    || isBlank(movie.path("title").asText(""))) {
+            if (isBlank(movie.path("movieCode").asString(""))
+                    || isBlank(movie.path("title").asString(""))) {
                 throw new IllegalStateException("검색 캐시에 영화 코드 또는 제목이 없습니다.");
             }
             movies.add(new MovieSearchResponse(
-                    movie.path("movieCode").asText(""),
-                    movie.path("title").asText(""),
-                    movie.path("releaseDate").asText(""),
-                    movie.path("genre").asText(""),
-                    movie.path("director").asText("")
+                    movie.path("movieCode").asString(""),
+                    movie.path("title").asString(""),
+                    movie.path("releaseDate").asString(""),
+                    movie.path("genre").asString(""),
+                    movie.path("director").asString("")
             ));
         }
 
@@ -334,8 +334,8 @@ public class MovieService {
 
         for (JsonNode movie : movieList) {
 
-            if (isBlank(movie.path("movieCd").asText(""))
-                    || isBlank(movie.path("movieNm").asText(""))) {
+            if (isBlank(movie.path("movieCd").asString(""))
+                    || isBlank(movie.path("movieNm").asString(""))) {
                 throw new IllegalStateException("KOBIS 검색 결과에 영화 코드 또는 제목이 누락되었습니다.");
             }
             String director = "";
@@ -345,14 +345,14 @@ public class MovieService {
             if (directors.isArray() && !directors.isEmpty()) {
                 director = directors.get(0)
                         .path("peopleNm")
-                        .asText("");
+                        .asString("");
             }
 
             movies.add(new MovieSearchResponse(
-                    movie.path("movieCd").asText(""),
-                    movie.path("movieNm").asText(""),
-                    movie.path("openDt").asText(""),
-                    movie.path("genreAlt").asText(""),
+                    movie.path("movieCd").asString(""),
+                    movie.path("movieNm").asString(""),
+                    movie.path("openDt").asString(""),
+                    movie.path("genreAlt").asString(""),
                     director
             ));
         }
@@ -547,7 +547,7 @@ public class MovieService {
 
                 for (JsonNode candidate : movieList) {
                     if (!movie.getMovieCode().equals(
-                            candidate.path("movieCd").asText(""))) {
+                            candidate.path("movieCd").asString(""))) {
                         continue;
                     }
 
@@ -555,7 +555,7 @@ public class MovieService {
                                     candidate.path("directors").spliterator(),
                                     false
                             )
-                            .map(node -> node.path("peopleNm").asText(""))
+                            .map(node -> node.path("peopleNm").asString(""))
                             .filter(value -> !value.isBlank())
                             .distinct()
                             .limit(5)
@@ -563,10 +563,10 @@ public class MovieService {
                             .orElse("");
 
                     movie.supplementMissingDetails(
-                            candidate.path("movieNmEn").asText(""),
-                            candidate.path("openDt").asText(""),
+                            candidate.path("movieNmEn").asString(""),
+                            candidate.path("openDt").asString(""),
                             "",
-                            candidate.path("genreAlt").asText(""),
+                            candidate.path("genreAlt").asString(""),
                             director,
                             "",
                             "",
@@ -603,14 +603,14 @@ public class MovieService {
             if (directors.isArray() && !directors.isEmpty()) {
                 director = directors.get(0)
                         .path("peopleNm")
-                        .asText("");
+                        .asString("");
             }
 
             String genre = StreamSupport.stream(
                             detail.path("genres").spliterator(),
                             false
                     )
-                    .map(node -> node.path("genreNm").asText(""))
+                    .map(node -> node.path("genreNm").asString(""))
                     .filter(value -> !value.isBlank())
                     .reduce((a, b) -> a + "," + b)
                     .orElse("");
@@ -619,7 +619,7 @@ public class MovieService {
 
             for (JsonNode actor : detail.path("actors")) {
 
-                String name = actor.path("peopleNm").asText("");
+                String name = actor.path("peopleNm").asString("");
 
                 if (!name.isBlank()) {
                     actors.add(name);
@@ -637,13 +637,13 @@ public class MovieService {
             if (audits.isArray() && !audits.isEmpty()) {
                 watchGrade = audits.get(0)
                         .path("watchGradeNm")
-                        .asText("");
+                        .asString("");
             }
 
             movie.supplementMissingDetails(
-                    detail.path("movieNmEn").asText(""),
-                    detail.path("openDt").asText(""),
-                    detail.path("showTm").asText(""),
+                    detail.path("movieNmEn").asString(""),
+                    detail.path("openDt").asString(""),
+                    detail.path("showTm").asString(""),
                     genre,
                     director,
                     String.join(",", actors),
@@ -675,14 +675,14 @@ public class MovieService {
             if (directors.isArray() && !directors.isEmpty()) {
                 director = directors.get(0)
                         .path("peopleNm")
-                        .asText("");
+                        .asString("");
             }
 
             String genre = StreamSupport.stream(
                             detail.path("genres").spliterator(),
                             false
                     )
-                    .map(node -> node.path("genreNm").asText(""))
+                    .map(node -> node.path("genreNm").asString(""))
                     .filter(value -> !value.isBlank())
                     .reduce((a, b) -> a + "," + b)
                     .orElse("");
@@ -691,7 +691,7 @@ public class MovieService {
 
             for (JsonNode actor : detail.path("actors")) {
 
-                String name = actor.path("peopleNm").asText("");
+                String name = actor.path("peopleNm").asString("");
 
                 if (!name.isBlank()) {
                     actors.add(name);
@@ -709,15 +709,15 @@ public class MovieService {
             if (audits.isArray() && !audits.isEmpty()) {
                 watchGrade = audits.get(0)
                         .path("watchGradeNm")
-                        .asText("");
+                        .asString("");
             }
 
             return new Movie(
-                    detail.path("movieCd").asText(movieCode),
-                    detail.path("movieNm").asText(""),
-                    detail.path("movieNmEn").asText(""),
-                    detail.path("openDt").asText(""),
-                    detail.path("showTm").asText(""),
+                    detail.path("movieCd").asString(movieCode),
+                    detail.path("movieNm").asString(""),
+                    detail.path("movieNmEn").asString(""),
+                    detail.path("openDt").asString(""),
+                    detail.path("showTm").asString(""),
                     genre,
                     director,
                     String.join(",", actors),
@@ -850,19 +850,19 @@ public class MovieService {
         if (!root.isArray()) throw new IllegalStateException("박스오피스 캐시 구조가 배열이 아닙니다.");
 
         for (JsonNode movie : root) {
-            if (isBlank(movie.path("movieCode").asText(""))
-                    || isBlank(movie.path("title").asText(""))
+            if (isBlank(movie.path("movieCode").asString(""))
+                    || isBlank(movie.path("title").asString(""))
                     || movie.path("rank").asInt(0) < 1) {
                 throw new IllegalStateException("박스오피스 캐시 필수 필드가 누락되었습니다.");
             }
             movies.add(new BoxOfficeResponse(
                     movie.path("rank").asInt(),
-                    movie.path("movieCode").asText(""),
-                    movie.path("title").asText(""),
-                    movie.path("releaseDate").asText(""),
-                    movie.path("audienceCount").asText(""),
-                    movie.path("totalAudience").asText(""),
-                    movie.path("posterUrl").asText("")
+                    movie.path("movieCode").asString(""),
+                    movie.path("title").asString(""),
+                    movie.path("releaseDate").asString(""),
+                    movie.path("audienceCount").asString(""),
+                    movie.path("totalAudience").asString(""),
+                    movie.path("posterUrl").asString("")
             ));
         }
 
@@ -958,7 +958,7 @@ public class MovieService {
     private List<BoxOfficeResponse> enrichBoxOfficePosters(List<BoxOfficeResponse> movies) {
         if (movies == null || movies.isEmpty()) return List.of();
 
-        List<String> codes = movies.stream().map(BoxOfficeResponse::movieCode)
+        List<String> codes = movies.stream().filter(item -> item != null).map(item -> item.movieCode())
                 .filter(code -> !isBlank(code)).distinct().toList();
 
         Map<String, Movie> savedMovies = new HashMap<>();
@@ -1068,22 +1068,22 @@ public class MovieService {
 
         for (JsonNode item : boxOfficeList) {
 
-            if (isBlank(item.path("movieCd").asText(""))
-                    || isBlank(item.path("movieNm").asText(""))
+            if (isBlank(item.path("movieCd").asString(""))
+                    || isBlank(item.path("movieNm").asString(""))
                     || item.path("rank").asInt(0) < 1) {
                 throw new IllegalStateException("KOBIS 박스오피스 항목의 필수 필드가 누락되었습니다.");
             }
-            String movieCode = item.path("movieCd").asText("");
-            String title = item.path("movieNm").asText("");
-            String releaseDate = item.path("openDt").asText("");
+            String movieCode = item.path("movieCd").asString("");
+            String title = item.path("movieNm").asString("");
+            String releaseDate = item.path("openDt").asString("");
 
             movies.add(new BoxOfficeResponse(
                     item.path("rank").asInt(),
                     movieCode,
                     title,
                     releaseDate,
-                    item.path("audiCnt").asText(""),
-                    item.path("audiAcc").asText(""),
+                    item.path("audiCnt").asString(""),
+                    item.path("audiAcc").asString(""),
                     ""
             ));
         }
@@ -1132,7 +1132,7 @@ public class MovieService {
 
         List<String> movieCodes = boxOfficeMovies.stream()
                 .filter(item -> item != null)
-                .map(BoxOfficeResponse::movieCode)
+                .map(item -> item == null ? null : item.movieCode())
                 .filter(code -> !isBlank(code))
                 .distinct()
                 .toList();
@@ -1265,16 +1265,16 @@ public class MovieService {
         if (!root.isArray()) throw new IllegalStateException("장르 캐시 구조가 배열이 아닙니다.");
 
         for (JsonNode movie : root) {
-            if (isBlank(movie.path("movieCode").asText(""))
-                    || isBlank(movie.path("title").asText(""))) {
+            if (isBlank(movie.path("movieCode").asString(""))
+                    || isBlank(movie.path("title").asString(""))) {
                 throw new IllegalStateException("장르 캐시 필수 필드가 누락되었습니다.");
             }
             movies.add(new MovieSearchResponse(
-                    movie.path("movieCode").asText(""),
-                    movie.path("title").asText(""),
-                    movie.path("releaseDate").asText(""),
-                    movie.path("genre").asText(""),
-                    movie.path("director").asText("")
+                    movie.path("movieCode").asString(""),
+                    movie.path("title").asString(""),
+                    movie.path("releaseDate").asString(""),
+                    movie.path("genre").asString(""),
+                    movie.path("director").asString("")
             ));
         }
 
@@ -1316,15 +1316,15 @@ public class MovieService {
             }
 
             for (JsonNode movie : movieList) {
-                String movieCode = movie.path("movieCd").asText("");
-                String title = movie.path("movieNm").asText("");
+                String movieCode = movie.path("movieCd").asString("");
+                String title = movie.path("movieNm").asString("");
                 if (isBlank(movieCode) || isBlank(title)) {
                     throw new IllegalStateException("KOBIS 장르 목록에 영화 코드 또는 제목이 누락되었습니다.");
                 }
 
-                String movieGenre = movie.path("genreAlt").asText("");
+                String movieGenre = movie.path("genreAlt").asString("");
                 boolean matchesGenre = Arrays.stream(movieGenre.split(","))
-                        .map(String::trim)
+                        .map(value -> value == null ? "" : value.trim())
                         .anyMatch(name -> name.equals(genre));
                 if (!matchesGenre) {
                     continue;
@@ -1332,7 +1332,7 @@ public class MovieService {
 
                 String director = StreamSupport.stream(
                                 movie.path("directors").spliterator(), false)
-                        .map(node -> node.path("peopleNm").asText(""))
+                        .map(node -> node.path("peopleNm").asString(""))
                         .filter(name -> !name.isBlank())
                         .distinct()
                         .limit(5)
@@ -1342,7 +1342,7 @@ public class MovieService {
                 result.add(new MovieSearchResponse(
                         movieCode,
                         title,
-                        movie.path("openDt").asText(""),
+                        movie.path("openDt").asString(""),
                         movieGenre,
                         director
                 ));
@@ -1417,7 +1417,7 @@ public class MovieService {
         }
 
         List<String> movieCodes = movies.stream()
-                .map(MovieSearchResponse::movieCode)
+                .map(item -> item == null ? null : item.movieCode())
                 .filter(code -> !isBlank(code))
                 .distinct()
                 .toList();
