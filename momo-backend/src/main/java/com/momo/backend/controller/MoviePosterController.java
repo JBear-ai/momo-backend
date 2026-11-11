@@ -33,17 +33,23 @@ public class MoviePosterController {
     public ResponseEntity<List<MoviePosterStatusResponse>> getPosterStatuses(
             @RequestBody(required = false) List<String> movieCodes) {
 
-        if (movieCodes == null
-                || movieCodes.isEmpty()
-                || movieCodes.size() > MAX_STATUS_CODES
-                || movieCodes.stream().anyMatch(code ->
-                        code == null || !code.matches("[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]"))) {
+        if (movieCodes == null || movieCodes.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // 잘못된 코드가 섞인 요청은 거부하고, 중복 제거 후 실제 조회 수를 제한한다.
+        if (movieCodes.stream().anyMatch(code ->
+                code == null || !code.matches("[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]"))) {
             return ResponseEntity.badRequest().build();
         }
 
         List<String> distinctMovieCodes = movieCodes.stream()
                 .distinct()
                 .toList();
+
+        if (distinctMovieCodes.size() > MAX_STATUS_CODES) {
+            return ResponseEntity.badRequest().build();
+        }
 
         return ResponseEntity.ok(
                 posterCacheService.findPosterStatuses(distinctMovieCodes)

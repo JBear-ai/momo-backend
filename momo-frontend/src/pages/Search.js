@@ -503,37 +503,62 @@ function Search() {
         return status !== "success" && status !== "failed";
       });
 
-      const movieCodes = pendingMovies
-        .map((movie) => movie.movieCode)
-        .filter(Boolean);
+      const validPendingMovies = pendingMovies.filter((movie) =>
+        /^[A-Za-z0-9]{8}$/.test(String(movie.movieCode || "")),
+      );
+      const invalidMovies = pendingMovies.filter(
+        (movie) => !/^[A-Za-z0-9]{8}$/.test(String(movie.movieCode || "")),
+      );
+      const movieCodes = validPendingMovies.map((movie) => movie.movieCode);
 
-      if (movieCodes.length === 0) return;
+      if (movieCodes.length === 0) {
+        if (invalidMovies.length > 0) {
+          const invalidStatuses = {};
+          invalidMovies.forEach((movie) => {
+            invalidStatuses[movie.movieCode] = "failed";
+          });
+          setPosterStatuses((prev) => ({ ...prev, ...invalidStatuses }));
+        }
+        return;
+      }
 
       try {
-        const response = await AxiosApi.moviePosterStatuses(
-          movieCodes,
-          controller.signal,
-        );
+        // 백엔드 일괄 조회 허용량(최대 20개)에 맞춰 순차 분할 요청한다.
+        // 전체 검색 결과가 누적되어도 한 요청의 크기는 20개를 넘지 않는다.
+        const statusMap = new Map();
+        const BATCH_SIZE = 20;
+
+        for (let start = 0; start < movieCodes.length; start += BATCH_SIZE) {
+          const batch = movieCodes.slice(start, start + BATCH_SIZE);
+          const response = await AxiosApi.moviePosterStatuses(
+            batch,
+            controller.signal,
+          );
+
+          if (cancelled || controller.signal.aborted) return;
+
+          const statuses = Array.isArray(response.data) ? response.data : [];
+          statuses.forEach((item) => {
+            if (item.movieCode) {
+              statusMap.set(item.movieCode, item);
+            }
+          });
+        }
 
         if (cancelled || controller.signal.aborted) return;
-
-        const statuses = Array.isArray(response.data) ? response.data : [];
-
-        const statusMap = new Map();
-
-        statuses.forEach((item) => {
-          if (item.movieCode) {
-            statusMap.set(item.movieCode, item);
-          }
-        });
 
         const nextStatuses = {};
         const nextUrls = {};
 
         const newlyVisibleMovies = [];
 
+        invalidMovies.forEach((movie) => {
+          nextStatuses[movie.movieCode] = "failed";
+          nextUrls[movie.movieCode] = "";
+        });
+
         // 후보 영화 순서를 기준으로 처리
-        pendingMovies.forEach((movie) => {
+        validPendingMovies.forEach((movie) => {
           const item = statusMap.get(movie.movieCode);
 
           if (!item) {
@@ -589,7 +614,7 @@ function Search() {
         }
 
         // 아직 처리 중인 영화가 있으면 계속 조회
-        const hasPending = pendingMovies.some((movie) => {
+        const hasPending = validPendingMovies.some((movie) => {
           const nextStatus =
             nextStatuses[movie.movieCode] ||
             posterStatusesRef.current[movie.movieCode];
