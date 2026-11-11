@@ -1,15 +1,153 @@
 import axios from "axios";
 
 const HM_DOMAIN = process.env.REACT_APP_API_BASE_URL || "http://localhost:8111";
-// MOMO API 요청에 저장된 JWT를 자동으로 전달한다.
+
+// ========================================
+// 인증 관리
+// ========================================
+
+let authSessionVersion = 0;
+let refreshPromise = null;
+let isHandlingAuthExpired = false;
+
+// 인증이 필요 없는 API
+const isExcludedAuthRequest = (url = "") => {
+  const excludedPaths = [
+    "/api/auth/signup",
+    "/api/auth/login",
+    "/api/auth/reissue",
+    "/api/auth/exists/id/",
+  ];
+
+  return excludedPaths.some((path) => url.includes(path));
+};
+
+// Authorization 헤더 설정
+const setAuthorization = (config, accessToken) => {
+  if (!config.headers) {
+    config.headers = {};
+  }
+
+  config.headers.Authorization = `Bearer ${accessToken}`;
+};
+
+// 로그인 성공 시 토큰 저장
+export const storeLoginTokens = (accessToken, refreshToken) => {
+  if (!accessToken || !refreshToken) {
+    throw new Error("로그인 토큰이 올바르지 않습니다.");
+  }
+
+  authSessionVersion += 1;
+  refreshPromise = null;
+  isHandlingAuthExpired = false;
+
+  localStorage.setItem("accessToken", accessToken);
+  localStorage.setItem("refreshToken", refreshToken);
+
+  window.dispatchEvent(new Event("momo-auth-changed"));
+};
+
+// 로그아웃 및 회원 탈퇴 시 인증 정보 제거
+export const clearAuthSession = () => {
+  authSessionVersion += 1;
+
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("username");
+  localStorage.removeItem("nickname");
+
+  refreshPromise = null;
+  isHandlingAuthExpired = false;
+};
+
+// 인증 만료 처리
+const handleAuthExpired = (error) => {
+  if (isHandlingAuthExpired) {
+    if (error) {
+      error.momoAuthExpiredHandled = true;
+    }
+    return;
+  }
+
+  isHandlingAuthExpired = true;
+
+  clearAuthSession();
+
+  if (error) {
+    error.momoAuthExpiredHandled = true;
+  }
+
+  window.dispatchEvent(new Event("momo-auth-changed"));
+
+  if (window.location.pathname !== "/login") {
+    alert("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+    window.location.href = "/login";
+  }
+};
+
+// Refresh Token을 이용한 Access Token 재발급
+const reissueAccessToken = () => {
+  // 이미 재발급 중이라면 기존 요청 공유
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  if (!refreshToken) {
+    return Promise.reject(new Error("Refresh Token이 없습니다."));
+  }
+
+  const requestedSessionVersion = authSessionVersion;
+
+  refreshPromise = axios
+    .post(`${HM_DOMAIN}/api/auth/reissue`, {
+      refreshToken,
+    })
+    .then((response) => {
+      // 재발급 중 로그인 세션이 변경되었다면 저장하지 않는다.
+      if (authSessionVersion !== requestedSessionVersion) {
+        const error = new Error("인증 상태가 이미 변경되었습니다.");
+
+        error.code = "MOMO_AUTH_SESSION_CHANGED";
+
+        throw error;
+      }
+
+      const newAccessToken = response.data?.accessToken;
+      const newRefreshToken = response.data?.refreshToken;
+
+      if (!newAccessToken || !newRefreshToken) {
+        throw new Error("재발급 토큰 응답이 올바르지 않습니다.");
+      }
+
+      localStorage.setItem("accessToken", newAccessToken);
+      localStorage.setItem("refreshToken", newRefreshToken);
+
+      return newAccessToken;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+};
+
+// ========================================
+// Axios Request Interceptor
+// ========================================
+
 axios.interceptors.request.use(
   (config) => {
     const accessToken = localStorage.getItem("accessToken");
+
     const isMomoApi = config.url?.startsWith(`${HM_DOMAIN}/api/`);
+
     const isPublicAuthRequest = isExcludedAuthRequest(config.url);
 
     if (isMomoApi && accessToken && !isPublicAuthRequest) {
       setAuthorization(config, accessToken);
+
       config._momoAuthSessionVersion = authSessionVersion;
     }
 
@@ -18,17 +156,24 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Access Token 만료 시 Refresh Token Rotation 후 원래 요청을 한 번만 재시도한다.
+// ========================================
+// Axios Response Interceptor
+// ========================================
+
 axios.interceptors.response.use(
   (response) => response,
+
   async (error) => {
     const status = error.response?.status;
     const originalRequest = error.config;
-    const requestUrl = originalRequest?.url || "";
-    const sentHeaders = originalRequest?.headers;
-    const sentAuthorization =
-      sentHeaders?.Authorization || sentHeaders?.get?.("Authorization");
 
+    const requestUrl = originalRequest?.url || "";
+
+    const sentAuthorization =
+      originalRequest?.headers?.Authorization ||
+      originalRequest?.headers?.get?.("Authorization");
+
+    // 재발급 대상이 아닌 요청
     if (
       status !== 401 ||
       !originalRequest ||
@@ -39,18 +184,22 @@ axios.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // 이전 로그인 세션의 응답이 새 로그인 세션에 영향을 주지 않도록 차단한다.
+    // 이전 로그인 세션의 요청 차단
     if (
       originalRequest._momoAuthSessionVersion !== undefined &&
       originalRequest._momoAuthSessionVersion !== authSessionVersion
     ) {
-      const sessionChangedError = new Error("인증 상태가 이미 변경되었습니다.");
-      sessionChangedError.code = "MOMO_AUTH_SESSION_CHANGED";
-      return Promise.reject(sessionChangedError);
+      const sessionError = new Error("인증 상태가 이미 변경되었습니다.");
+
+      sessionError.code = "MOMO_AUTH_SESSION_CHANGED";
+
+      return Promise.reject(sessionError);
     }
 
+    // 이미 재시도한 요청이라면 인증 만료 처리
     if (originalRequest._retry) {
       handleAuthExpired(error);
+
       return Promise.reject(error);
     }
 
@@ -58,12 +207,13 @@ axios.interceptors.response.use(
 
     const currentAccessToken = localStorage.getItem("accessToken");
 
-    // 다른 요청이 먼저 재발급을 마쳤다면 최신 Access Token으로 재시도한다.
+    // 다른 요청이 먼저 토큰을 재발급했다면 최신 토큰 사용
     if (
       currentAccessToken &&
       sentAuthorization !== `Bearer ${currentAccessToken}`
     ) {
       setAuthorization(originalRequest, currentAccessToken);
+
       return axios(originalRequest);
     }
 
@@ -72,15 +222,18 @@ axios.interceptors.response.use(
     try {
       const newAccessToken = await reissueAccessToken();
 
+      // 재발급 도중 로그인 세션이 변경되었는지 확인
       if (authSessionVersion !== requestedSessionVersion) {
-        const sessionChangedError = new Error(
-          "인증 상태가 이미 변경되었습니다.",
-        );
-        sessionChangedError.code = "MOMO_AUTH_SESSION_CHANGED";
-        throw sessionChangedError;
+        const sessionError = new Error("인증 상태가 이미 변경되었습니다.");
+
+        sessionError.code = "MOMO_AUTH_SESSION_CHANGED";
+
+        throw sessionError;
       }
 
       setAuthorization(originalRequest, newAccessToken);
+
+      // 기존 요청 한 번 재시도
       return axios(originalRequest);
     } catch (reissueError) {
       if (reissueError?.code !== "MOMO_AUTH_SESSION_CHANGED") {
@@ -91,6 +244,10 @@ axios.interceptors.response.use(
     }
   },
 );
+
+// ========================================
+// MOMO API
+// ========================================
 
 const AxiosApi = {
   // 1. 회원 아이디 중복 확인
@@ -332,7 +489,6 @@ const AxiosApi = {
   profileImageUpload: async (file) => {
     const formData = new FormData();
 
-    // 선택한 이미지 파일을 multipart 형식으로 전달
     formData.append("file", file);
 
     return await axios.post(
@@ -370,11 +526,7 @@ const AxiosApi = {
   // 23. 인물 상세 및 필모그래피 조회
   getPersonDetail: async (type, name, signal) => {
     return await axios.get(
-      HM_DOMAIN +
-        "/api/persons/" +
-        encodeURIComponent(type) +
-        "/" +
-        encodeURIComponent(name),
+      `${HM_DOMAIN}/api/persons/${encodeURIComponent(type)}/${encodeURIComponent(name)}`,
       { signal },
     );
   },
@@ -428,7 +580,9 @@ const AxiosApi = {
       liked,
       {
         withCredentials: true,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
     );
   },
@@ -452,11 +606,15 @@ const AxiosApi = {
     );
   },
 
-  // 로그인 회원의 특정 리뷰 반응 조회 (true=좋아요, false=싫어요, null=반응 없음)
+  // 로그인 회원의 특정 리뷰 반응 조회
+  // true = 좋아요, false = 싫어요, null = 반응 없음
   reviewMyReactionGet: async (reviewId, signal) => {
     return await axios.get(
       `${HM_DOMAIN}/api/reviews/${encodeURIComponent(reviewId)}/reaction`,
-      { withCredentials: true, signal },
+      {
+        withCredentials: true,
+        signal,
+      },
     );
   },
 

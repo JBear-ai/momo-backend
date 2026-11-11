@@ -1,3 +1,4 @@
+
 package com.momo.backend.config;
 
 import java.util.List;
@@ -34,7 +35,7 @@ public class SecurityConfig {
                 return new BCryptPasswordEncoder();
         }
 
-        // Spring Boot의 임시 인메모리 계정 자동 생성을 방지하고 DB 회원 정보를 기준으로 구성한다.
+        // DB 회원 정보를 기준으로 사용자 인증 구성
         @Bean
         public UserDetailsService userDetailsService(UserRepository userRepository) {
                 return loginId -> userRepository.findByLoginId(loginId)
@@ -62,46 +63,65 @@ public class SecurityConfig {
                                 .httpBasic(basic -> basic.disable())
                                 .logout(logout -> logout.disable())
                                 .authorizeHttpRequests(auth -> auth
+
+                                                // Swagger 접근 허용
                                                 .requestMatchers(
                                                                 "/swagger-ui/**",
                                                                 "/swagger-ui.html",
                                                                 "/v3/api-docs/**")
                                                 .permitAll()
+
+                                                // 회원가입, 로그인, 토큰 재발급 허용
                                                 .requestMatchers(
                                                                 HttpMethod.POST,
                                                                 "/api/auth/signup",
-                                                                "/api/auth/login")
+                                                                "/api/auth/login",
+                                                                "/api/auth/reissue")
                                                 .permitAll()
+
+                                                // 공개 회원 조회 및 프로필 이미지 조회
                                                 .requestMatchers(
                                                                 HttpMethod.GET,
                                                                 "/api/auth/exists/id/**",
                                                                 "/api/auth/users/*/profile-image")
                                                 .permitAll()
+
+                                                // 로그아웃은 인증된 사용자만 허용
                                                 .requestMatchers(
                                                                 HttpMethod.POST,
                                                                 "/api/auth/logout")
                                                 .authenticated()
-                                                // 개인별 좋아요 영화 목록은 공개 영화 조회 규칙보다 먼저 인증을 요구한다.
+
+                                                // 개인별 좋아요 영화 목록
                                                 .requestMatchers(
                                                                 HttpMethod.GET,
                                                                 "/api/movies/my/liked")
                                                 .authenticated()
+
+                                                // 공개 영화 조회
                                                 .requestMatchers(
                                                                 HttpMethod.GET,
                                                                 "/api/movies/**",
                                                                 "/api/boxoffice/**")
                                                 .permitAll()
+
+                                                // 영화 포스터 일괄 조회
                                                 .requestMatchers(
                                                                 HttpMethod.POST,
                                                                 "/api/movies/posters/status")
                                                 .permitAll()
+
+                                                // 공개 리뷰 및 인물 조회
                                                 .requestMatchers(
                                                                 HttpMethod.GET,
                                                                 "/api/reviews/movie/*",
                                                                 "/api/reviews/movie/*/rating",
                                                                 "/api/persons/**")
                                                 .permitAll()
+
+                                                // 그 외 API는 인증 필요
                                                 .anyRequest().authenticated())
+
                                 .exceptionHandling(exception -> exception
                                                 .authenticationEntryPoint((request, response, authException) -> {
                                                         response.setStatus(HttpStatus.UNAUTHORIZED.value());
@@ -117,6 +137,7 @@ public class SecurityConfig {
                                                                         "{\"code\":\"FORBIDDEN\","
                                                                                         + "\"message\":\"접근 권한이 없습니다.\"}");
                                                 }))
+
                                 .addFilterBefore(
                                                 new JwtFilter(tokenProvider),
                                                 UsernamePasswordAuthenticationFilter.class);
@@ -128,13 +149,16 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
+
                 config.setAllowedOrigins(List.of("http://localhost:3000"));
-                config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                config.setAllowedMethods(List.of(
+                                "GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 config.setAllowedHeaders(List.of("*"));
                 config.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/api/**", config);
+
                 return source;
         }
 }
