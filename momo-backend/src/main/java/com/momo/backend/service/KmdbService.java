@@ -59,7 +59,7 @@ public class KmdbService {
                                 result.path("directors").path("director"),
                                 "directorNm", 5));
 
-                        if (!MovieMatchVerifier.isSameMovie(
+                        if (!MovieMatchVerifier.isSamePosterCandidate(
                                 title, titleEn, releaseDate, director,
                                 candidateTitle, candidateTitleEn,
                                 firstNonBlank(candidateReleaseDate, candidateYear),
