@@ -32,6 +32,24 @@ class MoviePosterCacheServiceTest {
     }
 
     @Test
+    void resetsMissingPosterCacheWithoutCreatingDuplicateRows() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        when(repository.existsById("20260005")).thenReturn(true);
+        MoviePosterCacheService service =
+                new MoviePosterCacheService(repository, mock(PosterFileStorageService.class));
+
+        service.resetMissingPoster("20260005", "테스트 영화", "20260101");
+
+        verify(repository).resetMissingPoster(
+                eq("20260005"),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        );
+        verify(repository, never()).insertIfAbsent(
+                anyString(), anyString(), anyString(), any(LocalDateTime.class));
+    }
+
+    @Test
     void returnsNullWhenAnotherWorkerOwnsTheClaim() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
         when(repository.tryClaim(
