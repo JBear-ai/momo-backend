@@ -25,8 +25,7 @@ public class TmdbService {
     private final TmdbApiClient tmdbApiClient;
     private final ObjectMapper objectMapper;
 
-    private static final String IMAGE_BASE_URL =
-            "https://image.tmdb.org/t/p/w500";
+    private static final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 
     // 1. 영화 상세정보 보완
     // KMDb에서 누락된 정보가 있을 때 TMDb에서 추가로 조회한다.
@@ -116,7 +115,7 @@ public class TmdbService {
                     }
 
                     String genre = StreamSupport.stream(
-                                    detail.path("genres").spliterator(), false)
+                            detail.path("genres").spliterator(), false)
                             .map(node -> getText(node, "name"))
                             .filter(name -> !name.isBlank())
                             .reduce((a, b) -> a + "," + b)
@@ -132,8 +131,7 @@ public class TmdbService {
                             director,
                             actors,
                             "",
-                            "TMDb"
-                    ));
+                            "TMDb"));
                 }
             } catch (Exception e) {
                 // 한글 제목 검색이 실패해도 영문 제목 검색은 계속 진행한다.
@@ -270,9 +268,8 @@ public class TmdbService {
                                 if (detailJson != null && !detailJson.isBlank()) {
                                     JsonNode detail = objectMapper.readTree(detailJson);
 
-                                    String koreanReleaseDate =
-                                            selectKoreanTheatricalReleaseDate(
-                                                    detail.path("release_dates"));
+                                    String koreanReleaseDate = selectKoreanTheatricalReleaseDate(
+                                            detail.path("release_dates"));
 
                                     if (!koreanReleaseDate.isBlank()) {
                                         verificationDate = koreanReleaseDate;
@@ -358,7 +355,8 @@ public class TmdbService {
 
             String requestedTitle = normalizeTitle(title);
             String requestedYear = releaseDate != null && releaseDate.length() >= 4
-                    ? releaseDate.substring(0, 4) : "";
+                    ? releaseDate.substring(0, 4)
+                    : "";
 
             for (JsonNode result : results) {
                 String candidateTitle = normalizeTitle(getText(result, "title"));
@@ -372,7 +370,7 @@ public class TmdbService {
                 String candidateDate = getText(result, "release_date");
                 if (!requestedYear.isBlank()
                         && (candidateDate.length() < 4
-                        || !requestedYear.equals(candidateDate.substring(0, 4)))) {
+                                || !requestedYear.equals(candidateDate.substring(0, 4)))) {
                     continue;
                 }
 
@@ -427,12 +425,10 @@ public class TmdbService {
             for (JsonNode result : results) {
 
                 String tmdbTitle = normalizeTitle(
-                        getText(result, "name")
-                );
+                        getText(result, "name"));
 
                 String originalTitle = normalizeTitle(
-                        getText(result, "original_name")
-                );
+                        getText(result, "original_name"));
 
                 if (!normalizedTitle.equals(tmdbTitle)
                         && !normalizedTitle.equals(originalTitle)) {
@@ -445,8 +441,7 @@ public class TmdbService {
 
                     log.info(
                             "TMDb TV 포스터 검색 성공 - 제목: {}",
-                            title
-                    );
+                            title);
 
                     return posterUrl;
                 }
@@ -461,8 +456,7 @@ public class TmdbService {
             log.warn(
                     "TMDb TV 포스터 조회 실패 - 제목: {}",
                     title,
-                    e
-            );
+                    e);
 
             return null;
         }
@@ -472,8 +466,8 @@ public class TmdbService {
     private String searchMovie(String searchTitle, String titleEn) {
         String language = !normalizeTitle(titleEn).isBlank()
                 && normalizeTitle(searchTitle).equals(normalizeTitle(titleEn))
-                ? "en-US"
-                : "ko-KR";
+                        ? "en-US"
+                        : "ko-KR";
 
         return tmdbApiClient.searchMovie(searchTitle, language);
     }
@@ -487,8 +481,7 @@ public class TmdbService {
         }
 
         if (titleEn != null && !titleEn.isBlank()
-                && titles.stream().noneMatch(value ->
-                normalizeTitle(value).equals(normalizeTitle(titleEn)))) {
+                && titles.stream().noneMatch(value -> normalizeTitle(value).equals(normalizeTitle(titleEn)))) {
             titles.add(titleEn.trim());
         }
 
@@ -517,10 +510,10 @@ public class TmdbService {
 
         return (!requestedTitle.isBlank()
                 && (requestedTitle.equals(foundTitle)
-                || requestedTitle.equals(foundOriginalTitle)))
+                        || requestedTitle.equals(foundOriginalTitle)))
                 || (!requestedTitleEn.isBlank()
-                && (requestedTitleEn.equals(foundTitle)
-                || requestedTitleEn.equals(foundOriginalTitle)));
+                        && (requestedTitleEn.equals(foundTitle)
+                                || requestedTitleEn.equals(foundOriginalTitle)));
     }
 
     // 6. 공통 보조 메서드
@@ -547,16 +540,6 @@ public class TmdbService {
         }
 
         return value.asString("").trim();
-    }
-
-    // 개봉일 정규화
-    private String normalizeDate(String date) {
-
-        if (date == null || date.isBlank()) {
-            return "";
-        }
-
-        return date.replaceAll("[^0-9]", "");
     }
 
     // 제목 정규화
