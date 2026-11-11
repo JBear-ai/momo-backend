@@ -19,7 +19,10 @@ public interface MoviePosterCacheRepository
     // 우선순위가 높은 영화부터 처리하고 같은 우선순위에서는 오래 기다린 작업을 먼저 처리한다.
     List<MoviePosterCache> findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus status);
 
-    List<MoviePosterCache> findTop50ByStatusOrderByPriorityAscUpdatedAtAsc(PosterStatus status);
+    List<MoviePosterCache> findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
+            PosterStatus status,
+            LocalDateTime updatedBefore
+    );
 
     // 여러 영화 코드에 해당하는 포스터 캐시를 한 번에 조회
     List<MoviePosterCache> findAllByMovieCodeIn(Collection<String> movieCodes);
