@@ -78,7 +78,6 @@ function PersonDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [movieNavigationError, setMovieNavigationError] = useState("");
   const [navigatingMovieId, setNavigatingMovieId] = useState(null);
 
   // 인물 상세정보 조회
@@ -99,7 +98,6 @@ function PersonDetail() {
         setPerson(null);
         setFilmography([]);
         setVisibleCount(10);
-        setMovieNavigationError("");
 
         const response = await AxiosApi.getPersonDetail(
           type,
@@ -158,12 +156,10 @@ function PersonDetail() {
     if (navigatingMovieId !== null) return;
 
     if (!movie?.tmdbId) {
-      setMovieNavigationError("TMDb 영화 식별 정보가 없어 상세 페이지로 연결할 수 없습니다.");
       return;
     }
 
     try {
-      setMovieNavigationError("");
       setNavigatingMovieId(movie.tmdbId);
 
       // 제목 검색 대신 TMDb 고유 ID로 KOBIS 영화 코드를 확인한다.
@@ -176,19 +172,13 @@ function PersonDetail() {
 
       navigate(`/movie/${movieCode}`);
     } catch (navigationError) {
-      console.error("영화 상세 페이지 이동 실패:", navigationError);
-
       const status = navigationError?.response?.status;
-      const message = navigationError?.response?.data?.detail
-        || navigationError?.response?.data?.message
-        || (status === 404
-          ? "이 작품은 아직 MOMO 영화 목록에 등록되지 않았습니다."
-          : status === 409
-            ? "동일한 제목과 개봉 연도의 영화가 여러 편이라 자동으로 선택할 수 없습니다."
-            : navigationError.message)
-        || "영화 정보를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.";
 
-      setMovieNavigationError(message);
+      // KOBIS에 등록되지 않았거나 동명 작품이 여러 개인 경우는
+      // 필모그래피에서 정상적으로 발생할 수 있는 미연결 상태로 처리한다.
+      if (status !== 404 && status !== 409) {
+        console.error("영화 상세 페이지 이동 실패:", navigationError);
+      }
     } finally {
       setNavigatingMovieId(null);
     }
@@ -322,16 +312,6 @@ function PersonDetail() {
 
       React.createElement("h2", null, "필모그래피 (", filmography.length, ")"),
 
-      movieNavigationError &&
-        React.createElement(
-          "p",
-          {
-            className: "people-empty",
-            role: "alert",
-          },
-          movieNavigationError,
-        ),
-
       filmography.length > 0
         ? React.createElement(
             React.Fragment,
@@ -367,8 +347,9 @@ function PersonDetail() {
                         src: resolvePosterUrl(movie.posterUrl),
                         alt: movie.title || "작품 포스터",
                         loading: "lazy",
+                        onError: (event) => event.currentTarget.remove(),
                       })
-                    : React.createElement("div", null, "🎬"),
+                    : null,
 
                   // 작품 정보
                   React.createElement(
