@@ -37,12 +37,20 @@ public class ApiCallBudgetService {
     private long tmdbDailyLimit;
 
     @Transactional
-    public synchronized void acquire(String provider, TrafficType trafficType) {
+    public void acquire(String provider, TrafficType trafficType) {
         String normalizedProvider = provider.toUpperCase(Locale.ROOT);
         long dailyLimit = dailyLimitFor(normalizedProvider);
         LocalDate today = LocalDate.now(KOREA_ZONE);
-        ApiCallBudgetState state = repository.findById(normalizedProvider + "_" + today)
-                .orElseGet(() -> ApiCallBudgetState.create(normalizedProvider, today));
+        String budgetId = normalizedProvider + "_" + today;
+
+        // INSERT IGNORE는 동일 날짜/공급처 행의 최초 생성 경쟁을 DB에서 원자적으로 처리한다.
+        // 트랜잭션이 커밋되기 전에 Java synchronized 락이 풀리는 기존 구조의 경합을 제거한다.
+        repository.insertIfAbsent(budgetId, normalizedProvider, today);
+
+        // 카운터 확인과 증가 전체를 행 잠금 안에서 수행해 서버 간 동시 호출도 보호한다.
+        ApiCallBudgetState state = repository.findByIdForUpdate(budgetId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "API 예산 행을 생성했지만 조회할 수 없습니다: " + budgetId));
 
         // Apply the 90:10 reservation only when the provider's actual daily quota is known.
         // Unknown quotas are counted, but are not artificially capped at an assumed number.
@@ -70,7 +78,8 @@ public class ApiCallBudgetService {
         repository.save(state);
     }
 
-    public synchronized java.util.Map<String, BudgetSnapshot> getTodayStatus() {
+    @Transactional(readOnly = true)
+    public java.util.Map<String, BudgetSnapshot> getTodayStatus() {
         LocalDate today = LocalDate.now(KOREA_ZONE);
         java.util.Map<String, BudgetSnapshot> result = new java.util.LinkedHashMap<>();
         for (String provider : java.util.List.of("KOBIS", "KMDB", "TMDB")) {
