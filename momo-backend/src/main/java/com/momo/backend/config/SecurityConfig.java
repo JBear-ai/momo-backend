@@ -32,6 +32,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableSpringDataWebSupport(pageSerializationMode = PageSerializationMode.VIA_DTO)
 public class SecurityConfig {
 
+        @Value("${momo.cors.allowed-origins:http://localhost:3000,http://192.168.0.166:3000}")
+        private String allowedOrigins;
+
         // 비밀번호 암호화 설정
         @Bean
         public PasswordEncoder passwordEncoder() {

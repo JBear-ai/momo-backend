@@ -59,7 +59,8 @@ public class RefreshTokenService {
 
         String newAccessToken = tokenProvider.createToken(loginId);
         String newRefreshToken = tokenProvider.createRefreshToken(loginId);
-        storedToken.rotate(newRefreshToken);
+        // 신규 토큰은 원문 대신 SHA-256 해시만 DB에 저장한다.
+        storedToken.rotate(hashToken(newRefreshToken));
 
         return new TokenRefreshResponse(newAccessToken, newRefreshToken);
     }
@@ -73,9 +74,25 @@ public class RefreshTokenService {
     }
 
     private boolean tokensMatch(String requestToken, String storedToken) {
-        return MessageDigest.isEqual(
-                requestToken.getBytes(StandardCharsets.UTF_8),
-                storedToken.getBytes(StandardCharsets.UTF_8));
+        byte[] requestHash = hashToken(requestToken).getBytes(StandardCharsets.US_ASCII);
+        byte[] storedValue = storedToken.getBytes(StandardCharsets.US_ASCII);
+
+        // 신규 해시 토큰과 기존 평문 토큰을 모두 허용한다.
+        // 기존 평문 토큰은 정상 재발급 시 신규 해시 토큰으로 자동 전환된다.
+        return MessageDigest.isEqual(requestHash, storedValue)
+                || MessageDigest.isEqual(
+                        requestToken.getBytes(StandardCharsets.UTF_8),
+                        storedToken.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String hashToken(String token) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", exception);
+        }
     }
 
     private CustomException unauthorized(String message) {
