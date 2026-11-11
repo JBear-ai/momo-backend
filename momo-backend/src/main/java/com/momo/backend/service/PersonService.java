@@ -659,12 +659,11 @@ public class PersonService {
      * 모든 후보를 모아 이름 유사도와 인물 분야를 함께 평가한다.
      */
     private JsonNode findPerson(String name, String type) throws Exception {
+        // 검색어의 문자 체계에 맞는 TMDb 응답 언어와 기본 영어 응답만 사용한다.
+        // TMDb 검색은 입력 문자열 자체를 기준으로 하므로 특정 국가 언어를 전부 순회하지 않는다.
         LinkedHashSet<String> languages = new LinkedHashSet<>();
         languages.add(detectPrimaryLanguage(name));
         languages.add("en-US");
-        languages.add("ko-KR");
-        languages.add("ja-JP");
-        languages.add("zh-CN");
 
         Map<Long, ScoredPersonCandidate> candidates = new HashMap<>();
 
