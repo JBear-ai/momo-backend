@@ -37,6 +37,10 @@ public class MoviePosterCache {
     @Column(nullable = false, columnDefinition = "int not null default 500")
     private int priority = 500;
 
+    // 실패 횟수에 따라 재시도 간격을 늘려 외부 API 과호출을 방지한다.
+    @Column(name = "retry_count", nullable = false, columnDefinition = "int not null default 0")
+    private int retryCount = 0;
+
     // 현재 비동기 작업의 소유권 토큰
     @Column(length = 36)
     private String claimToken;
