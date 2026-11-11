@@ -34,6 +34,13 @@ public class MoviePosterCacheService {
                 .orElseThrow(() -> new IllegalStateException("포스터 캐시 생성 실패: " + movieCode));
     }
 
+    // 파일이 유실된 포스터 캐시를 재수집 대기열로 되돌린다.
+    @Transactional
+    public void resetMissingPoster(String movieCode, String title, String releaseDate) {
+        createCache(movieCode, title, releaseDate);
+        posterCacheRepository.resetMissingPoster(movieCode, LocalDateTime.now());
+    }
+
     @Transactional
     public String tryMarkAsProcessing(String movieCode) {
         LocalDateTime now = LocalDateTime.now();
