@@ -8,7 +8,7 @@ const ReviewListStyles = createGlobalStyle`
 
 .all-reviews-page {
   width: 100%;
-  max-width: 1160px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 30px 0 80px;
   color: var(--momo-text);

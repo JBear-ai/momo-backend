@@ -9,7 +9,7 @@ const MyReviewsStyles = createGlobalStyle`
 
 .my-reviews-page {
   width: calc(100% - 40px);
-  max-width: 1160px;
+  max-width: 1320px;
 
   margin: 0 auto;
   padding: 30px 0 80px;
