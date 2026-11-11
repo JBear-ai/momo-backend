@@ -4,6 +4,57 @@ import AxiosApi from "../api/AxiosApi";
 import { formatReleaseDate } from "../utils/releaseDate";
 import { resolvePosterUrl } from "../utils/mediaUrl";
 
+function waitForPosterPoll(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      const error = new Error("포스터 조회가 취소되었습니다.");
+      error.code = "ERR_CANCELED";
+      reject(error);
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort);
+      resolve();
+    }, ms);
+
+    const handleAbort = () => {
+      clearTimeout(timerId);
+      const error = new Error("포스터 조회가 취소되었습니다.");
+      error.code = "ERR_CANCELED";
+      reject(error);
+    };
+
+    signal.addEventListener("abort", handleAbort, { once: true });
+  });
+}
+
+// 최초 요청 시 수집 중인 포스터가 저장되면 상세 화면에 반영한다.
+async function waitForMoviePoster(movieCode, signal) {
+  const maxAttempts = 20;
+  const intervalMs = 1500;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await waitForPosterPoll(intervalMs, signal);
+
+    const response = await AxiosApi.moviePosterStatuses([movieCode], signal);
+    const status = Array.isArray(response.data)
+      ? response.data.find((item) => item.movieCode === movieCode)
+      : null;
+    const posterUrl = status?.posterUrl?.trim() || "";
+
+    if (status?.status === "SUCCESS" && posterUrl) {
+      return posterUrl;
+    }
+
+    if (status?.status === "FAILED") {
+      return "";
+    }
+  }
+
+  return "";
+}
+
 // 숫자에 천 단위 쉼표 추가
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("ko-KR");
@@ -140,6 +191,26 @@ function MovieDetail() {
           id: detailData.movieCode,
           posterUrl,
         });
+
+        // 최초 포스터 응답이 비어 있으면 비동기 수집 완료를 확인한다.
+        if (!posterUrl) {
+          waitForMoviePoster(id, controller.signal)
+            .then((resolvedPosterUrl) => {
+              if (!active || !resolvedPosterUrl) return;
+
+              setMovie((currentMovie) => {
+                if (!currentMovie || currentMovie.movieCode !== id) {
+                  return currentMovie;
+                }
+                return { ...currentMovie, posterUrl: resolvedPosterUrl };
+              });
+            })
+            .catch((posterError) => {
+              if (posterError.code !== "ERR_CANCELED") {
+                console.warn("포스터 수집 완료 확인 실패:", posterError);
+              }
+            });
+        }
       } catch (requestError) {
         if (!active || requestError.code === "ERR_CANCELED") return;
         console.error("영화 상세정보 조회 실패:", requestError);
@@ -464,10 +535,10 @@ function MovieDetail() {
             React.createElement("img", {
               src: resolvePosterUrl(movie.posterUrl),
               alt: movie.title,
-              onError: (event) => {
-                event.currentTarget.closest(".movie-detail-poster")?.remove();
-                event.currentTarget.closest(".movie-detail-header")
-                  ?.classList.add("movie-detail-header-no-poster");
+              onError: () => {
+                setMovie((currentMovie) => currentMovie
+                  ? { ...currentMovie, posterUrl: "" }
+                  : currentMovie);
               },
             }),
           )
