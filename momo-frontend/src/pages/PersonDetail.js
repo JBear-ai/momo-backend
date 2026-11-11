@@ -170,7 +170,7 @@ function PersonDetail() {
       const response = await AxiosApi.resolveFilmographyMovie(movie.tmdbId);
       const movieCode = response?.data?.movieCode;
 
-      if (!/^\d{8}$/.test(String(movieCode || ""))) {
+      if (!/^[A-Za-z0-9]{8}$/.test(String(movieCode || ""))) {
         throw new Error("정확한 MOMO 영화 코드를 확인하지 못했습니다.");
       }
 
