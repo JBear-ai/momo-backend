@@ -4,7 +4,7 @@ import AxiosApi from "../../api/AxiosApi";
 import { getFavoriteMovies } from "../../utils/favorites";
 import { resolvePosterUrl } from "../../utils/mediaUrl";
 
-const isValidMovieCode = (movieCode) => /^\d{8}$/.test(String(movieCode || ""));
+const isValidMovieCode = (movieCode) => /^[A-Za-z0-9]{8}$/.test(String(movieCode || ""));
 const isValidReleaseDate = (releaseDate) => /^\d{8}$/.test(String(releaseDate || ""));
 
 function TodayRecommend() {

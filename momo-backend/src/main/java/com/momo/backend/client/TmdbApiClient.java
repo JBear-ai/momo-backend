@@ -79,6 +79,21 @@ public class TmdbApiClient {
                 .body(String.class)));
     }
 
+    // KOBIS 검색에 사용할 한국 개봉명·대체 제목을 확보한다.
+    public String getMovieAlternativeTitles(long movieId) {
+        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+        if (movieId <= 0) {
+            throw new IllegalArgumentException("올바르지 않은 TMDb 영화 ID입니다.");
+        }
+
+        return metrics.record("TMDB", "getMovieAlternativeTitles", () -> ExternalApiRetry.execute(() -> restClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/movie/{movieId}/alternative_titles")
+                        .queryParam("api_key", apiKey)
+                        .build(movieId))
+                .retrieve()
+                .body(String.class)));
+    }
+
     public String searchTv(String title) {
         apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (title == null || title.isBlank()) {

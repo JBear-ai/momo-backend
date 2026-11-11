@@ -15,6 +15,15 @@ class PosterFileStorageServiceTest {
     Path temporaryDirectory;
 
     @Test
+    void acceptsNumericAndAlphanumericKobisMovieCodes() {
+        assertTrue(PosterFileStorageService.isValidMovieCode("20261109"));
+        assertTrue(PosterFileStorageService.isValidMovieCode("2026A194"));
+        assertFalse(PosterFileStorageService.isValidMovieCode("2026-A19"));
+        assertFalse(PosterFileStorageService.isValidMovieCode("2026A194X"));
+        assertFalse(PosterFileStorageService.isValidMovieCode(null));
+    }
+
+    @Test
     void detectsAnExistingLocalPosterFile() throws Exception {
         PosterFileStorageService storageService =
                 new PosterFileStorageService(temporaryDirectory.toString());

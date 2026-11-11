@@ -60,6 +60,42 @@ final class MovieMatchVerifier {
         return originalTitleMatches || directorMatches;
     }
 
+    // 포스터 검색은 한쪽 공급원의 개봉연도가 누락되는 경우가 많아, 정확한 제목을 기준으로 보완한다.
+    // 두 개봉연도가 모두 존재하고 다르거나, 같은 문자 체계의 감독명이 충돌하면 제외한다.
+    static boolean isSamePosterCandidate(
+            String kobisTitle,
+            String kobisTitleEn,
+            String kobisReleaseDate,
+            String kobisDirector,
+            String candidateTitle,
+            String candidateOriginalTitle,
+            String candidateReleaseDate,
+            String candidateDirector) {
+
+        String requestedTitle = normalizeTitle(kobisTitle);
+        String requestedTitleEn = normalizeTitle(kobisTitleEn);
+        String foundTitle = normalizeTitle(candidateTitle);
+        String foundOriginalTitle = normalizeTitle(candidateOriginalTitle);
+
+        boolean titleMatches = matches(requestedTitle, foundTitle, foundOriginalTitle)
+                || (!requestedTitleEn.isBlank()
+                && matches(requestedTitleEn, foundTitle, foundOriginalTitle));
+        if (!titleMatches) return false;
+
+        String requestedYear = releaseYear(kobisReleaseDate);
+        String foundYear = releaseYear(candidateReleaseDate);
+        if (!requestedYear.isBlank() && !foundYear.isBlank()
+                && !requestedYear.equals(foundYear)) {
+            return false;
+        }
+
+        boolean directorsProvided = kobisDirector != null && !kobisDirector.isBlank()
+                && candidateDirector != null && !candidateDirector.isBlank();
+        return !directorsProvided
+                || !sameNameScript(kobisDirector, candidateDirector)
+                || matchesDirector(kobisDirector, candidateDirector);
+    }
+
     // 동일 영화 후보 중 제목·개봉일·감독 일치도가 높은 포스터를 우선한다.
     static int matchScore(
             String kobisTitle,
@@ -71,7 +107,7 @@ final class MovieMatchVerifier {
             String candidateReleaseDate,
             String candidateDirector) {
 
-        if (!isSameMovie(
+        if (!isSamePosterCandidate(
                 kobisTitle, kobisTitleEn, kobisReleaseDate, kobisDirector,
                 candidateTitle, candidateOriginalTitle,
                 candidateReleaseDate, candidateDirector)) {

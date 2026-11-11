@@ -1244,7 +1244,7 @@ public class MovieService {
                 .filter(movie -> movie.getLastBoxOfficeRank() != null
                         && movie.getLastBoxOfficeRank() >= 2)
                 .filter(movie -> movie.getMovieCode() != null
-                        && movie.getMovieCode().matches("\\d{8}"))
+                        && PosterFileStorageService.isValidMovieCode(movie.getMovieCode()))
                 .filter(movie -> !isBlank(movie.getTitle()))
                 // 개봉일이 확인되지 않는 항목은 추천 후보에서 제외한다.
                 .filter(movie -> movie.getReleaseDate() != null

@@ -124,7 +124,7 @@ public class MovieCatalogSyncService {
         for (JsonNode movie : movieList) {
             String movieCode = movie.path("movieCd").asString("");
             String title = movie.path("movieNm").asString("");
-            if (!movieCode.matches("\\d{8}") || title.isBlank()) {
+            if (!PosterFileStorageService.isValidMovieCode(movieCode) || title.isBlank()) {
                 continue;
             }
 

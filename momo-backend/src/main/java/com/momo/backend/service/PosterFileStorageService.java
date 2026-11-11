@@ -46,7 +46,7 @@ public class PosterFileStorageService {
     }
 
     public String downloadAndSave(String movieCode, String imageUrl) {
-        if (movieCode == null || !movieCode.matches("\\d{8}")) {
+        if (!isValidMovieCode(movieCode)) {
             throw new IllegalArgumentException("올바르지 않은 영화 코드입니다.");
         }
 
@@ -78,6 +78,10 @@ public class PosterFileStorageService {
         }
 
         return "/posters/" + fileName;
+    }
+
+    static boolean isValidMovieCode(String movieCode) {
+        return movieCode != null && movieCode.matches("[A-Za-z0-9]{8}");
     }
 
     // 저장·검증을 지원하는 이미지 형식만 요청한다. AVIF를 요청하면 일부 서버가 AVIF로 응답하지만

@@ -107,7 +107,7 @@ public class TmdbService {
                     String verificationDate = firstNonBlank(
                             koreanReleaseDate, candidateDate);
 
-                    if (!MovieMatchVerifier.isSameMovie(
+                    if (!MovieMatchVerifier.isSamePosterCandidate(
                             title, titleEn, releaseDate, kobisDirector,
                             candidateTitle, candidateTitleEn,
                             verificationDate, director)) {
