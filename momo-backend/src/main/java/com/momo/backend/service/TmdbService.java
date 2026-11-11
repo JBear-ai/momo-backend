@@ -281,7 +281,7 @@ public class TmdbService {
         java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
         item.put("personId", personId);
         item.put("name", name);
-        item.put("originalName", name);
+        item.put("originalName", firstNonBlank(getText(person, "original_name"), name));
         item.put("alsoKnownAs", List.of());
         item.put("profileUrl", profileUrl);
         item.put("department", department);
