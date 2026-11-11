@@ -250,10 +250,14 @@ public class PersonService {
         return new ArrayList<>(titles);
     }
 
-    // TMDb의 KR 지역 개봉일을 우선 사용한다. 해외 최초 개봉연도와 국내 개봉연도가 다른 작품을 보정한다.
+    // TMDb의 KR 극장 개봉일을 우선 사용한다.
+    // 영화제·시사회 등 최초 공개일이 극장 개봉연도를 잘못 덮지 않도록 release type을 고려한다.
     private String findKoreanReleaseYear(JsonNode detail) {
         JsonNode countries = detail.path("release_dates").path("results");
         if (!countries.isArray()) return "";
+
+        String selectedYear = "";
+        int selectedPriority = 0;
 
         for (JsonNode country : countries) {
             if (!"KR".equalsIgnoreCase(text(country, "iso_3166_1"))) continue;
@@ -263,12 +267,26 @@ public class PersonService {
 
             for (JsonNode release : releases) {
                 String date = text(release, "release_date");
-                if (date.length() >= 4 && date.substring(0, 4).matches("\\d{4}")) {
-                    return date.substring(0, 4);
+                if (date.length() < 4 || !date.substring(0, 4).matches("\\d{4}")) {
+                    continue;
+                }
+
+                int releaseType = release.path("type").asInt(0);
+                int priority = switch (releaseType) {
+                    case 3 -> 3; // 극장 개봉
+                    case 2 -> 2; // 제한 상영
+                    case 1 -> 1; // 영화제·시사회
+                    default -> 0;
+                };
+
+                if (priority > selectedPriority) {
+                    selectedYear = date.substring(0, 4);
+                    selectedPriority = priority;
                 }
             }
         }
-        return "";
+
+        return selectedYear;
     }
 
     private List<String> extractDirectorNames(JsonNode detail) {
@@ -482,11 +500,6 @@ public class PersonService {
         return Normalizer.normalize(name == null ? "" : name.trim(), Normalizer.Form.NFKC)
                 .replaceAll("\\s+", "")
                 .toLowerCase(Locale.ROOT);
-    }
-
-    private boolean sameMovieTitle(String left, String right) {
-        if (left == null || right == null || left.isBlank() || right.isBlank()) return false;
-        return normalizeMovieTitle(left).equals(normalizeMovieTitle(right));
     }
 
     private String normalizeMovieTitle(String title) {
