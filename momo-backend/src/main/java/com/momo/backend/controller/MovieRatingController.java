@@ -30,7 +30,7 @@ public class MovieRatingController {
                                 movieRatingService.getMyLikedMovies(loginId));
         }
 
-        @GetMapping("/{movieCode:[A-Za-z0-9]{8}}/rating")
+        @GetMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}/rating")
         public ResponseEntity<Map<String, Object>> getMovieRating(
                         @PathVariable String movieCode,
                         Authentication authentication) {
@@ -46,7 +46,7 @@ public class MovieRatingController {
                 return ResponseEntity.ok(result);
         }
 
-        @PutMapping("/{movieCode:[A-Za-z0-9]{8}}/rating")
+        @PutMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}/rating")
         public ResponseEntity<Void> saveMovieRating(
                         @PathVariable String movieCode,
                         @RequestBody Boolean liked,
@@ -60,7 +60,7 @@ public class MovieRatingController {
                 return ResponseEntity.ok().build();
         }
 
-        @DeleteMapping("/{movieCode:[A-Za-z0-9]{8}}/rating")
+        @DeleteMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}/rating")
         public ResponseEntity<Void> deleteMovieRating(
                         @PathVariable String movieCode,
                         Authentication authentication) {
