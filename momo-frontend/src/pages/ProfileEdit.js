@@ -167,11 +167,7 @@ function ProfileEdit() {
 
   // 전체 유효성
   const isAllValid =
-    isNickname &&
-    isEmail &&
-    isPasswordValid &&
-    !isSubmitting &&
-    !profileImageUploading;
+    isNickname && isPasswordValid && !isSubmitting && !profileImageUploading;
 
   /* =========================
      현재 비밀번호 검증
@@ -413,16 +409,10 @@ function ProfileEdit() {
        이메일 검사
     ========================= */
 
-    if (!email.trim()) {
-      alert("이메일을 입력해 주세요.");
-      return;
-    }
-
-    if (!isEmail) {
+    if (email.trim() && !isEmail) {
       alert("올바른 이메일 형식을 입력해 주세요.");
       return;
     }
-
     /* =========================
        비밀번호 변경 검사
     ========================= */
@@ -639,7 +629,6 @@ function ProfileEdit() {
             value: email,
             onChange: (event) => setEmail(event.target.value),
             placeholder: "이메일을 입력해 주세요.",
-            required: true,
           }),
           React.createElement(
             "p",
