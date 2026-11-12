@@ -228,6 +228,81 @@ class PersonFilmographyMatchingTest {
 
 
     @Test
+    void checksLaterKobisPagesBeforeChoosingBetweenSameTitleRemakes() {
+        long tmdbId = 900005L;
+        TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
+        KobisApiClient kobisApiClient = mock(KobisApiClient.class);
+
+        when(tmdbApiClient.getMovieDetail(tmdbId)).thenReturn("""
+                {
+                  "title": "동명 영화",
+                  "original_title": "Same Title",
+                  "release_date": "2024-06-01",
+                  "release_dates": {
+                    "results": [{
+                      "iso_3166_1": "KR",
+                      "release_dates": [{
+                        "release_date": "2024-06-01T00:00:00.000Z",
+                        "type": 3
+                      }]
+                    }]
+                  },
+                  "credits": {
+                    "crew": [{"job": "Director", "name": "정확한 감독"}]
+                  }
+                }
+                """);
+        when(tmdbApiClient.getMovieAlternativeTitles(tmdbId))
+                .thenReturn("{\"titles\":[]}");
+
+        StringBuilder firstPageMovies = new StringBuilder();
+        for (int index = 1; index <= 100; index++) {
+            if (index > 1) firstPageMovies.append(",");
+            firstPageMovies.append("""
+                    {
+                      "movieCd": "%s",
+                      "movieNm": "동명 영화",
+                      "movieNmEn": "Same Title",
+                      "openDt": "20240601",
+                      "prdtYear": "2024",
+                      "directors": []
+                    }
+                    """.formatted("2024" + String.format("%04d", index)));
+        }
+
+        when(kobisApiClient.searchMovies("동명 영화", 1, 100)).thenReturn("""
+                {"movieListResult":{"totCnt":101,"movieList":[%s]}}
+                """.formatted(firstPageMovies));
+        when(kobisApiClient.searchMovies("동명 영화", 2, 100)).thenReturn("""
+                {
+                  "movieListResult": {
+                    "totCnt": 101,
+                    "movieList": [{
+                      "movieCd": "20240101",
+                      "movieNm": "동명 영화",
+                      "movieNmEn": "Same Title",
+                      "openDt": "20240601",
+                      "prdtYear": "2024",
+                      "directors": [{"peopleNm": "정확한 감독"}]
+                    }]
+                  }
+                }
+                """);
+        when(kobisApiClient.searchMovies("Same Title", 1, 100))
+                .thenReturn("{\"movieListResult\":{\"totCnt\":0,\"movieList\":[]}}");
+
+        PersonService service = createService(
+                tmdbApiClient,
+                kobisApiClient,
+                mock(MoviePersistenceService.class),
+                mock(MoviePosterPersistenceService.class)
+        );
+
+        assertEquals("20240101", service.resolveFilmographyMovie(tmdbId));
+        verify(kobisApiClient).searchMovies("동명 영화", 2, 100);
+    }
+
+    @Test
     void reusesPreviouslyVerifiedExternalMovieMappingWithoutCallingProviders() {
         long tmdbId = 900004L;
         TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
