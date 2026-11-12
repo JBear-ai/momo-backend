@@ -89,7 +89,7 @@ public class CommentService {
         Long viewerId = currentUserId;
 
         Page<Comment> comments = commentRepository
-                .findByReview_ReviewIdOrderByCreatedAtAsc(reviewId, pageable);
+                .findByReview_ReviewIdOrderByCreatedAtAscCommentIdAsc(reviewId, pageable);
 
         // 페이지에 포함된 댓글의 반응을 한 번에 조회해 댓글별 반복 쿼리를 방지한다.
         List<Long> commentIds = comments.getContent().stream()
