@@ -22,6 +22,7 @@ import com.momo.backend.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.domain.Page;
@@ -187,9 +188,16 @@ public class ReviewService {
                 dto.getContent()
         );
 
-        Review savedReview = reviewRepository.save(review);
-
-        return new ReviewResponse(savedReview);
+        try {
+            // 동시 작성 요청도 DB unique 제약조건으로 중복을 차단한다.
+            Review savedReview = reviewRepository.saveAndFlush(review);
+            return new ReviewResponse(savedReview);
+        } catch (DataIntegrityViolationException duplicate) {
+            throw new CustomException(
+                    "DUPLICATE_REVIEW",
+                    "이미 해당 영화에 리뷰를 작성했습니다."
+            );
+        }
     }
 
     // 리뷰 상세 조회
