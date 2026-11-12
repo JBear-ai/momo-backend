@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getFavoriteMovies } from "../utils/favorites";
+import {
+  getCurrentFavoriteUserId,
+  getFavoriteMovies,
+} from "../utils/favorites";
 import FavoriteStar from "../components/common/FavoriteStar";
 import { resolvePosterUrl } from "../utils/mediaUrl";
 
@@ -8,135 +11,137 @@ function FavoriteMovies() {
   const navigate = useNavigate();
   const [movies, setMovies] = useState(() => getFavoriteMovies());
 
-  // 관심 영화 목록 갱신
+  // 관심 영화는 로그인한 회원만 조회할 수 있다.
   useEffect(() => {
-    const updateFavorites = (event) => {
-      setMovies(event.detail || getFavoriteMovies());
+    const updateFavorites = () => {
+      if (!getCurrentFavoriteUserId()) {
+        setMovies([]);
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      setMovies(getFavoriteMovies());
     };
 
+    updateFavorites();
+
+    window.addEventListener("momo-auth-changed", updateFavorites);
     window.addEventListener("momo-favorites-changed", updateFavorites);
 
     return () => {
+      window.removeEventListener("momo-auth-changed", updateFavorites);
       window.removeEventListener("momo-favorites-changed", updateFavorites);
     };
-  }, []);
+  }, [navigate]);
 
   return (
     React.createElement(
-  "main",
-  {"className":"favorite-page"},
-  React.createElement(
-      "div",
-      {"className":"favorite-page-container"},
+      "main",
+      { className: "favorite-page" },
       React.createElement(
-            "header",
-            {"className":"favorite-page-heading"},
-            React.createElement(
-                    "h1",
-                    null,
-                    "관심 영화"
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "마음에 드는 영화를 모아 나만의 영화 목록을 만들어 보세요."
-                  )
+        "div",
+        { className: "favorite-page-container" },
+        React.createElement(
+          "header",
+          { className: "favorite-page-heading" },
+          React.createElement("h1", null, "관심 영화"),
+          React.createElement(
+            "p",
+            null,
+            "마음에 드는 영화를 모아 나만의 영화 목록을 만들어 보세요.",
           ),
-      React.createElement(
-            "div",
-            {"className":"favorite-list-toolbar"},
-            React.createElement(
-                    "span",
-                    null,
-                    "총 ",
-                    (movies.length),
-                    "개의 영화"
-                  ),
-            React.createElement(
-                    "button",
-                    {"type":"button","className":"favorite-back-button","onClick":() => navigate("/profile")},
-                    "← 마이페이지"
-                  )
+        ),
+        React.createElement(
+          "div",
+          { className: "favorite-list-toolbar" },
+          React.createElement("span", null, "총 ", movies.length, "개의 영화"),
+          React.createElement(
+            "button",
+            {
+              type: "button",
+              className: "favorite-back-button",
+              onClick: () => navigate("/profile"),
+            },
+            "← 마이페이지",
           ),
-      (movies.length === 0 ? (
+        ),
+        movies.length === 0
+          ? React.createElement(
+              "div",
+              { className: "favorite-page-empty" },
+              React.createElement(
+                "span",
+                { className: "favorite-empty-symbol" },
+                "🎬",
+              ),
+              React.createElement(
+                "h2",
+                null,
+                "아직 등록한 관심 영화가 없습니다.",
+              ),
+              React.createElement(
+                "p",
+                null,
+                "마음에 드는 영화를 관심 영화로 등록해 보세요.",
+              ),
+              React.createElement(
+                "button",
+                {
+                  type: "button",
+                  className: "favorite-browse-button",
+                  onClick: () => navigate("/"),
+                },
+                "영화 둘러보기",
+              ),
+            )
+          : React.createElement(
+              "div",
+              { className: "favorite-page-grid" },
+              movies.map((movie) =>
                 React.createElement(
-            "div",
-            {"className":"favorite-page-empty"},
-            React.createElement(
-                    "span",
-                    {"className":"favorite-empty-symbol"},
-                    "🎬"
-                  ),
-            React.createElement(
-                    "h2",
-                    null,
-                    "아직 등록한 관심 영화가 없습니다."
-                  ),
-            React.createElement(
-                    "p",
-                    null,
-                    "마음에 드는 영화를 관심 영화로 등록해 보세요."
-                  ),
-            React.createElement(
-                    "button",
-                    {"type":"button","className":"favorite-browse-button","onClick":() => navigate("/")},
-                    "영화 둘러보기"
-                  )
-          )
-              ) : (
-                React.createElement(
-            "div",
-            {"className":"favorite-page-grid"},
-            (movies.map((movie) => (
-                          React.createElement(
-                    "article",
-                    {"className":"favorite-page-card","key":movie.movieCode},
+                  "article",
+                  { className: "favorite-page-card", key: movie.movieCode },
+                  React.createElement(
+                    "div",
+                    { className: "favorite-page-poster" },
                     React.createElement(
-                              "div",
-                              {"className":"favorite-page-poster"},
-                              React.createElement(
-                                          "button",
-                                          {"type":"button","onClick":() => navigate(`/movie/${movie.movieCode}`),"aria-label":`${movie.title} 상세 보기`},
-                                          (movie.posterUrl ? (
-                                                                React.createElement(
-                                                        "img",
-                                                        {"src":resolvePosterUrl(movie.posterUrl),"alt":`${movie.title} 포스터`,"onError":(event) => {
-                                                                                  event.currentTarget.style.display = "none";
-                                                                                }}
-                                                      )
-                                                              ) : (
-                                                                React.createElement(
-                                                        "div",
-                                                        {"className":"favorite-page-no-poster"},
-                                                        "포스터 없음"
-                                                      )
-                                                              ))
-                                        ),
-                              React.createElement(
-                                          FavoriteStar,
-                                          {"movie":movie}
-                                        )
-                            ),
+                      "button",
+                      {
+                        type: "button",
+                        onClick: () => navigate(`/movie/${movie.movieCode}`),
+                        "aria-label": `${movie.title} 상세 보기`,
+                      },
+                      movie.posterUrl
+                        ? React.createElement("img", {
+                            src: resolvePosterUrl(movie.posterUrl),
+                            alt: `${movie.title} 포스터`,
+                            onError: (event) => {
+                              event.currentTarget.style.display = "none";
+                            },
+                          })
+                        : React.createElement(
+                            "div",
+                            { className: "favorite-page-no-poster" },
+                            "포스터 없음",
+                          ),
+                    ),
+                    React.createElement(FavoriteStar, { movie }),
+                  ),
+                  React.createElement(
+                    "div",
+                    { className: "favorite-page-movie-info" },
+                    React.createElement("h3", null, movie.title),
                     React.createElement(
-                              "div",
-                              {"className":"favorite-page-movie-info"},
-                              React.createElement(
-                                          "h3",
-                                          null,
-                                          (movie.title)
-                                        ),
-                              React.createElement(
-                                          "p",
-                                          null,
-                                          (movie.releaseDate || "개봉일 정보 없음")
-                                        )
-                            )
-                  )
-                        )))
-          )
-              ))
+                      "p",
+                      null,
+                      movie.releaseDate || "개봉일 정보 없음",
+                    ),
+                  ),
+                ),
+              ),
+            ),
+      ),
     )
-)
   );
 }
 
