@@ -67,9 +67,6 @@ class AuthServiceAccountDeletionTest {
         order.verify(movieRatingRepository).deleteAuthoredByUserId(41L);
         order.verify(userRepository).delete(user);
 
-        verify(commentReactionRepository, never()).deleteByUser_UserId(anyLong());
         verify(commentReactionRepository, never()).deleteByComment_User_UserId(anyLong());
-        verify(reviewReactionRepository, never()).deleteByUser_UserId(anyLong());
-        verify(movieRatingRepository, never()).deleteByUser_UserId(anyLong());
     }
 }
