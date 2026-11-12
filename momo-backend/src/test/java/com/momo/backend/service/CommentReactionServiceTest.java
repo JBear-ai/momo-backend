@@ -1,6 +1,7 @@
 package com.momo.backend.service;
 
 import com.momo.backend.entity.Comment;
+import com.momo.backend.entity.CommentReaction;
 import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
