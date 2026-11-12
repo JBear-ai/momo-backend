@@ -70,7 +70,7 @@ function Home() {
     let refreshTimer = null;
 
     const refreshPosterStatuses = (movieCodes, attempt = 0) => {
-      if (cancelled || attempt >= 6 || movieCodes.length === 0) {
+      if (cancelled || attempt >= 3 || movieCodes.length === 0) {
         return;
       }
 
