@@ -9,11 +9,13 @@ import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.entity.Movie;
 import com.momo.backend.entity.MovieCache;
 import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.MovieExternalIdMapping;
 import com.momo.backend.entity.MovieSupplement;
 import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieRepository;
 import com.momo.backend.repository.MoviePosterCacheRepository;
+import com.momo.backend.repository.MovieExternalIdMappingRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 
 import lombok.RequiredArgsConstructor;
@@ -51,6 +53,7 @@ public class MovieService {
     private final MoviePosterCacheService posterCacheService;
     private final MoviePersistenceService moviePersistenceService;
     private final MoviePosterCacheRepository moviePosterCacheRepository;
+    private final MovieExternalIdMappingRepository movieExternalIdMappingRepository;
     private final PosterFileStorageService posterFileStorageService;
     private final Cache<String, MovieCache> movieApiMemoryCache;
 
@@ -523,6 +526,25 @@ public class MovieService {
             movie = movieRepository.findById(movieCode).orElse(null);
         }
         if (movie == null) return List.of();
+
+        // 이미 검증된 TMDb 영화 ID가 있으면 제목 검색 대신 정확한 ID로 인물 정보를 조회한다.
+        var savedMapping = movieExternalIdMappingRepository
+                .findFirstByProviderAndMovieCodeOrderByMappingIdAsc("TMDB", movieCode);
+        if (savedMapping.isPresent()) {
+            try {
+                long tmdbId = Long.parseLong(savedMapping.get().getExternalId());
+                return tmdbService.getMovieDetailById(tmdbId).people();
+            } catch (NumberFormatException exception) {
+                log.warn("저장된 TMDb 영화 ID 형식이 올바르지 않습니다. movieCode={}", movieCode, exception);
+                return List.of();
+            } catch (RuntimeException exception) {
+                // 검증된 ID의 상세 조회가 실패하면 다른 제목 검색 결과로 잘못 연결하지 않는다.
+                log.warn("저장된 TMDb ID로 인물 정보를 조회하지 못했습니다. movieCode={}", movieCode, exception);
+                return List.of();
+            }
+        }
+
+        // 아직 검증된 ID 매핑이 없는 기존 영화만 제목·연도·감독 검증 검색을 사용한다.
         return tmdbService.findMoviePeople(
                 movie.getTitle(), movie.getTitleEn(), movie.getReleaseDate(), movie.getDirector());
     }
