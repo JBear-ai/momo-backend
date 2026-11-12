@@ -42,15 +42,15 @@ public class CommentService {
             String loginId,
             CommentRequest dto) {
 
-        // 댓글을 작성할 리뷰 조회
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
-
-        // 현재 로그인한 회원 조회
-        User user = userRepository.findByLoginId(loginId)
+        // 탈퇴와 댓글 작성이 겹치지 않도록 회원 행을 먼저 잠근다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        // 리뷰 삭제와 댓글 작성을 직렬화한다.
+        Review review = reviewRepository.findByIdForUpdate(reviewId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
 
         // 댓글 Entity 생성 및 저장
         Comment comment = new Comment(
@@ -146,8 +146,11 @@ public class CommentService {
             String loginId,
             CommentRequest dto) {
 
-        // 수정할 댓글 조회
-        Comment comment = commentRepository.findById(commentId)
+        // 탈퇴와 댓글 수정을 직렬화한 뒤 댓글 행을 잠근다.
+        userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("댓글을 찾을 수 없습니다."));
 
@@ -168,8 +171,12 @@ public class CommentService {
             Long commentId,
             String loginId) {
 
-        // 삭제할 댓글 조회
-        Comment comment = commentRepository.findById(commentId)
+        // 탈퇴와 댓글 삭제가 겹치지 않도록 회원을 먼저 잠근다.
+        userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        // 댓글 반응 등록·삭제와 같은 댓글 행 잠금을 사용한다.
+        Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("댓글을 찾을 수 없습니다."));
 
