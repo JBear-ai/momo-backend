@@ -3,6 +3,7 @@ package com.momo.backend.service;
 
 import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.entity.Review;
+import com.momo.backend.entity.ReviewReactions;
 import com.momo.backend.entity.User;
 import com.momo.backend.exception.CustomException;
 import com.momo.backend.repository.ReviewReactionRepository;
