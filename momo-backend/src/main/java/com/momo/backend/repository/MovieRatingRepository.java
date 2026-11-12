@@ -33,7 +33,8 @@ public interface MovieRatingRepository
             String movieCode
     );
 
-    // 특정 회원이 좋아요한 영화 목록을 최근 평가 순서로 조회
+    // 좋아요 목록의 영화 정보를 한 번에 조회해 영화별 추가 조회를 방지한다.
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"movie"})
     List<MovieRating> findByUser_UserIdAndLikedOrderByRatingIdDesc(
             Long userId,
             Boolean liked
