@@ -22,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -62,7 +65,16 @@ public class AuthService {
                 dto.getNickname(),
                 dto.getEmail());
 
-        return new UserResponse(userRepository.save(user));
+        try {
+            // 중복 사전 조회와 별도로 DB unique 제약조건을 최종 방어선으로 사용한다.
+            return new UserResponse(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException duplicate) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 사용 중인 아이디 또는 닉네임입니다.",
+                    duplicate
+            );
+        }
     }
 
     // 로그인 및 회원 정보 조회
@@ -126,6 +138,17 @@ public class AuthService {
         }
 
         user.updateProfile(dto.nickname(), dto.email());
+
+        try {
+            // 동시 닉네임 변경 요청도 DB unique 제약조건 기준으로 충돌을 반환한다.
+            userRepository.flush();
+        } catch (DataIntegrityViolationException duplicate) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 사용 중인 닉네임입니다.",
+                    duplicate
+            );
+        }
 
         return new UserResponse(user);
     }
