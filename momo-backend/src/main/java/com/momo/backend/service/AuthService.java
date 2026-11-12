@@ -187,7 +187,7 @@ public class AuthService {
 
         // 회원이 남긴 댓글 반응과 리뷰 반응 삭제
         commentReactionRepository.deleteAuthoredByUserId(userId);
-                reviewReactionRepository.deleteAuthoredByUserId(userId);
+        reviewReactionRepository.deleteAuthoredByUserId(userId);
 
         // 회원이 작성한 댓글에 다른 회원이 남긴 반응 삭제
         commentReactionRepository.deleteForCommentsAuthoredByUser(userId);
