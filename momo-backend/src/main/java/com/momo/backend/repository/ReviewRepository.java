@@ -157,7 +157,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // 특정 영화의 리뷰를 최신순으로 조회
     @EntityGraph(attributePaths = {"user"})
-    Page<Review> findByMovieCodeOrderByCreatedAtDesc(
+    Page<Review> findByMovieCodeOrderByCreatedAtDescReviewIdDesc(
             String movieCode,
             Pageable pageable
     );
