@@ -1,3 +1,4 @@
+// 회원 인증 흐름의 실제 브라우저 검증 설정
 const { defineConfig } = require("@playwright/test");
 
 module.exports = defineConfig({
