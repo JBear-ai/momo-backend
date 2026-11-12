@@ -42,7 +42,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     // 댓글 작성자와 리뷰를 함께 조회해 응답 변환 시 추가 조회를 방지한다.
     @EntityGraph(attributePaths = {"user", "review"})
     // 특정 리뷰의 댓글을 오래된 순서로 조회 (페이지 처리)
-    Page<Comment> findByReview_ReviewIdOrderByCreatedAtAsc(
+    Page<Comment> findByReview_ReviewIdOrderByCreatedAtAscCommentIdAsc(
             Long reviewId, Pageable pageable
     );
 
