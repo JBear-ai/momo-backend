@@ -23,8 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -112,6 +114,36 @@ class MomoBackendApplicationTests {
         String refreshToken = login.path("refreshToken").asString("");
         assertTrue(!accessToken.isBlank());
         assertTrue(!refreshToken.isBlank());
+
+        String favoriteRequest = """
+                {
+                  "movieCode": "20261234",
+                  "title": "관심 영화 테스트",
+                  "releaseDate": "20261112",
+                  "posterUrl": "/posters/20261234.jpg"
+                }
+                """;
+
+        mockMvc.perform(post("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(favoriteRequest))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.movieCode").value("20261234"));
+
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("관심 영화 테스트"));
+
+        mockMvc.perform(delete("/api/favorites/20261234")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
 
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/reissue")
                         .contentType(MediaType.APPLICATION_JSON)
