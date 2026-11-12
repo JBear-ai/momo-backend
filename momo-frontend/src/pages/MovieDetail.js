@@ -121,7 +121,6 @@ function MovieDetail() {
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    let posterRetryTimer = null;
 
     async function fetchMovieDetail() {
       try {
@@ -170,37 +169,6 @@ function MovieDetail() {
           actorPeople: moviePeople.filter((person) => person.department === "actor"),
         });
 
-        // 포스터 수집이 비동기로 끝나는 경우에만 4초 후 한 번 재확인한다.
-        // 짧은 주기의 반복 polling은 하지 않고, 페이지를 벗어나면 요청과 타이머를 취소한다.
-        if (movieCode && !posterUrl) {
-          posterRetryTimer = window.setTimeout(async () => {
-            try {
-              const statusResponse = await AxiosApi.moviePosterStatuses(
-                [movieCode],
-                controller.signal,
-              );
-              if (!active) return;
-
-              const status = Array.isArray(statusResponse.data)
-                ? statusResponse.data.find((item) => item.movieCode === movieCode)
-                : null;
-              const resolvedPosterUrl = status?.posterUrl || "";
-
-              if (status?.status === "SUCCESS" && resolvedPosterUrl) {
-                setMovie((currentMovie) => {
-                  if (!currentMovie || currentMovie.movieCode !== movieCode) {
-                    return currentMovie;
-                  }
-                  return { ...currentMovie, posterUrl: resolvedPosterUrl };
-                });
-              }
-            } catch (posterError) {
-              if (posterError.code !== "ERR_CANCELED") {
-                console.warn("포스터 상태 재확인 실패:", posterError);
-              }
-            }
-          }, 4000);
-        }
       } catch (requestError) {
         if (!active || requestError.code === "ERR_CANCELED") return;
         console.error("영화 상세정보 조회 실패:", requestError);
@@ -219,9 +187,6 @@ function MovieDetail() {
 
     return () => {
       active = false;
-      if (posterRetryTimer) {
-        window.clearTimeout(posterRetryTimer);
-      }
       controller.abort();
     };
   }, [id]);
