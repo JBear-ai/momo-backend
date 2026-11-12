@@ -34,52 +34,23 @@ function MyReviews() {
         setReviews(reviewList);
         setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
 
-        // 리뷰 통계는 페이지 단위로 집계하고 영화 상세·포스터 조회만 영화별로 실행한다.
+        // 리뷰 정보, 통계, 포스터 수집 상태를 페이지 단위 요청으로 조회한다.
         const reviewIds = reviewList.map((review) => review.reviewId);
-        const [summaryResult, results] = await Promise.all([
+        const movieCodes = [...new Set(
+          reviewList.map((review) => review.movieCode).filter(Boolean),
+        )];
+
+        const [summaryResult, posterResult] = await Promise.all([
           reviewIds.length
             ? AxiosApi.reviewSummaries(reviewIds, controller.signal)
                 .then((result) => ({ status: "fulfilled", data: result.data }))
                 .catch((reason) => ({ status: "rejected", reason }))
             : Promise.resolve({ status: "fulfilled", data: [] }),
-          Promise.all(
-            reviewList.map(async (review) => {
-              const movieCode = review.movieCode;
-              const [detailResult, posterResult] = await Promise.allSettled([
-                movieCode
-                  ? AxiosApi.movieDetail(movieCode, controller.signal)
-                  : Promise.resolve(null),
-                movieCode
-                  ? AxiosApi.moviePoster(movieCode, controller.signal)
-                  : Promise.resolve(null),
-              ]);
-
-              if (controller.signal.aborted) return null;
-
-              const movie =
-                detailResult.status === "fulfilled" && detailResult.value
-                  ? detailResult.value.data
-                  : null;
-              const poster =
-                posterResult.status === "fulfilled" && posterResult.value
-                  ? posterResult.value.data
-                  : null;
-
-              if (detailResult.status === "rejected") {
-                console.error("영화 정보 조회 실패:", detailResult.reason);
-              }
-              if (posterResult.status === "rejected") {
-                console.error("영화 포스터 조회 실패:", posterResult.reason);
-              }
-
-              return {
-                reviewId: review.reviewId,
-                title: movie?.title || "",
-                releaseDate: movie?.releaseDate || "",
-                posterUrl: poster?.posterUrl || "",
-              };
-            }),
-          ),
+          movieCodes.length
+            ? AxiosApi.moviePostersEnsure(movieCodes, controller.signal)
+                .then((result) => ({ status: "fulfilled", data: result.data }))
+                .catch((reason) => ({ status: "rejected", reason }))
+            : Promise.resolve({ status: "fulfilled", data: [] }),
         ]);
 
         if (controller.signal.aborted) return;
@@ -87,17 +58,25 @@ function MyReviews() {
         if (summaryResult.status === "rejected") {
           console.error("리뷰 요약 조회 실패:", summaryResult.reason);
         }
+        if (posterResult.status === "rejected") {
+          console.error("일괄 포스터 조회 실패:", posterResult.reason);
+        }
 
         const summaryByReviewId = new Map(
           (summaryResult.data || []).map((summary) => [summary.reviewId, summary]),
         );
+        const posterByMovieCode = new Map(
+          (posterResult.data || []).map((poster) => [poster.movieCode, poster]),
+        );
         const infoMap = {};
 
-        results.forEach((result) => {
-          if (!result) return;
-          const summary = summaryByReviewId.get(result.reviewId);
-          infoMap[result.reviewId] = {
-            ...result,
+        reviewList.forEach((review) => {
+          const summary = summaryByReviewId.get(review.reviewId);
+          const poster = posterByMovieCode.get(review.movieCode);
+          infoMap[review.reviewId] = {
+            title: summary?.movieTitle || "영화 정보 없음",
+            releaseDate: summary?.releaseDate || "",
+            posterUrl: poster?.posterUrl || "",
             commentCount: summary?.commentCount ?? 0,
             likeCount: summary?.likeCount ?? 0,
             dislikeCount: summary?.dislikeCount ?? 0,
