@@ -44,47 +44,23 @@ function LikedReviews() {
         setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
         setTotalElements(data.page?.totalElements ?? data.totalElements ?? 0);
 
-        // 댓글·반응 통계는 페이지 단위로 집계하고, 영화 상세·포스터 요청만 개별 실행한다.
+        // 좋아요한 리뷰의 영화 정보·통계·포스터 수집을 페이지 단위로 조회한다.
         const reviewIds = reviewList.map((review) => review.reviewId);
-        const [summaryResult, results] = await Promise.all([
+        const movieCodes = [...new Set(
+          reviewList.map((review) => review.movieCode).filter(Boolean),
+        )];
+
+        const [summaryResult, posterResult] = await Promise.all([
           reviewIds.length
             ? AxiosApi.reviewSummaries(reviewIds, controller.signal)
                 .then((result) => ({ status: "fulfilled", data: result.data }))
                 .catch((reason) => ({ status: "rejected", reason }))
             : Promise.resolve({ status: "fulfilled", data: [] }),
-          Promise.all(
-            reviewList.map(async (review) => {
-              const [detailResult, posterResult] = await Promise.allSettled([
-                AxiosApi.movieDetail(review.movieCode, controller.signal),
-                AxiosApi.moviePoster(review.movieCode, controller.signal),
-              ]);
-
-              if (controller.signal.aborted) return null;
-
-              const movie =
-                detailResult.status === "fulfilled"
-                  ? detailResult.value.data
-                  : null;
-              const poster =
-                posterResult.status === "fulfilled"
-                  ? posterResult.value.data
-                  : null;
-
-              if (detailResult.status === "rejected") {
-                console.error("영화 정보 조회 실패:", detailResult.reason);
-              }
-              if (posterResult.status === "rejected") {
-                console.error("영화 포스터 조회 실패:", posterResult.reason);
-              }
-
-              return {
-                reviewId: review.reviewId,
-                title: movie?.title || "영화 정보 없음",
-                releaseDate: movie?.releaseDate || "",
-                posterUrl: poster?.posterUrl || "",
-              };
-            }),
-          ),
+          movieCodes.length
+            ? AxiosApi.moviePostersEnsure(movieCodes, controller.signal)
+                .then((result) => ({ status: "fulfilled", data: result.data }))
+                .catch((reason) => ({ status: "rejected", reason }))
+            : Promise.resolve({ status: "fulfilled", data: [] }),
         ]);
 
         if (controller.signal.aborted) return;
@@ -92,17 +68,25 @@ function LikedReviews() {
         if (summaryResult.status === "rejected") {
           console.error("리뷰 요약 조회 실패:", summaryResult.reason);
         }
+        if (posterResult.status === "rejected") {
+          console.error("일괄 포스터 조회 실패:", posterResult.reason);
+        }
 
         const summaryByReviewId = new Map(
           (summaryResult.data || []).map((summary) => [summary.reviewId, summary]),
         );
+        const posterByMovieCode = new Map(
+          (posterResult.data || []).map((poster) => [poster.movieCode, poster]),
+        );
         const infoMap = {};
 
-        results.forEach((result) => {
-          if (!result) return;
-          const summary = summaryByReviewId.get(result.reviewId);
-          infoMap[result.reviewId] = {
-            ...result,
+        reviewList.forEach((review) => {
+          const summary = summaryByReviewId.get(review.reviewId);
+          const poster = posterByMovieCode.get(review.movieCode);
+          infoMap[review.reviewId] = {
+            title: summary?.movieTitle || "영화 정보 없음",
+            releaseDate: summary?.releaseDate || "",
+            posterUrl: poster?.posterUrl || "",
             commentCount: summary?.commentCount ?? 0,
             likeCount: summary?.likeCount ?? 0,
             dislikeCount: summary?.dislikeCount ?? 0,
