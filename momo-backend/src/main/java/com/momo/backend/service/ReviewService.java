@@ -4,6 +4,7 @@ package com.momo.backend.service;
 import com.momo.backend.dto.review.ReviewCreateRequest;
 import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.dto.review.ReviewPageResponse;
+import com.momo.backend.dto.review.ReviewSummaryResponse;
 import com.momo.backend.dto.review.ReviewUpdateRequest;
 
 import com.momo.backend.entity.Review;
@@ -31,6 +32,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
 import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -153,6 +157,55 @@ public class ReviewService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    // 페이지에 표시할 댓글·좋아요·싫어요 집계를 두 번의 DB 조회로 가져온다.
+    @Transactional(readOnly = true)
+    public List<ReviewSummaryResponse> getReviewSummaries(List<Long> reviewIds) {
+        if (reviewIds == null || reviewIds.isEmpty()) {
+            return List.of();
+        }
+        if (reviewIds.size() > 50) {
+            throw new IllegalArgumentException("한 번에 조회할 리뷰는 50개 이하여야 합니다.");
+        }
+
+        List<Long> ids = reviewIds.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Long> commentCounts = new HashMap<>();
+        for (CommentRepository.ReviewCommentCountSummary summary
+                : commentRepository.countByReviewIds(ids)) {
+            commentCounts.put(summary.getReviewId(), summary.getCommentCount());
+        }
+
+        Map<Long, long[]> reactionCounts = new HashMap<>();
+        for (ReviewReactionRepository.ReviewReactionCountSummary summary
+                : reviewReactionRepository.findCountsByReviewIds(ids)) {
+            reactionCounts.put(
+                    summary.getReviewId(),
+                    new long[]{
+                            summary.getLikeCount() == null ? 0L : summary.getLikeCount(),
+                            summary.getDislikeCount() == null ? 0L : summary.getDislikeCount()
+                    }
+            );
+        }
+
+        List<ReviewSummaryResponse> result = new ArrayList<>(ids.size());
+        for (Long reviewId : ids) {
+            long[] counts = reactionCounts.getOrDefault(reviewId, new long[2]);
+            result.add(new ReviewSummaryResponse(
+                    reviewId,
+                    commentCounts.getOrDefault(reviewId, 0L),
+                    counts[0],
+                    counts[1]
+            ));
+        }
+        return result;
     }
 
     // 리뷰 작성
