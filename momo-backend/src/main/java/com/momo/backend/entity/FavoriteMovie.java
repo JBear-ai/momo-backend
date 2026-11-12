@@ -58,8 +58,8 @@ public class FavoriteMovie {
 
     public void updateMovieSnapshot(String title, String releaseDate, String posterUrl) {
         if (title != null && !title.isBlank()) this.title = title.trim();
-        if (releaseDate != null) this.releaseDate = releaseDate.trim();
-        if (posterUrl != null) this.posterUrl = posterUrl.trim();
+        if (releaseDate != null && !releaseDate.isBlank()) this.releaseDate = releaseDate.trim();
+        if (posterUrl != null && !posterUrl.isBlank()) this.posterUrl = posterUrl.trim();
     }
 
     @PrePersist
