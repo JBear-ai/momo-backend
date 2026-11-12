@@ -10,7 +10,15 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor
-@Table(name = "movies")
+@Table(
+        name = "movies",
+        indexes = {
+                @Index(name = "ix_movie_boxoffice_rank_date",
+                        columnList = "box_office_entered, best_box_office_rank, last_box_office_date"),
+                @Index(name = "ix_movie_boxoffice_genre",
+                        columnList = "box_office_entered, genre")
+        }
+)
 public class Movie {
 
     // KOBIS 영화 코드를 기본키로 사용
