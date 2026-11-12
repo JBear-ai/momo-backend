@@ -57,10 +57,10 @@ class AuthServiceAccountDeletionTest {
         );
         order.verify(refreshTokenService).deleteByUserId(41L);
         order.verify(commentReactionRepository).deleteAuthoredByUserId(41L);
+        order.verify(reviewReactionRepository).deleteAuthoredByUserId(41L);
         order.verify(commentReactionRepository).deleteForCommentsAuthoredByUser(41L);
         order.verify(commentRepository).deleteAuthoredByUserId(41L);
         order.verify(commentReactionRepository).deleteForReviewsAuthoredByUser(41L);
-        order.verify(reviewReactionRepository).deleteAuthoredByUserId(41L);
         order.verify(reviewReactionRepository).deleteForReviewsAuthoredByUser(41L);
         order.verify(commentRepository).deleteForReviewsAuthoredByUser(41L);
         order.verify(reviewRepository).deleteAuthoredByUserId(41L);
