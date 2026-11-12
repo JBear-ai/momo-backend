@@ -99,12 +99,14 @@ function Home() {
             }),
           );
 
-          const allHavePosters = movieCodes.every((code) => {
+          // 수집이 끝난 SUCCESS·FAILED 영화는 다시 조회하지 않는다.
+          // 아직 작업 중인 영화만 최대 3회까지 지수형 간격으로 확인한다.
+          const hasPendingPosters = movieCodes.some((code) => {
             const status = statusByCode.get(code);
-            return status?.status === "SUCCESS" && status.posterUrl;
+            return status?.status === "PENDING" || status?.status === "PROCESSING";
           });
 
-          if (!allHavePosters) {
+          if (hasPendingPosters) {
             refreshPosterStatuses(movieCodes, attempt + 1);
           }
         } catch (error) {
