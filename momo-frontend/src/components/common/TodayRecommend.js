@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import SafeImage from "./SafeImage";
 import { useNavigate } from "react-router-dom";
 import AxiosApi from "../../api/AxiosApi";
 import { getFavoriteMovies } from "../../utils/favorites";
@@ -272,18 +273,16 @@ function TodayRecommend() {
     React.createElement(
   "section",
   {"className":"recommend-banner"},
-  (movie.posterUrl ? (
-          React.createElement(
-      "img",
-      {"className":"recommend-poster","src":resolvePosterUrl(movie.posterUrl),"alt":movie.title}
-    )
-        ) : (
-          React.createElement(
+  React.createElement(SafeImage, {
+    className: "recommend-poster",
+    src: resolvePosterUrl(movie.posterUrl),
+    alt: movie.title,
+    fallback: React.createElement(
       "div",
-      {"className":"recommend-poster poster-placeholder"},
+      { className: "recommend-poster poster-placeholder" },
       "포스터 준비 중"
-    )
-        )),
+    ),
+  }),
   React.createElement(
       "div",
       {"className":"recommend-overlay"}
