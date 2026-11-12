@@ -131,9 +131,18 @@ class MomoBackendApplicationTests {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.movieCode").value("20261234"));
 
+        // 같은 영화 코드를 다시 등록해도 회원별 관심 영화는 중복되지 않는다.
+        mockMvc.perform(post("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(favoriteRequest))
+                .andExpect(status().isCreated());
+
         mockMvc.perform(get("/api/favorites")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].title").value("관심 영화 테스트"));
 
         mockMvc.perform(delete("/api/favorites/20261234")
