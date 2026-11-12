@@ -47,6 +47,48 @@ class CommentServiceTest {
     private CommentService commentService;
 
     @Test
+    void createsCommentAfterLockingMemberAndTargetReview() {
+        User user = org.mockito.Mockito.mock(User.class);
+        Review review = org.mockito.Mockito.mock(Review.class);
+        Comment comment = org.mockito.Mockito.mock(Comment.class);
+        LocalDateTime now = LocalDateTime.now();
+
+        when(userRepository.findByLoginIdForUpdate("member"))
+                .thenReturn(java.util.Optional.of(user));
+        when(user.getUserId()).thenReturn(7L);
+        when(user.getNickname()).thenReturn("작성자");
+        when(user.getProfileImage()).thenReturn(null);
+        when(reviewRepository.findByIdForUpdate(15L))
+                .thenReturn(java.util.Optional.of(review));
+        when(review.getReviewId()).thenReturn(15L);
+        when(commentRepository.save(org.mockito.ArgumentMatchers.any(Comment.class)))
+                .thenReturn(comment);
+        when(comment.getCommentId()).thenReturn(27L);
+        when(comment.getReview()).thenReturn(review);
+        when(comment.getUser()).thenReturn(user);
+        when(comment.getContent()).thenReturn("동시성 검증 댓글");
+        when(comment.getCreatedAt()).thenReturn(now);
+        when(comment.getUpdatedAt()).thenReturn(now);
+        when(commentReactionRepository.countByComment_CommentIdAndLiked(27L, true))
+                .thenReturn(0L);
+        when(commentReactionRepository.countByComment_CommentIdAndLiked(27L, false))
+                .thenReturn(0L);
+
+        CommentRequest request = new CommentRequest();
+        request.setContent("동시성 검증 댓글");
+
+        CommentResponse response = commentService.createComment(15L, "member", request);
+
+        assertEquals(27L, response.getCommentId());
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                userRepository, reviewRepository, commentRepository);
+        order.verify(userRepository).findByLoginIdForUpdate("member");
+        order.verify(reviewRepository).findByIdForUpdate(15L);
+        order.verify(commentRepository).save(org.mockito.ArgumentMatchers.any(Comment.class));
+    }
+
+    @Test
     void anonymousVisitorCanReadCommentsWithoutPersonalReactionLookup() {
         Long reviewId = 15L;
         Long commentId = 27L;
