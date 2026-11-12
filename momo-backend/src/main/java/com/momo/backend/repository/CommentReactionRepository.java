@@ -1,13 +1,31 @@
 
 package com.momo.backend.repository;
 
-import com.momo.backend.entity.CommentReaction;
+import com.momo.backend.entity.CommentReaction;\nimport org.springframework.data.jpa.repository.Query;\nimport org.springframework.data.repository.query.Param;\n\nimport java.util.Collection;\nimport java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
 public interface CommentReactionRepository
         extends JpaRepository<CommentReaction, Long> {
+
+    interface CommentReactionSummary {
+        Long getCommentId();
+        Boolean getLiked();
+        Long getUserId();
+    }
+
+    // 댓글 페이지에 필요한 반응 정보만 한 번에 조회한다.
+    @Query("""
+            select reaction.comment.commentId as commentId,
+                   reaction.liked as liked,
+                   reaction.user.userId as userId
+            from CommentReaction reaction
+            where reaction.comment.commentId in :commentIds
+            """)
+    List<CommentReactionSummary> findReactionSummariesByCommentIds(
+            @Param("commentIds") Collection<Long> commentIds
+    );
 
     // 특정 회원이 특정 댓글에 남긴 반응 조회
     Optional<CommentReaction> findByUser_UserIdAndComment_CommentId(
