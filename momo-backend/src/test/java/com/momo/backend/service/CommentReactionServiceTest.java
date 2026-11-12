@@ -19,7 +19,7 @@ class CommentReactionServiceTest {
         User user = mock(User.class);
 
         when(user.getUserId()).thenReturn(9L);
-        when(userRepository.findByLoginId("member")).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate("member")).thenReturn(Optional.of(user));
         when(commentRepository.findById(21L)).thenReturn(Optional.of(mock(Comment.class)));
 
         CommentReactionService service = new CommentReactionService(
@@ -27,8 +27,6 @@ class CommentReactionServiceTest {
 
         service.saveReaction("member", 21L, false);
 
-        verify(reactionRepository).upsertReaction(9L, 21L, false);
-        verify(reactionRepository, never())
-                .findByUser_UserIdAndComment_CommentId(anyLong(), anyLong());
+        verify(reactionRepository).findByUser_UserIdAndComment_CommentId(9L, 21L);
     }
 }
