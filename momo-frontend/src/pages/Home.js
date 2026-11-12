@@ -4,6 +4,7 @@ import TodayRecommend from "../components/common/TodayRecommend";
 import FavoriteStar from "../components/common/FavoriteStar";
 import { getFavoriteMovies } from "../utils/favorites";
 import { resolvePosterUrl } from "../utils/mediaUrl";
+import { getPosterPollDelay } from "../utils/posterPolling";
 
 import {
   HomePage,
@@ -71,7 +72,7 @@ function Home() {
     let refreshTimer = null;
 
     const refreshPosterStatuses = (movieCodes, attempt = 0) => {
-      if (cancelled || attempt >= 180 || movieCodes.length === 0) {
+      if (cancelled || attempt >= 6 || movieCodes.length === 0) {
         return;
       }
 
@@ -104,7 +105,7 @@ function Home() {
           );
 
           if (!cancelled) {
-            // 수집 작업이 끝날 때까지 최대 12분간 상태를 확인한다.
+            // 재시도 간격을 늘리면서 최대 6회까지만 확인한다.
             const allHavePosters = movieCodes.every((code) => {
               const status = statusByCode.get(code);
               return status && status.status === "SUCCESS" && status.posterUrl;
@@ -120,7 +121,7 @@ function Home() {
             refreshPosterStatuses(movieCodes, attempt + 1);
           }
         }
-      }, 4000);
+      }, getPosterPollDelay(attempt));
     };
 
     fetch(apiBaseUrl + "/api/boxoffice/daily?targetDate=" + targetDate)
