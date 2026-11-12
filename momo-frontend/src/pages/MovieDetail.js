@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import SafeImage from "../components/common/SafeImage";
 import { useParams, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { formatReleaseDate } from "../utils/releaseDate";
@@ -670,18 +671,16 @@ function MovieDetail() {
                   key: `${person.name}-${index}`,
                   onClick: () => moveToPersonDetail(person, "director"),
                 },
-                person.profileUrl
-                  ? React.createElement("img", {
-                      src: person.profileUrl,
-                      alt: person.name,
-                      loading: "lazy",
-                      onError: (event) => event.currentTarget.remove(),
-                    })
-                  : React.createElement(
-                      "div",
-                      null,
-                      React.createElement("span", null, "👤"),
-                    ),
+                React.createElement(SafeImage, {
+                  src: person.profileUrl,
+                  alt: person.name,
+                  loading: "lazy",
+                  fallback: React.createElement(
+                    "div",
+                    null,
+                    React.createElement("span", null, "👤"),
+                  ),
+                }),
                 React.createElement(
                   "div",
                   null,
@@ -716,18 +715,16 @@ function MovieDetail() {
                   key: `${person.name}-${index}`,
                   onClick: () => moveToPersonDetail(person, "actor"),
                 },
-                person.profileUrl
-                  ? React.createElement("img", {
-                      src: person.profileUrl,
-                      alt: person.name,
-                      loading: "lazy",
-                      onError: (event) => event.currentTarget.remove(),
-                    })
-                  : React.createElement(
-                      "div",
-                      null,
-                      React.createElement("span", null, "👤"),
-                    ),
+                React.createElement(SafeImage, {
+                  src: person.profileUrl,
+                  alt: person.name,
+                  loading: "lazy",
+                  fallback: React.createElement(
+                    "div",
+                    null,
+                    React.createElement("span", null, "👤"),
+                  ),
+                }),
                 React.createElement(
                   "div",
                   null,
