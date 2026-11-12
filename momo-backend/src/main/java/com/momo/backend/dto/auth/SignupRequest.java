@@ -24,6 +24,10 @@ public class SignupRequest {
     // 화면에서 사용할 닉네임
     @NotBlank
     @Size(min = 2, max = 12)
+    @Pattern(
+            regexp = "^[가-힣a-zA-Z0-9]{2,12}$",
+            message = "닉네임은 한글, 영문, 숫자로 2~12자 입력해 주세요."
+    )
     private String nickname;
 
     // 필수 입력 이메일 (이메일 형식 검사)
