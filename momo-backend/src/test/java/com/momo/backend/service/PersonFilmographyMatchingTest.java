@@ -2,6 +2,7 @@ package com.momo.backend.service;
 
 import com.momo.backend.client.KobisApiClient;
 import com.momo.backend.client.TmdbApiClient;
+import com.momo.backend.entity.MovieExternalIdMapping;
 import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieExternalIdMappingRepository;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
+import java.util.Optional;
 
 class PersonFilmographyMatchingTest {
 
@@ -215,6 +217,34 @@ class PersonFilmographyMatchingTest {
         );
 
         assertEquals(409, exception.getStatusCode().value());
+    }
+
+
+    @Test
+    void reusesPreviouslyVerifiedExternalMovieMappingWithoutCallingProviders() {
+        long tmdbId = 900004L;
+        TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
+        KobisApiClient kobisApiClient = mock(KobisApiClient.class);
+        MovieExternalIdMappingRepository mappingRepository =
+                mock(MovieExternalIdMappingRepository.class);
+
+        when(mappingRepository.findByProviderAndExternalId("TMDB", String.valueOf(tmdbId)))
+                .thenReturn(Optional.of(
+                        new MovieExternalIdMapping("TMDB", String.valueOf(tmdbId), "20240004")
+                ));
+
+        PersonService service = new PersonService(
+                tmdbApiClient,
+                kobisApiClient,
+                mock(MovieCacheRepository.class),
+                mappingRepository,
+                mock(MoviePersistenceService.class),
+                mock(MoviePosterPersistenceService.class),
+                new ObjectMapper()
+        );
+
+        assertEquals("20240004", service.resolveFilmographyMovie(tmdbId));
+        verifyNoInteractions(tmdbApiClient, kobisApiClient);
     }
 
     private PersonService createService(
