@@ -14,7 +14,6 @@ function MovieSearchAutocomplete() {
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
 
   const [movies, setMovies] = useState([]);
-  const [posterUrls, setPosterUrls] = useState({});
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,7 +30,6 @@ function MovieSearchAutocomplete() {
 
     if (!isOpen || trimmedKeyword.length < 2) {
       setMovies([]);
-      setPosterUrls({});
       setLoading(false);
       setError("");
       return;
@@ -44,7 +42,6 @@ function MovieSearchAutocomplete() {
       setLoading(true);
       setError("");
       setMovies([]);
-      setPosterUrls({});
 
       try {
         const response = await AxiosApi.movieSearch(
@@ -90,103 +87,6 @@ function MovieSearchAutocomplete() {
       }
     };
   }, [keyword, isOpen]);
-
-  // 영화 포스터 상태 및 URL 조회
-  useEffect(() => {
-    if (!isOpen || movies.length === 0) return;
-
-    let cancelled = false;
-    let timerId = null;
-
-    const controller = new AbortController();
-
-    const validMovies = movies.filter((movie) =>
-      /^[A-Za-z0-9]{8}$/.test(String(movie.movieCode || "")),
-    );
-
-    const movieCodes = validMovies.map((movie) => String(movie.movieCode));
-
-    const checkPosters = async () => {
-      if (cancelled || controller.signal.aborted) return;
-
-      if (movieCodes.length === 0) return;
-
-      try {
-        const response = await AxiosApi.moviePosterStatuses(
-          movieCodes,
-          controller.signal,
-        );
-
-        if (cancelled || controller.signal.aborted) return;
-
-        const statuses = Array.isArray(response.data) ? response.data : [];
-
-        const statusMap = new Map();
-
-        statuses.forEach((item) => {
-          if (item.movieCode) {
-            statusMap.set(String(item.movieCode), item);
-          }
-        });
-
-        const nextPosterUrls = {};
-        let hasPending = false;
-
-        validMovies.forEach((movie) => {
-          const item = statusMap.get(String(movie.movieCode));
-
-          if (!item) {
-            hasPending = true;
-            return;
-          }
-
-          const posterUrl = item.posterUrl?.trim() || "";
-          const blockedUrl = /cineq|cinestation/i.test(posterUrl);
-
-          if (item.status === "SUCCESS" && posterUrl && !blockedUrl) {
-            nextPosterUrls[movie.movieCode] = resolvePosterUrl(posterUrl);
-          } else if (item.status !== "FAILED" && !blockedUrl) {
-            // 아직 포스터 수집이 끝나지 않은 상태
-            hasPending = true;
-          }
-        });
-
-        if (cancelled) return;
-
-        setPosterUrls((prev) => ({
-          ...prev,
-          ...nextPosterUrls,
-        }));
-
-        // 아직 포스터 수집 중인 영화가 있으면 다시 조회
-        if (hasPending && !cancelled) {
-          timerId = setTimeout(checkPosters, 2500);
-        }
-      } catch (err) {
-        if (
-          !cancelled &&
-          err.code !== "ERR_CANCELED" &&
-          err.name !== "CanceledError"
-        ) {
-          console.error("영화 포스터 조회 실패:", err);
-
-          // 일시적인 오류는 다음 주기에 재시도
-          timerId = setTimeout(checkPosters, 2500);
-        }
-      }
-    };
-
-    checkPosters();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-
-      if (timerId) {
-        clearTimeout(timerId);
-      }
-    };
-  }, [movies, isOpen]);
 
   // 검색창 외부 클릭 시 자동완성 닫기
   useEffect(() => {
@@ -315,16 +215,13 @@ function MovieSearchAutocomplete() {
                 aria-label={`${movie.title} 상세 페이지 이동`}
               >
                 <div className="momo-search-poster">
-                  {posterUrls[movie.movieCode] ? (
+                  {movie.posterUrl ? (
                     <img
-                      src={posterUrls[movie.movieCode]}
+                      src={resolvePosterUrl(movie.posterUrl)}
                       alt={`${movie.title} 포스터`}
                       loading="lazy"
-                      onError={() => {
-                        setPosterUrls((prev) => ({
-                          ...prev,
-                          [movie.movieCode]: "",
-                        }));
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none";
                       }}
                     />
                   ) : (
