@@ -216,12 +216,33 @@ const FavoritesAndProfileOverridesStyles = createGlobalStyle`
   cursor: pointer;
 }
 
+/* 포스터 카드 안의 버튼이 카드 전체 높이를 차지하도록 고정한다. */
+.favorite-page-poster > button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.favorite-page-poster > button:focus-visible {
+  outline: 3px solid #a37e1c;
+  outline-offset: -3px;
+}
+
 .favorite-page-poster img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.35s ease;
+}
+
+.favorite-page-poster [role="img"] {
+  width: 100%;
+  height: 100%;
 }
 
 .favorite-page-poster:hover img {
