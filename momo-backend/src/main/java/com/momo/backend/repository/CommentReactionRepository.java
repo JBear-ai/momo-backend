@@ -14,22 +14,41 @@ import java.util.Optional;
 public interface CommentReactionRepository
         extends JpaRepository<CommentReaction, Long> {
 
-    interface CommentReactionSummary {
+    interface CommentReactionCountSummary {
         Long getCommentId();
-        Boolean getLiked();
-        Long getUserId();
+        Long getLikeCount();
+        Long getDislikeCount();
     }
 
-    // 댓글 페이지에 필요한 반응 정보만 한 번에 조회한다.
+    interface CommentUserReactionSummary {
+        Long getCommentId();
+        Boolean getLiked();
+    }
+
+    // 댓글별 좋아요/싫어요 개수를 DB에서 집계해 한 번에 조회한다.
     @Query("""
             select reaction.comment.commentId as commentId,
-                   reaction.liked as liked,
-                   reaction.user.userId as userId
+                   sum(case when reaction.liked = true then 1 else 0 end) as likeCount,
+                   sum(case when reaction.liked = false then 1 else 0 end) as dislikeCount
             from CommentReaction reaction
             where reaction.comment.commentId in :commentIds
+            group by reaction.comment.commentId
             """)
-    List<CommentReactionSummary> findReactionSummariesByCommentIds(
+    List<CommentReactionCountSummary> findReactionCountsByCommentIds(
             @Param("commentIds") Collection<Long> commentIds
+    );
+
+    // 로그인 사용자의 댓글별 반응도 한 번에 조회한다.
+    @Query("""
+            select reaction.comment.commentId as commentId,
+                   reaction.liked as liked
+            from CommentReaction reaction
+            where reaction.comment.commentId in :commentIds
+              and reaction.user.userId = :userId
+            """)
+    List<CommentUserReactionSummary> findMyReactionsByCommentIds(
+            @Param("commentIds") Collection<Long> commentIds,
+            @Param("userId") Long userId
     );
 
     // 특정 회원이 특정 댓글에 남긴 반응 조회
