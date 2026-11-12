@@ -11,6 +11,7 @@ import com.momo.backend.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -39,7 +40,8 @@ public class MovieRatingService {
             );
         }
 
-        User user = userRepository.findByLoginId(loginId)
+        // 같은 회원의 같은 영화 평가 저장·변경·삭제를 직렬화한다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
@@ -63,9 +65,17 @@ public class MovieRatingService {
                 .orElse(null);
 
         if (rating == null) {
-            movieRatingRepository.save(
-                    new MovieRating(user, movie, liked)
-            );
+            try {
+                movieRatingRepository.saveAndFlush(
+                        new MovieRating(user, movie, liked)
+                );
+            } catch (DataIntegrityViolationException duplicate) {
+                // 다른 경로에서 먼저 등록된 경우에도 요청을 실패시키지 않고 기존 평가를 갱신한다.
+                MovieRating existing = movieRatingRepository
+                        .findByUser_UserIdAndMovie_MovieCode(user.getUserId(), movieCode)
+                        .orElseThrow(() -> duplicate);
+                existing.updateRating(liked);
+            }
         } else {
             rating.updateRating(liked);
         }
@@ -77,7 +87,7 @@ public class MovieRatingService {
             String movieCode
     ) {
 
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
