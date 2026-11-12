@@ -13,6 +13,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 로그인 아이디로 회원 정보 조회
     Optional<User> findByLoginId(String loginId);
 
+    // 같은 회원의 동시 반응 저장을 직렬화해 중복 INSERT 경쟁을 막는다.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.loginId = :loginId")
+    Optional<User> findByLoginIdForUpdate(@Param("loginId") String loginId);
+
     // Refresh Token 행이 없는 최초 동시 로그인도 사용자 단위로 직렬화한다.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.userId = :userId")
