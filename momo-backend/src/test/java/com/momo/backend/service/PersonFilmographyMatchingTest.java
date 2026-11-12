@@ -25,6 +25,8 @@ class PersonFilmographyMatchingTest {
         MoviePersistenceService moviePersistenceService = mock(MoviePersistenceService.class);
         MoviePosterPersistenceService posterPersistenceService =
                 mock(MoviePosterPersistenceService.class);
+        MovieExternalIdMappingRepository mappingRepository =
+                mock(MovieExternalIdMappingRepository.class);
 
         when(tmdbApiClient.getMovieDetail(tmdbId)).thenReturn("""
                 {
@@ -76,9 +78,14 @@ class PersonFilmographyMatchingTest {
 
         PersonService service = createService(
                 tmdbApiClient, kobisApiClient,
-                moviePersistenceService, posterPersistenceService);
+                moviePersistenceService, posterPersistenceService, mappingRepository);
 
         assertEquals("20241234", service.resolveFilmographyMovie(tmdbId));
+        verify(mappingRepository).saveAndFlush(argThat(mapping ->
+                "TMDB".equals(mapping.getProvider())
+                        && String.valueOf(tmdbId).equals(mapping.getExternalId())
+                        && "20241234".equals(mapping.getMovieCode())
+        ));
 
         verify(moviePersistenceService).saveSearchMovies(argThat(movies ->
                 movies.size() == 1
@@ -253,11 +260,23 @@ class PersonFilmographyMatchingTest {
             MoviePersistenceService moviePersistenceService,
             MoviePosterPersistenceService posterPersistenceService
     ) {
+        return createService(
+                tmdbApiClient, kobisApiClient, moviePersistenceService,
+                posterPersistenceService, mock(MovieExternalIdMappingRepository.class));
+    }
+
+    private PersonService createService(
+            TmdbApiClient tmdbApiClient,
+            KobisApiClient kobisApiClient,
+            MoviePersistenceService moviePersistenceService,
+            MoviePosterPersistenceService posterPersistenceService,
+            MovieExternalIdMappingRepository mappingRepository
+    ) {
         return new PersonService(
                 tmdbApiClient,
                 kobisApiClient,
                 mock(MovieCacheRepository.class),
-                mock(MovieExternalIdMappingRepository.class),
+                mappingRepository,
                 moviePersistenceService,
                 posterPersistenceService,
                 new ObjectMapper()
