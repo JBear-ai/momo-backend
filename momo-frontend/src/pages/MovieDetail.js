@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { formatReleaseDate } from "../utils/releaseDate";
 import { resolvePosterUrl } from "../utils/mediaUrl";
+import { getPosterPollDelay } from "../utils/posterPolling";
 // 숫자에 천 단위 쉼표 추가
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("ko-KR");
@@ -190,6 +191,64 @@ function MovieDetail() {
       controller.abort();
     };
   }, [id]);
+
+  // 포스터 수집이 비동기로 끝나는 경우 상세 화면 이미지를 제한된 횟수만 갱신한다.
+  useEffect(() => {
+    const movieCode = movie?.movieCode;
+    if (!movieCode || movie?.posterUrl) return undefined;
+
+    const controller = new AbortController();
+    let active = true;
+    let timer = null;
+
+    const refreshPoster = (attempt = 0) => {
+      if (!active || attempt >= 3) return;
+
+      timer = window.setTimeout(async () => {
+        try {
+          const response = await AxiosApi.moviePosterStatuses(
+            [movieCode],
+            controller.signal,
+          );
+          if (!active) return;
+
+          const status = Array.isArray(response.data)
+            ? response.data.find((item) => item.movieCode === movieCode)
+            : null;
+
+          if (status?.status === "SUCCESS" && status.posterUrl) {
+            setMovie((current) =>
+              current?.movieCode === movieCode
+                ? { ...current, posterUrl: status.posterUrl }
+                : current,
+            );
+            return;
+          }
+
+          if (status?.status === "PENDING" || status?.status === "PROCESSING") {
+            refreshPoster(attempt + 1);
+          }
+        } catch (posterError) {
+          if (
+            active &&
+            posterError.code !== "ERR_CANCELED" &&
+            posterError.name !== "CanceledError"
+          ) {
+            console.warn("영화 상세 포스터 상태 조회 실패:", posterError);
+            refreshPoster(attempt + 1);
+          }
+        }
+      }, getPosterPollDelay(attempt));
+    };
+
+    refreshPoster();
+
+    return () => {
+      active = false;
+      if (timer !== null) window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [movie?.movieCode, movie?.posterUrl]);
 
   // =========================================================
   // 5. 영화별 리뷰 및 평가 조회
