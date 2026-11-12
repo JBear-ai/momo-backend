@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -17,6 +19,25 @@ public interface ReviewReactionRepository
         long getLikeCount();
         long getDislikeCount();
     }
+
+    interface ReviewReactionCountSummary {
+        Long getReviewId();
+        Long getLikeCount();
+        Long getDislikeCount();
+    }
+
+    // 한 페이지 리뷰들의 좋아요·싫어요 수를 그룹 집계로 한 번에 조회한다.
+    @Query("""
+            select reaction.review.reviewId as reviewId,
+                   sum(case when reaction.liked = true then 1 else 0 end) as likeCount,
+                   sum(case when reaction.liked = false then 1 else 0 end) as dislikeCount
+              from ReviewReactions reaction
+             where reaction.review.reviewId in :reviewIds
+             group by reaction.review.reviewId
+            """)
+    List<ReviewReactionCountSummary> findCountsByReviewIds(
+            @Param("reviewIds") Collection<Long> reviewIds
+    );
 
     // 리뷰의 좋아요/싫어요 수를 한 번의 DB 집계 쿼리로 조회한다.
     @Query("""
