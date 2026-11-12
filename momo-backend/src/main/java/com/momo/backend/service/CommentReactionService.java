@@ -34,7 +34,7 @@ public class CommentReactionService {
                                 "회원 정보를 찾을 수 없습니다."));
 
         // 반응을 남길 댓글 조회
-        Comment comment = commentRepository.findById(commentId)
+        Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "COMMENT_NOT_FOUND",
@@ -67,6 +67,11 @@ public class CommentReactionService {
                         new CustomException(
                                 "USER_NOT_FOUND",
                                 "회원 정보를 찾을 수 없습니다."));
+
+        // 댓글 삭제와 반응 삭제를 같은 댓글 행 잠금으로 직렬화한다.
+        commentRepository.findByIdForUpdate(commentId)
+                .orElseThrow(() -> new CustomException(
+                        "COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다."));
 
         // 본인이 남긴 반응 조회
         CommentReaction reaction = reactionRepository
