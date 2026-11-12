@@ -70,21 +70,13 @@ class CommentServiceTest {
         when(comment.getContent()).thenReturn("좋은 영화였습니다.");
         when(comment.getCreatedAt()).thenReturn(createdAt);
         when(comment.getUpdatedAt()).thenReturn(createdAt);
-        CommentReactionRepository.CommentReactionSummary firstLike =
-                org.mockito.Mockito.mock(CommentReactionRepository.CommentReactionSummary.class);
-        CommentReactionRepository.CommentReactionSummary secondLike =
-                org.mockito.Mockito.mock(CommentReactionRepository.CommentReactionSummary.class);
-        CommentReactionRepository.CommentReactionSummary dislike =
-                org.mockito.Mockito.mock(CommentReactionRepository.CommentReactionSummary.class);
-
-        when(firstLike.getCommentId()).thenReturn(commentId);
-        when(firstLike.getLiked()).thenReturn(true);
-        when(secondLike.getCommentId()).thenReturn(commentId);
-        when(secondLike.getLiked()).thenReturn(true);
-        when(dislike.getCommentId()).thenReturn(commentId);
-        when(dislike.getLiked()).thenReturn(false);
-        when(commentReactionRepository.findReactionSummariesByCommentIds(List.of(commentId)))
-                .thenReturn(List.of(firstLike, secondLike, dislike));
+        CommentReactionRepository.CommentReactionCountSummary counts =
+                org.mockito.Mockito.mock(CommentReactionRepository.CommentReactionCountSummary.class);
+        when(counts.getCommentId()).thenReturn(commentId);
+        when(counts.getLikeCount()).thenReturn(2L);
+        when(counts.getDislikeCount()).thenReturn(1L);
+        when(commentReactionRepository.findReactionCountsByCommentIds(List.of(commentId)))
+                .thenReturn(List.of(counts));
 
         Page<CommentResponse> result = commentService.getComments(reviewId, 0, null);
 
@@ -94,7 +86,9 @@ class CommentServiceTest {
         assertNull(result.getContent().get(0).getMyReaction());
 
         verify(userRepository, never()).findByLoginId(anyString());
-        verify(commentReactionRepository).findReactionSummariesByCommentIds(List.of(commentId));
+        verify(commentReactionRepository).findReactionCountsByCommentIds(List.of(commentId));
+        verify(commentReactionRepository, never())
+                .findMyReactionsByCommentIds(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.anyLong());
         verify(commentReactionRepository, never())
                 .countByComment_CommentIdAndLiked(commentId, true);
         verify(commentReactionRepository, never())
