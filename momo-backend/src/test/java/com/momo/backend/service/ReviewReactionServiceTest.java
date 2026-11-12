@@ -22,7 +22,7 @@ class ReviewReactionServiceTest {
 
         when(user.getUserId()).thenReturn(7L);
         when(userRepository.findByLoginIdForUpdate("member")).thenReturn(Optional.of(user));
-        when(reviewRepository.findById(11L)).thenReturn(Optional.of(mock(Review.class)));
+        when(reviewRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(mock(Review.class)));
         when(reactionRepository.findByUser_UserIdAndReview_ReviewId(7L, 11L))
                 .thenReturn(Optional.of(existing));
 
