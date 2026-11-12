@@ -101,7 +101,7 @@ class CommentServiceTest {
         User author = org.mockito.Mockito.mock(User.class);
 
         when(reviewRepository.existsById(reviewId)).thenReturn(true);
-        when(commentRepository.findByReview_ReviewIdOrderByCreatedAtAsc(
+        when(commentRepository.findByReview_ReviewIdOrderByCreatedAtAscCommentIdAsc(
                 eq(reviewId), org.mockito.ArgumentMatchers.any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(comment)));
         when(comment.getCommentId()).thenReturn(commentId);
