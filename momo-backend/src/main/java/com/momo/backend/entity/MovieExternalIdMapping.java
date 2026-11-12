@@ -20,6 +20,9 @@ import lombok.NoArgsConstructor;
                         name = "uk_movie_external_provider_id",
                         columnNames = {"provider", "external_id"}
                 )
+        },
+        indexes = {
+                @Index(name = "ix_movie_external_provider_code", columnList = "provider, movie_code")
         }
 )
 public class MovieExternalIdMapping {
