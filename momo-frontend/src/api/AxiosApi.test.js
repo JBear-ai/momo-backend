@@ -1,6 +1,7 @@
 jest.mock("axios", () => {
   const mockedAxios = jest.fn();
   mockedAxios.post = jest.fn();
+  mockedAxios.get = jest.fn();
   mockedAxios.interceptors = {
     request: { use: jest.fn() },
     response: { use: jest.fn() },
@@ -9,7 +10,7 @@ jest.mock("axios", () => {
 });
 
 import axios from "axios";
-import { clearAuthSession, storeLoginTokens } from "./AxiosApi";
+import AxiosApi, { clearAuthSession, storeLoginTokens } from "./AxiosApi";
 
 const requestInterceptor = axios.interceptors.request.use.mock.calls[0][0];
 const responseErrorInterceptor = axios.interceptors.response.use.mock.calls[0][1];
@@ -126,5 +127,25 @@ describe("AxiosApi authentication interceptors", () => {
 
     expect(localStorage.getItem("accessToken")).toBe("access-token");
     expect(localStorage.getItem("refreshToken")).toBe("refresh-token");
+  });
+});
+
+
+describe("unified movie detail API", () => {
+  test("uses one resolve endpoint for both KOBIS codes and TMDb identifiers", async () => {
+    axios.get.mockResolvedValue({ data: { title: "테스트 영화" } });
+
+    await AxiosApi.movieDetailByIdentifier("1571245");
+    expect(axios.get).toHaveBeenCalledWith(
+      "http://localhost:8111/api/movies/resolve/1571245",
+      { signal: undefined },
+    );
+
+    axios.get.mockClear();
+    await AxiosApi.movieDetailByIdentifier("20259894");
+    expect(axios.get).toHaveBeenCalledWith(
+      "http://localhost:8111/api/movies/resolve/20259894",
+      { signal: undefined },
+    );
   });
 });

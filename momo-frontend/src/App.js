@@ -2,7 +2,7 @@ import React from "react";
 import "./App.css";
 import GlobalStyles from "./styles/GlobalStyles";
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useParams } from "react-router-dom";
 
 import Home from "./pages/Home";
 import MovieDetail from "./pages/MovieDetail";
@@ -22,6 +22,11 @@ import LikedReviews from "./pages/LikedReviews";
 import FavoriteMovies from "./pages/FavoriteMovies";
 import PersonDetail from "./pages/PersonDetail";
 
+function LegacyMovieRedirect() {
+  const { tmdbId } = useParams();
+  return <Navigate to={`/movie/${encodeURIComponent(tmdbId)}`} replace />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -29,6 +34,9 @@ function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
+
+          {/* 기존 TMDb 전용 주소는 통합 영화 주소로 이동한다. */}
+          <Route path="/movie/tmdb/:tmdbId" element={<LegacyMovieRedirect />} />
 
           <Route path="/movie/:id" element={<MovieDetail />} />
 
