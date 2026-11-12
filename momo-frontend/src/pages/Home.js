@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import SafeImage from "../components/common/SafeImage";
 import { useNavigate } from "react-router-dom";
 import TodayRecommend from "../components/common/TodayRecommend";
 import FavoriteStar from "../components/common/FavoriteStar";
@@ -299,18 +300,15 @@ function Home() {
                     React.createElement(
                               PosterWrap,
                               null,
-                              (movie.posterUrl ? (
-                                                  React.createElement(
-                                          "img",
-                                          {"src":resolvePosterUrl(movie.posterUrl),"alt":movie.title}
-                                        )
-                                                ) : (
-                                                  React.createElement(
-                                          EmptyPoster,
-                                          null,
-                                          "포스터 준비 중"
-                                        )
-                                                )),
+                              React.createElement(SafeImage, {
+                                src: resolvePosterUrl(movie.posterUrl),
+                                alt: movie.title,
+                                fallback: React.createElement(
+                                  EmptyPoster,
+                                  null,
+                                  "포스터 준비 중"
+                                ),
+                              }),
                               React.createElement(
                                           Rank,
                                           null,
