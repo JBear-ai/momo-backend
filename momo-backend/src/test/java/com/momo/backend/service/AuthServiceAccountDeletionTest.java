@@ -52,6 +52,7 @@ class AuthServiceAccountDeletionTest {
                 commentReactionRepository,
                 reviewReactionRepository,
                 commentRepository,
+                reviewRepository,
                 movieRatingRepository,
                 userRepository
         );
