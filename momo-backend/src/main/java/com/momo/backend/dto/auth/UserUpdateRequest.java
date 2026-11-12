@@ -18,6 +18,10 @@ public record UserUpdateRequest(
         // 변경할 이메일
         @NotBlank(message = "이메일은 필수 입력 항목입니다.")
         @Email(message = "올바른 이메일 형식이 아닙니다.")
+        @jakarta.validation.constraints.Pattern(
+                regexp = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$",
+                message = "올바른 이메일 형식이 아닙니다."
+        )
         String email,
 
         // 비밀번호 변경 시 입력하는 현재 비밀번호
