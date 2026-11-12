@@ -14,7 +14,8 @@ import lombok.NoArgsConstructor;
                 )
         },
         indexes = {
-                @Index(name = "ix_review_reaction_review_liked", columnList = "review_id, liked")
+                @Index(name = "ix_review_reaction_review_liked", columnList = "review_id, liked"),
+                @Index(name = "ix_review_reaction_user_liked", columnList = "user_id, liked, review_id")
         }
 )
 @Getter
