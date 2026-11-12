@@ -34,88 +34,74 @@ function MyReviews() {
         setReviews(reviewList);
         setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
 
-        // 리뷰별 영화 정보, 댓글 수, 좋아요 및 싫어요 수 조회
-        const results = await Promise.all(
-          reviewList.map(async (review) => {
-            const movieCode = review.movieCode;
-
-            const [detailResult, posterResult, commentsResult, reactionResult] =
-              await Promise.allSettled([
+        // 리뷰 통계는 페이지 단위로 집계하고 영화 상세·포스터 조회만 영화별로 실행한다.
+        const reviewIds = reviewList.map((review) => review.reviewId);
+        const [summaryResult, results] = await Promise.all([
+          reviewIds.length
+            ? AxiosApi.reviewSummaries(reviewIds, controller.signal)
+                .then((result) => ({ status: "fulfilled", data: result.data }))
+                .catch((reason) => ({ status: "rejected", reason }))
+            : Promise.resolve({ status: "fulfilled", data: [] }),
+          Promise.all(
+            reviewList.map(async (review) => {
+              const movieCode = review.movieCode;
+              const [detailResult, posterResult] = await Promise.allSettled([
                 movieCode
                   ? AxiosApi.movieDetail(movieCode, controller.signal)
                   : Promise.resolve(null),
-
                 movieCode
                   ? AxiosApi.moviePoster(movieCode, controller.signal)
                   : Promise.resolve(null),
-
-                AxiosApi.reviewComments(review.reviewId, 0, controller.signal),
-
-                AxiosApi.reviewReactionCounts(
-                  review.reviewId,
-                  controller.signal,
-                ),
               ]);
 
-            if (controller.signal.aborted) return null;
+              if (controller.signal.aborted) return null;
 
-            const movie =
-              detailResult.status === "fulfilled" && detailResult.value
-                ? detailResult.value.data
-                : null;
+              const movie =
+                detailResult.status === "fulfilled" && detailResult.value
+                  ? detailResult.value.data
+                  : null;
+              const poster =
+                posterResult.status === "fulfilled" && posterResult.value
+                  ? posterResult.value.data
+                  : null;
 
-            const poster =
-              posterResult.status === "fulfilled" && posterResult.value
-                ? posterResult.value.data
-                : null;
+              if (detailResult.status === "rejected") {
+                console.error("영화 정보 조회 실패:", detailResult.reason);
+              }
+              if (posterResult.status === "rejected") {
+                console.error("영화 포스터 조회 실패:", posterResult.reason);
+              }
 
-            const comments =
-              commentsResult.status === "fulfilled"
-                ? commentsResult.value.data
-                : null;
-
-            const reactions =
-              reactionResult.status === "fulfilled"
-                ? reactionResult.value.data
-                : null;
-
-            if (detailResult.status === "rejected") {
-              console.error("영화 정보 조회 실패:", detailResult.reason);
-            }
-
-            if (posterResult.status === "rejected") {
-              console.error("영화 포스터 조회 실패:", posterResult.reason);
-            }
-
-            if (commentsResult.status === "rejected") {
-              console.error("댓글 수 조회 실패:", commentsResult.reason);
-            }
-
-            if (reactionResult.status === "rejected") {
-              console.error("리뷰 반응 개수 조회 실패:", reactionResult.reason);
-            }
-
-            return {
-              reviewId: review.reviewId,
-              title: movie?.title || "",
-              releaseDate: movie?.releaseDate || "",
-              posterUrl: poster?.posterUrl || "",
-              commentCount:
-                comments?.page?.totalElements ?? comments?.totalElements ?? comments?.content?.length ?? 0,
-              likeCount: reactions?.likeCount ?? 0,
-              dislikeCount: reactions?.dislikeCount ?? 0,
-            };
-          }),
-        );
+              return {
+                reviewId: review.reviewId,
+                title: movie?.title || "",
+                releaseDate: movie?.releaseDate || "",
+                posterUrl: poster?.posterUrl || "",
+              };
+            }),
+          ),
+        ]);
 
         if (controller.signal.aborted) return;
 
+        if (summaryResult.status === "rejected") {
+          console.error("리뷰 요약 조회 실패:", summaryResult.reason);
+        }
+
+        const summaryByReviewId = new Map(
+          (summaryResult.data || []).map((summary) => [summary.reviewId, summary]),
+        );
         const infoMap = {};
 
         results.forEach((result) => {
-          if (result) {
-            infoMap[result.reviewId] = result;
-          }
+          if (!result) return;
+          const summary = summaryByReviewId.get(result.reviewId);
+          infoMap[result.reviewId] = {
+            ...result,
+            commentCount: summary?.commentCount ?? 0,
+            likeCount: summary?.likeCount ?? 0,
+            dislikeCount: summary?.dislikeCount ?? 0,
+          };
         });
 
         setReviewInfo(infoMap);
