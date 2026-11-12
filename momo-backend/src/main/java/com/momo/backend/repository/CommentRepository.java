@@ -1,15 +1,24 @@
 package com.momo.backend.repository;
 
 import com.momo.backend.entity.Comment;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface CommentRepository extends JpaRepository<Comment, Long> {
+
+    // 댓글 반응 등록과 댓글 수정·삭제가 같은 행 잠금을 사용한다.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select comment from Comment comment where comment.commentId = :commentId")
+    Optional<Comment> findByIdForUpdate(@Param("commentId") Long commentId);
 
     // 댓글 작성자와 리뷰를 함께 조회해 응답 변환 시 추가 조회를 방지한다.
     @EntityGraph(attributePaths = {"user", "review"})
