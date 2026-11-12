@@ -4,6 +4,7 @@ import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.repository.MovieRatingRepository;
+import com.momo.backend.repository.FavoriteMovieRepository;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
@@ -25,6 +26,7 @@ class AuthServiceAccountDeletionTest {
         CommentReactionRepository commentReactionRepository =
                 mock(CommentReactionRepository.class);
         MovieRatingRepository movieRatingRepository = mock(MovieRatingRepository.class);
+        FavoriteMovieRepository favoriteMovieRepository = mock(FavoriteMovieRepository.class);
         RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
 
         User user = mock(User.class);
@@ -42,6 +44,7 @@ class AuthServiceAccountDeletionTest {
                 commentReactionRepository,
                 mock(FirebaseStorageService.class),
                 movieRatingRepository,
+                favoriteMovieRepository,
                 refreshTokenService
         );
 
@@ -54,6 +57,7 @@ class AuthServiceAccountDeletionTest {
                 commentRepository,
                 reviewRepository,
                 movieRatingRepository,
+                favoriteMovieRepository,
                 userRepository
         );
         order.verify(refreshTokenService).deleteByUserId(41L);
@@ -66,6 +70,7 @@ class AuthServiceAccountDeletionTest {
         order.verify(commentRepository).deleteForReviewsAuthoredByUser(41L);
         order.verify(reviewRepository).deleteAuthoredByUserId(41L);
         order.verify(movieRatingRepository).deleteAuthoredByUserId(41L);
+        order.verify(favoriteMovieRepository).deleteAllByUserId(41L);
         order.verify(userRepository).delete(user);
 
         verify(commentReactionRepository, never()).deleteByComment_User_UserId(anyLong());
