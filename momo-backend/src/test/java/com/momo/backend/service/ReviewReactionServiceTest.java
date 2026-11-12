@@ -28,5 +28,6 @@ class ReviewReactionServiceTest {
         service.saveReactions("member", 11L, true);
 
         verify(reactionRepository).findByUser_UserIdAndReview_ReviewId(7L, 11L);
+        verify(reactionRepository).save(any(com.momo.backend.entity.ReviewReactions.class));
     }
 }
