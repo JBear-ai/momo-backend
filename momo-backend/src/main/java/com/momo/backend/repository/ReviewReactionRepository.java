@@ -54,7 +54,8 @@ public interface ReviewReactionRepository
     // 특정 회원이 누른 리뷰 좋아요 개수 조회
     long countByUser_UserIdAndLiked(Long userId, Boolean liked);
 
-    // 특정 회원이 좋아요한 리뷰 목록을 최신 리뷰 작성순으로 조회
+    // 좋아요 목록의 리뷰·작성자 정보를 한 번에 조회해 페이지별 N+1을 방지한다.
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"review", "review.user"})
     Page<ReviewReactions>
     findByUser_UserIdAndLikedOrderByReview_CreatedAtDescReview_ReviewIdDesc(
             Long userId,
