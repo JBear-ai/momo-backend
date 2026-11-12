@@ -3,58 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { formatReleaseDate } from "../utils/releaseDate";
 import { resolvePosterUrl } from "../utils/mediaUrl";
-import { getPosterPollDelay } from "../utils/posterPolling";
-
-function waitForPosterPoll(ms, signal) {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      const error = new Error("포스터 조회가 취소되었습니다.");
-      error.code = "ERR_CANCELED";
-      reject(error);
-      return;
-    }
-
-    const timerId = setTimeout(() => {
-      signal.removeEventListener("abort", handleAbort);
-      resolve();
-    }, ms);
-
-    const handleAbort = () => {
-      clearTimeout(timerId);
-      const error = new Error("포스터 조회가 취소되었습니다.");
-      error.code = "ERR_CANCELED";
-      reject(error);
-    };
-
-    signal.addEventListener("abort", handleAbort, { once: true });
-  });
-}
-
-// 최초 요청 시 수집 중인 포스터가 저장되면 상세 화면에 반영한다.
-async function waitForMoviePoster(movieCode, signal) {
-  const maxAttempts = 6;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    await waitForPosterPoll(getPosterPollDelay(attempt, 1500, 15000), signal);
-
-    const response = await AxiosApi.moviePosterStatuses([movieCode], signal);
-    const status = Array.isArray(response.data)
-      ? response.data.find((item) => item.movieCode === movieCode)
-      : null;
-    const posterUrl = status?.posterUrl?.trim() || "";
-
-    if (status?.status === "SUCCESS" && posterUrl) {
-      return posterUrl;
-    }
-
-    if (status?.status === "FAILED") {
-      return "";
-    }
-  }
-
-  return "";
-}
-
 // 숫자에 천 단위 쉼표 추가
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("ko-KR");
@@ -220,25 +168,8 @@ function MovieDetail() {
           actorPeople: moviePeople.filter((person) => person.department === "actor"),
         });
 
-        // 최초 포스터 응답이 비어 있으면 KOBIS 포스터 수집 완료를 확인한다.
-        if (movieCode && !posterUrl) {
-          waitForMoviePoster(movieCode, controller.signal)
-            .then((resolvedPosterUrl) => {
-              if (!active || !resolvedPosterUrl) return;
-
-              setMovie((currentMovie) => {
-                if (!currentMovie || currentMovie.movieCode !== movieCode) {
-                  return currentMovie;
-                }
-                return { ...currentMovie, posterUrl: resolvedPosterUrl };
-              });
-            })
-            .catch((posterError) => {
-              if (posterError.code !== "ERR_CANCELED") {
-                console.warn("포스터 수집 완료 확인 실패:", posterError);
-              }
-            });
-        }
+        // 포스터 수집 상태는 상세 진입 시 한 번만 확인한다.
+        // 반복 polling 대신 API가 반환한 기존 포스터 또는 TMDb 대체 이미지를 사용한다.
       } catch (requestError) {
         if (!active || requestError.code === "ERR_CANCELED") return;
         console.error("영화 상세정보 조회 실패:", requestError);
