@@ -13,7 +13,7 @@ const PWD_REGEX =
   /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,20}$/;
 
 // 닉네임: 한글, 영문, 숫자 2~10자
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,10}$/;
+const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
 
 function SignUp() {
   // 입력값
