@@ -195,11 +195,35 @@ public class ReviewService {
             );
         }
 
+        // 리뷰별 영화 코드와 영화 제목·개봉일도 한 번씩 모아 조회한다.
+        Map<Long, Review> reviewsById = new HashMap<>();
+        for (Review review : reviewRepository.findAllById(ids)) {
+            reviewsById.put(review.getReviewId(), review);
+        }
+
+        List<String> movieCodes = reviewsById.values().stream()
+                .map(Review::getMovieCode)
+                .filter(code -> code != null && !code.isBlank())
+                .distinct()
+                .toList();
+
+        Map<String, Movie> moviesByCode = new HashMap<>();
+        if (!movieCodes.isEmpty()) {
+            for (Movie movie : movieRepository.findAllById(movieCodes)) {
+                moviesByCode.put(movie.getMovieCode(), movie);
+            }
+        }
+
         List<ReviewSummaryResponse> result = new ArrayList<>(ids.size());
         for (Long reviewId : ids) {
+            Review review = reviewsById.get(reviewId);
+            Movie movie = review == null ? null : moviesByCode.get(review.getMovieCode());
             long[] counts = reactionCounts.getOrDefault(reviewId, new long[2]);
             result.add(new ReviewSummaryResponse(
                     reviewId,
+                    review == null ? null : review.getMovieCode(),
+                    movie == null ? null : movie.getTitle(),
+                    movie == null ? null : movie.getReleaseDate(),
                     commentCounts.getOrDefault(reviewId, 0L),
                     counts[0],
                     counts[1]
