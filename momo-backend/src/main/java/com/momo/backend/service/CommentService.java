@@ -100,23 +100,25 @@ public class CommentService {
         Map<Long, Boolean> myReactions = new HashMap<>();
 
         if (!commentIds.isEmpty()) {
-            List<CommentReactionRepository.CommentReactionSummary> summaries =
-                    commentReactionRepository.findReactionSummariesByCommentIds(commentIds);
+            List<CommentReactionRepository.CommentReactionCountSummary> countSummaries =
+                    commentReactionRepository.findReactionCountsByCommentIds(commentIds);
 
-            for (CommentReactionRepository.CommentReactionSummary summary : summaries) {
-                Long commentId = summary.getCommentId();
-                long[] counts = reactionCounts.computeIfAbsent(
-                        commentId, key -> new long[2]
+            for (CommentReactionRepository.CommentReactionCountSummary summary : countSummaries) {
+                reactionCounts.put(
+                        summary.getCommentId(),
+                        new long[]{
+                                summary.getLikeCount() == null ? 0L : summary.getLikeCount(),
+                                summary.getDislikeCount() == null ? 0L : summary.getDislikeCount()
+                        }
                 );
+            }
 
-                if (Boolean.TRUE.equals(summary.getLiked())) {
-                    counts[0]++;
-                } else {
-                    counts[1]++;
-                }
+            if (viewerId != null) {
+                List<CommentReactionRepository.CommentUserReactionSummary> myReactionSummaries =
+                        commentReactionRepository.findMyReactionsByCommentIds(commentIds, viewerId);
 
-                if (viewerId != null && viewerId.equals(summary.getUserId())) {
-                    myReactions.put(commentId, summary.getLiked());
+                for (CommentReactionRepository.CommentUserReactionSummary summary : myReactionSummaries) {
+                    myReactions.put(summary.getCommentId(), summary.getLiked());
                 }
             }
         }
