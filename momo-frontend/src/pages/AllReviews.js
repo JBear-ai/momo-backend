@@ -1,3 +1,4 @@
+import SafeImage from "../components/common/SafeImage";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
@@ -308,16 +309,11 @@ function AllReviews() {
                         <td className="review-movie-cell">
                           <div className="all-review-movie-info">
                             <div className="all-review-poster">
-                              {info?.posterUrl ? (
-                                <img
-                                  src={resolvePosterUrl(info.posterUrl)}
-                                  alt={review.movieTitle || "영화 포스터"}
-                                />
-                              ) : (
-                                <div className="all-review-poster-placeholder">
-                                  MOMO
-                                </div>
-                              )}
+                              <SafeImage
+                                src={resolvePosterUrl(info?.posterUrl)}
+                                alt={review.movieTitle || "영화 포스터"}
+                                fallbackClassName="all-review-poster-placeholder"
+                              />
                             </div>
 
                             <div>
@@ -379,16 +375,11 @@ function AllReviews() {
                   >
                     <div className="all-review-mobile-content">
                       <div className="all-review-poster">
-                        {info?.posterUrl ? (
-                          <img
-                            src={resolvePosterUrl(info.posterUrl)}
-                            alt={review.movieTitle || "영화 포스터"}
-                          />
-                        ) : (
-                          <div className="all-review-poster-placeholder">
-                            MOMO
-                          </div>
-                        )}
+                        <SafeImage
+                          src={resolvePosterUrl(info?.posterUrl)}
+                          alt={review.movieTitle || "영화 포스터"}
+                          fallbackClassName="all-review-poster-placeholder"
+                        />
                       </div>
 
                       <div className="all-review-mobile-info">
