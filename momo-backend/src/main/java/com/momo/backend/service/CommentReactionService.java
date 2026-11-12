@@ -101,13 +101,11 @@ public class CommentReactionService {
                     "댓글을 찾을 수 없습니다.");
         }
 
-        // 좋아요 개수 조회
-        long likeCount = reactionRepository
-                .countByComment_CommentIdAndLiked(commentId, true);
-
-        // 싫어요 개수 조회
-        long dislikeCount = reactionRepository
-                .countByComment_CommentIdAndLiked(commentId, false);
+        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
+        CommentReactionRepository.ReactionCountSummary counts =
+                reactionRepository.findCountsByCommentId(commentId);
+        long likeCount = counts.getLikeCount();
+        long dislikeCount = counts.getDislikeCount();
 
         return new long[]{likeCount, dislikeCount};
     }

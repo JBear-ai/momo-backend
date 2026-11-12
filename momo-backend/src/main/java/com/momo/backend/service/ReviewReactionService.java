@@ -126,13 +126,11 @@ public class ReviewReactionService {
                     "리뷰를 찾을 수 없습니다.");
         }
 
-        // 좋아요 개수 조회
-        long likeCount = reactionRepository
-                .countByReview_ReviewIdAndLiked(reviewId, true);
-
-        // 싫어요 개수 조회
-        long dislikeCount = reactionRepository
-                .countByReview_ReviewIdAndLiked(reviewId, false);
+        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
+        ReviewReactionRepository.ReactionCountSummary counts =
+                reactionRepository.findCountsByReviewId(reviewId);
+        long likeCount = counts.getLikeCount();
+        long dislikeCount = counts.getDislikeCount();
 
         return new long[]{likeCount, dislikeCount};
     }

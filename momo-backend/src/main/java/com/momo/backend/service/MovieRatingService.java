@@ -143,12 +143,11 @@ public class MovieRatingService {
             );
         }
 
-        // 좋아요 및 싫어요 개수 조회
-        long likeCount = movieRatingRepository
-                .countByMovie_MovieCodeAndLiked(movieCode, true);
-
-        long dislikeCount = movieRatingRepository
-                .countByMovie_MovieCodeAndLiked(movieCode, false);
+        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
+        MovieRatingRepository.MovieRatingCountSummary counts =
+                movieRatingRepository.findCountsByMovieCode(movieCode);
+        long likeCount = counts.getLikeCount();
+        long dislikeCount = counts.getDislikeCount();
 
         long totalCount = likeCount + dislikeCount;
 

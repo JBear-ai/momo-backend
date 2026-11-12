@@ -2,6 +2,8 @@ package com.momo.backend.repository;
 
 import com.momo.backend.entity.ReviewReactions;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +14,20 @@ import org.springframework.data.domain.Pageable;
 
 public interface ReviewReactionRepository
         extends JpaRepository<ReviewReactions, Long> {
+
+    interface ReactionCountSummary {
+        long getLikeCount();
+        long getDislikeCount();
+    }
+
+    // 리뷰의 좋아요/싫어요 수를 한 번의 DB 집계 쿼리로 조회한다.
+    @Query("""
+            select count(case when reaction.liked = true then 1 end) as likeCount,
+                   count(case when reaction.liked = false then 1 end) as dislikeCount
+            from ReviewReactions reaction
+            where reaction.review.reviewId = :reviewId
+            """)
+    ReactionCountSummary findCountsByReviewId(@Param("reviewId") Long reviewId);
 
     // 특정 회원이 특정 리뷰에 남긴 반응 조회
     Optional<ReviewReactions> findByUser_UserIdAndReview_ReviewId(

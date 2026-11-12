@@ -3,12 +3,28 @@ package com.momo.backend.repository;
 
 import com.momo.backend.entity.MovieRating;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface MovieRatingRepository
         extends JpaRepository<MovieRating, Long> {
+
+    interface MovieRatingCountSummary {
+        long getLikeCount();
+        long getDislikeCount();
+    }
+
+    // 좋아요와 싫어요를 한 번의 DB 집계 쿼리로 조회한다.
+    @Query("""
+            select count(case when rating.liked = true then 1 end) as likeCount,
+                   count(case when rating.liked = false then 1 end) as dislikeCount
+            from MovieRating rating
+            where rating.movie.movieCode = :movieCode
+            """)
+    MovieRatingCountSummary findCountsByMovieCode(@Param("movieCode") String movieCode);
 
     // 특정 회원이 특정 영화에 남긴 평가 조회
     Optional<MovieRating> findByUser_UserIdAndMovie_MovieCode(
