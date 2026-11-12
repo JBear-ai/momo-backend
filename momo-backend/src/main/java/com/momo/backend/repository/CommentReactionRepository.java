@@ -1,7 +1,12 @@
 
 package com.momo.backend.repository;
 
-import com.momo.backend.entity.CommentReaction;\nimport org.springframework.data.jpa.repository.Query;\nimport org.springframework.data.repository.query.Param;\n\nimport java.util.Collection;\nimport java.util.List;
+import com.momo.backend.entity.CommentReaction;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
