@@ -30,7 +30,7 @@ class AuthServiceAccountDeletionTest {
         RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
 
         User user = mock(User.class);
-        when(userRepository.findByLoginId("member")).thenReturn(java.util.Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate("member")).thenReturn(java.util.Optional.of(user));
         when(user.getUserId()).thenReturn(41L);
         when(user.getPasswordHash()).thenReturn("encoded-password");
         when(passwordEncoder.matches("current-password", "encoded-password")).thenReturn(true);
