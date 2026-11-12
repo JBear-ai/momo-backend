@@ -8,6 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.http.MediaType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.nio.file.Files;
@@ -19,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -39,6 +45,9 @@ class MomoBackendApplicationTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private MoviePosterCacheRepository posterCacheRepository;
@@ -67,6 +76,68 @@ class MomoBackendApplicationTests {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void signupLoginRefreshAndLogoutFlowKeepsTokensConsistent() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String loginId = "momo" + suffix;
+        String nickname = "m" + suffix;
+
+        String signupBody = """
+                {
+                  "loginId": "%s",
+                  "password": "MomoTest1!",
+                  "nickname": "%s",
+                  "email": "%s@example.com"
+                }
+                """.formatted(loginId, nickname, loginId);
+
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(signupBody))
+                .andExpect(status().isCreated());
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"loginId":"%s","password":"MomoTest1!"}
+                                """.formatted(loginId)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode login = objectMapper.readTree(
+                loginResult.getResponse().getContentAsString());
+        String accessToken = login.path("accessToken").asString("");
+        String refreshToken = login.path("refreshToken").asString("");
+        assertTrue(!accessToken.isBlank());
+        assertTrue(!refreshToken.isBlank());
+
+        MvcResult refreshResult = mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"%s"}
+                                """.formatted(refreshToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode refreshed = objectMapper.readTree(
+                refreshResult.getResponse().getContentAsString());
+        String newAccessToken = refreshed.path("accessToken").asString("");
+        String newRefreshToken = refreshed.path("refreshToken").asString("");
+        assertTrue(!newAccessToken.isBlank());
+        assertTrue(!newRefreshToken.isBlank());
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + newAccessToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"%s"}
+                                """.formatted(newRefreshToken)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
