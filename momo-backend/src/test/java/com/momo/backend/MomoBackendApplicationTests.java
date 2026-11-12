@@ -145,6 +145,43 @@ class MomoBackendApplicationTests {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].title").value("관심 영화 테스트"));
 
+        // 다른 회원에게 첫 번째 회원의 관심 영화가 노출되지 않는지 확인한다.
+        String secondLoginId = loginId + "b";
+        String secondNickname = "n" + suffix;
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "%s",
+                                  "password": "MomoTest1!",
+                                  "nickname": "%s",
+                                  "email": "%s@example.com"
+                                }
+                                """.formatted(secondLoginId, secondNickname, secondLoginId)))
+                .andExpect(status().isCreated());
+
+        MvcResult secondLoginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"loginId":"%s","password":"MomoTest1!"}
+                                """.formatted(secondLoginId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String secondAccessToken = objectMapper.readTree(
+                secondLoginResult.getResponse().getContentAsString())
+                .path("accessToken").asString("");
+
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + secondAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+
+        // 두 번째 계정 조회 이후에도 첫 번째 계정의 데이터는 그대로 유지되어야 한다.
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+
         mockMvc.perform(delete("/api/favorites/20261234")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNoContent());
