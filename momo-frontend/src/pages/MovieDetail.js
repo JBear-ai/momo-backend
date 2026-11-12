@@ -494,9 +494,10 @@ function MovieDetail() {
         ? React.createElement(
             "div",
             { className: "movie-detail-poster" },
-            React.createElement("img", {
+            React.createElement(SafeImage, {
               src: resolvePosterUrl(movie.posterUrl),
               alt: movie.title,
+              fallback: null,
               onError: () => {
                 setMovie((currentMovie) => currentMovie
                   ? { ...currentMovie, posterUrl: "" }
