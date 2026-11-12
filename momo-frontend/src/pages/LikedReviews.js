@@ -1,3 +1,4 @@
+import SafeImage from "../components/common/SafeImage";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
@@ -260,11 +261,11 @@ function LikedReviews() {
                   <article className="liked-review-item" key={review.reviewId}>
                     {/* 영화 포스터 */}
                     <div className="liked-review-poster">
-                      {info?.posterUrl ? (
-                        <img src={resolvePosterUrl(info.posterUrl)} alt={info.title} />
-                      ) : (
-                        <div className="liked-poster-placeholder">MOMO</div>
-                      )}
+                      <SafeImage
+                        src={resolvePosterUrl(info?.posterUrl)}
+                        alt={info?.title || "영화 포스터"}
+                        fallbackClassName="liked-poster-placeholder"
+                      />
                     </div>
 
                     {/* 리뷰 정보 */}
