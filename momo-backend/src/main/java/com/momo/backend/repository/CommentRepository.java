@@ -5,6 +5,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
@@ -21,6 +24,13 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     // 리뷰 삭제 시 해당 리뷰의 댓글을 먼저 삭제
     void deleteByReview_ReviewId(Long reviewId);
 
-    // 특정 회원이 작성한 댓글 전체 삭제
-    void deleteByUser_UserId(Long userId);
+    // 회원 탈퇴 시 작성한 댓글을 한 번의 DELETE 쿼리로 정리한다.
+    @Modifying
+    @Query("delete from Comment comment where comment.user.userId = :userId")
+    int deleteAuthoredByUserId(@Param("userId") Long userId);
+
+    // 회원 탈퇴 시 본인이 작성한 리뷰에 달린 댓글을 한 번의 DELETE 쿼리로 정리한다.
+    @Modifying
+    @Query("delete from Comment comment where comment.review.user.userId = :userId")
+    int deleteForReviewsAuthoredByUser(@Param("userId") Long userId);
 }

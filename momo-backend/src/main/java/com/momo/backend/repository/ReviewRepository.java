@@ -5,10 +5,10 @@ import com.momo.backend.entity.Review;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
@@ -161,6 +161,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             Pageable pageable
     );
 
-    // 특정 회원이 작성한 리뷰 전체 조회
-    List<Review> findAllByUser_UserId(Long userId);
+    // 회원 탈퇴 시 작성한 리뷰를 한 번의 DELETE 쿼리로 정리한다.
+    @Modifying
+    @Query("delete from Review review where review.user.userId = :userId")
+    int deleteAuthoredByUserId(@Param("userId") Long userId);
 }

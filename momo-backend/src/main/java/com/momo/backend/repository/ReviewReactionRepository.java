@@ -2,6 +2,9 @@ package com.momo.backend.repository;
 
 import com.momo.backend.entity.ReviewReactions;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -26,6 +29,11 @@ public interface ReviewReactionRepository
 
     // 특정 회원이 남긴 모든 리뷰 반응 삭제
     void deleteByUser_UserId(Long userId);
+
+    // 회원 탈퇴 시 본인이 작성한 리뷰에 달린 반응을 한 번에 삭제한다.
+    @Modifying
+    @Query("delete from ReviewReactions reaction where reaction.review.user.userId = :userId")
+    int deleteForReviewsAuthoredByUser(@Param("userId") Long userId);
 
     // 특정 회원이 누른 리뷰 좋아요 개수 조회
     long countByUser_UserIdAndLiked(Long userId, Boolean liked);

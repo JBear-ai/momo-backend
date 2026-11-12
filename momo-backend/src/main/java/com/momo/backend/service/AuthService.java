@@ -2,12 +2,10 @@
 package com.momo.backend.service;
 
 import java.io.IOException;
-import java.util.List;
 
 import com.momo.backend.dto.auth.SignupRequest;
 import com.momo.backend.dto.auth.UserResponse;
 import com.momo.backend.dto.auth.UserUpdateRequest;
-import com.momo.backend.entity.Review;
 import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
@@ -169,22 +167,19 @@ public class AuthService {
         commentReactionRepository.deleteByComment_User_UserId(userId);
         reviewReactionRepository.deleteByUser_UserId(userId);
 
+        // 회원이 작성한 댓글에 다른 회원이 남긴 반응 삭제
+        commentReactionRepository.deleteForCommentsAuthoredByUser(userId);
+
         // 회원이 작성한 댓글 삭제
-        commentRepository.deleteByUser_UserId(userId);
+        commentRepository.deleteAuthoredByUserId(userId);
 
-        // 회원이 작성한 리뷰에 연결된 댓글과 반응 삭제
-        List<Review> reviews = reviewRepository.findAllByUser_UserId(userId);
+        // 회원이 작성한 리뷰에 달린 댓글 반응과 리뷰 반응을 일괄 삭제
+        commentReactionRepository.deleteForReviewsAuthoredByUser(userId);
+        reviewReactionRepository.deleteForReviewsAuthoredByUser(userId);
 
-        for (Review review : reviews) {
-            Long reviewId = review.getReviewId();
-
-            commentReactionRepository.deleteByComment_Review_ReviewId(reviewId);
-            commentRepository.deleteByReview_ReviewId(reviewId);
-            reviewReactionRepository.deleteByReview_ReviewId(reviewId);
-        }
-
-        // 회원이 작성한 리뷰 삭제
-        reviewRepository.deleteAll(reviews);
+        // 회원이 작성한 리뷰에 달린 댓글 삭제 후 리뷰 일괄 삭제
+        commentRepository.deleteForReviewsAuthoredByUser(userId);
+        reviewRepository.deleteAuthoredByUserId(userId);
 
         // 회원이 남긴 영화 좋아요 및 싫어요 삭제
         movieRatingRepository.deleteByUser_UserId(userId);
