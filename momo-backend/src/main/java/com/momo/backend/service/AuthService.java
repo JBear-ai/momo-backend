@@ -186,9 +186,8 @@ public class AuthService {
         String profileImage = user.getProfileImage();
 
         // 회원이 남긴 댓글 반응과 리뷰 반응 삭제
-        commentReactionRepository.deleteByUser_UserId(userId);
-        commentReactionRepository.deleteByComment_User_UserId(userId);
-        reviewReactionRepository.deleteByUser_UserId(userId);
+        commentReactionRepository.deleteAuthoredByUserId(userId);
+                reviewReactionRepository.deleteAuthoredByUserId(userId);
 
         // 회원이 작성한 댓글에 다른 회원이 남긴 반응 삭제
         commentReactionRepository.deleteForCommentsAuthoredByUser(userId);
@@ -205,7 +204,7 @@ public class AuthService {
         reviewRepository.deleteAuthoredByUserId(userId);
 
         // 회원이 남긴 영화 좋아요 및 싫어요 삭제
-        movieRatingRepository.deleteByUser_UserId(userId);
+        movieRatingRepository.deleteAuthoredByUserId(userId);
 
         // 마지막으로 회원 정보 삭제
         userRepository.delete(user);
