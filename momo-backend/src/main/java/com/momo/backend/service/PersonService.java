@@ -7,7 +7,10 @@ import com.momo.backend.dto.person.PersonDetailResponse.FilmographyItem;
 import com.momo.backend.dto.person.PersonDetailResponse.PersonInfo;
 import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.entity.MovieCache;
+import com.momo.backend.entity.MovieExternalIdMapping;
 import com.momo.backend.repository.MovieCacheRepository;
+import com.momo.backend.repository.MovieExternalIdMappingRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -40,6 +43,7 @@ public class PersonService {
     private final TmdbApiClient tmdbApiClient;
     private final KobisApiClient kobisApiClient;
     private final MovieCacheRepository movieCacheRepository;
+    private final MovieExternalIdMappingRepository movieExternalIdMappingRepository;
     private final MoviePersistenceService moviePersistenceService;
     private final MoviePosterPersistenceService moviePosterPersistenceService;
     private final ObjectMapper objectMapper;
@@ -126,6 +130,14 @@ public class PersonService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "올바르지 않은 TMDb 영화 ID입니다.");
         }
 
+        // 이미 검증해 저장한 TMDb-KOBIS 연결은 외부 API를 다시 호출하지 않고 재사용한다.
+        String externalId = String.valueOf(tmdbId);
+        var savedMapping = movieExternalIdMappingRepository
+                .findByProviderAndExternalId("TMDB", externalId);
+        if (savedMapping.isPresent()) {
+            return savedMapping.get().getMovieCode();
+        }
+
         try {
             JsonNode detail = objectMapper.readTree(tmdbApiClient.getMovieDetail(tmdbId));
             String localizedTitle = text(detail, "title");
@@ -193,6 +205,23 @@ public class PersonService {
                                 kobisDirector
                         )
                 ));
+
+                // 제목 유사도 검색으로 검증된 연결 결과를 영구 저장한다.
+                // 동시 요청으로 unique 제약조건에 먼저 저장된 경우 기존 매핑을 재사용한다.
+                try {
+                    movieExternalIdMappingRepository.saveAndFlush(
+                            new MovieExternalIdMapping("TMDB", externalId, movieCode)
+                    );
+                } catch (DataIntegrityViolationException duplicateMapping) {
+                    String existingMovieCode = movieExternalIdMappingRepository
+                            .findByProviderAndExternalId("TMDB", externalId)
+                            .map(MovieExternalIdMapping::getMovieCode)
+                            .orElse(null);
+                    if (existingMovieCode != null) {
+                        return existingMovieCode;
+                    }
+                    throw duplicateMapping;
+                }
             } catch (Exception persistenceError) {
                 // 영화 연결 자체는 유지하고, 상세 페이지에서 다시 저장할 수 있도록 기록만 남긴다.
                 log.warn("필모그래피 KOBIS 영화 정보 저장 실패. movieCode={}",

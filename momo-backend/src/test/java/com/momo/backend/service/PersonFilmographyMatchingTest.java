@@ -3,6 +3,7 @@ package com.momo.backend.service;
 import com.momo.backend.client.KobisApiClient;
 import com.momo.backend.client.TmdbApiClient;
 import com.momo.backend.repository.MovieCacheRepository;
+import com.momo.backend.repository.MovieExternalIdMappingRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
@@ -226,6 +227,7 @@ class PersonFilmographyMatchingTest {
                 tmdbApiClient,
                 kobisApiClient,
                 mock(MovieCacheRepository.class),
+                mock(MovieExternalIdMappingRepository.class),
                 moviePersistenceService,
                 posterPersistenceService,
                 new ObjectMapper()
