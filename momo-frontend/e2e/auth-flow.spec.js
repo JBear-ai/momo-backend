@@ -88,3 +88,107 @@ test("회원가입, 로그인, 로그아웃이 브라우저에서 이어진다",
     .toBeNull();
   await expect(page.getByRole("button", { name: "로그아웃" })).toHaveCount(0);
 });
+
+test("인물 ID와 필모그래피 영화 ID가 통합 영화 상세로 정확히 연결된다", async ({ page }) => {
+  await page.route("**/api/persons/by-id/director/321", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        personInfo: {
+          tmdbId: 321,
+          name: "인물 연결 E2E",
+          profileUrl: "",
+          birthday: null,
+          deathday: null,
+          placeOfBirth: null,
+          biography: "인물 ID 연결 검증",
+          knownForDepartment: "Directing",
+        },
+        filmography: [
+          {
+            tmdbId: 888,
+            title: "필모그래피 이동 E2E",
+            releaseDate: "2026-11-12",
+            posterUrl: "",
+            role: "Director",
+          },
+        ],
+      }),
+    }),
+  );
+
+  await page.route("**/api/persons/filmography/888", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ movieCode: "20261234" }),
+    }),
+  );
+
+  await page.route("**/api/movies/resolve/20261234", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tmdbId: 888,
+        movieCode: "20261234",
+        title: "필모그래피 이동 E2E",
+        titleEn: "Filmography Navigation E2E",
+        releaseDate: "20261112",
+        runningTime: "100",
+        genre: "드라마",
+        director: "인물 연결 E2E",
+        actors: [],
+        watchGrade: "전체 관람가",
+        overview: "영화 상세 이동 확인",
+        posterUrl: "",
+        people: [],
+      }),
+    }),
+  );
+
+  await page.route("**/api/movies/20261234/poster", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ movieCode: "20261234", posterUrl: "" }),
+    }),
+  );
+
+  await page.route("**/api/reviews/movie/20261234**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ content: [], totalElements: 0, totalPages: 0 }),
+    }),
+  );
+
+  await page.route("**/api/movies/20261234/rating", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        likeCount: 0,
+        dislikeCount: 0,
+        totalCount: 0,
+        positiveRate: null,
+        myRating: null,
+      }),
+    }),
+  );
+
+  await page.goto("/person/director/321");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "인물 연결 E2E" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", {
+    name: "필모그래피 이동 E2E 영화 상세정보 보기",
+  }).click();
+
+  await expect(page).toHaveURL(/\/movie\/20261234$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "필모그래피 이동 E2E" }),
+  ).toBeVisible();
+});
