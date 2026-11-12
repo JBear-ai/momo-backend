@@ -1,5 +1,7 @@
 package com.momo.backend.service;
 
+import com.momo.backend.entity.Movie;
+import com.momo.backend.entity.Review;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.repository.MovieRepository;
@@ -32,6 +34,16 @@ class ReviewSummaryServiceTest {
         when(reactionSummary.getLikeCount()).thenReturn(3L);
         when(reactionSummary.getDislikeCount()).thenReturn(1L);
 
+        Review review = mock(Review.class);
+        Movie movie = mock(Movie.class);
+        when(review.getReviewId()).thenReturn(11L);
+        when(review.getMovieCode()).thenReturn("20261101");
+        when(movie.getMovieCode()).thenReturn("20261101");
+        when(movie.getTitle()).thenReturn("요약 영화");
+        when(movie.getReleaseDate()).thenReturn("20261101");
+        when(reviewRepository.findAllById(List.of(11L, 12L))).thenReturn(List.of(review));
+        when(movieRepository.findAllById(List.of("20261101"))).thenReturn(List.of(movie));
+
         when(commentRepository.countByReviewIds(List.of(11L, 12L)))
                 .thenReturn(List.of(commentSummary));
         when(reactionRepository.findCountsByReviewIds(List.of(11L, 12L)))
@@ -50,6 +62,9 @@ class ReviewSummaryServiceTest {
 
         assertEquals(2, result.size());
         assertEquals(11L, result.get(0).reviewId());
+        assertEquals("20261101", result.get(0).movieCode());
+        assertEquals("요약 영화", result.get(0).movieTitle());
+        assertEquals("20261101", result.get(0).releaseDate());
         assertEquals(4L, result.get(0).commentCount());
         assertEquals(3L, result.get(0).likeCount());
         assertEquals(1L, result.get(0).dislikeCount());
