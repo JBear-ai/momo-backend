@@ -31,7 +31,7 @@ public class ReviewReactionService {
     public void saveReactions(String loginId, Long reviewId, Boolean liked) {
 
         // 로그인한 회원 조회
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
@@ -49,8 +49,17 @@ public class ReviewReactionService {
             throw new IllegalArgumentException("좋아요 또는 싫어요를 선택해주세요.");
         }
 
-        // 단일 upsert 쿼리로 신규 등록과 기존 반응 변경을 함께 처리한다.
-        reactionRepository.upsertReaction(user.getUserId(), reviewId, liked);
+        // 회원 행 잠금이 같은 회원의 동시 반응 요청을 직렬화하므로
+        // 조회 후 INSERT/UPDATE를 수행해 DB 고유 제약조건 충돌을 방지한다.
+        ReviewReactions reactions = reactionRepository
+                .findByUser_UserIdAndReview_ReviewId(user.getUserId(), reviewId)
+                .orElse(null);
+
+        if (reactions == null) {
+            reactionRepository.save(new ReviewReactions(user, review, liked));
+        } else {
+            reactions.updateReaction(liked);
+        }
     }
 
     // 로그인한 사용자의 리뷰 반응 취소
