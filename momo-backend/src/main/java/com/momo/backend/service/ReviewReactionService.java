@@ -66,7 +66,7 @@ public class ReviewReactionService {
     public void deleteReaction(String loginId, Long reviewId) {
 
         // 로그인한 회원 조회
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
