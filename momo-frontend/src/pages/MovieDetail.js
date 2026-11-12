@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { formatReleaseDate } from "../utils/releaseDate";
 import { resolvePosterUrl } from "../utils/mediaUrl";
+import { getPosterPollDelay } from "../utils/posterPolling";
 
 function waitForPosterPoll(ms, signal) {
   return new Promise((resolve, reject) => {
@@ -31,11 +32,10 @@ function waitForPosterPoll(ms, signal) {
 
 // 최초 요청 시 수집 중인 포스터가 저장되면 상세 화면에 반영한다.
 async function waitForMoviePoster(movieCode, signal) {
-  const maxAttempts = 20;
-  const intervalMs = 1500;
+  const maxAttempts = 6;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    await waitForPosterPoll(intervalMs, signal);
+    await waitForPosterPoll(getPosterPollDelay(attempt, 1500, 15000), signal);
 
     const response = await AxiosApi.moviePosterStatuses([movieCode], signal);
     const status = Array.isArray(response.data)
