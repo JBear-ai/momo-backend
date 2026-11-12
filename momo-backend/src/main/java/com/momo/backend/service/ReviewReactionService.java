@@ -38,7 +38,7 @@ public class ReviewReactionService {
                                 "회원 정보를 찾을 수 없습니다."));
 
         // 반응을 남길 리뷰 조회
-        Review review = reviewRepository.findById(reviewId)
+        Review review = reviewRepository.findByIdForUpdate(reviewId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "REVIEW_NOT_FOUND",
@@ -71,6 +71,11 @@ public class ReviewReactionService {
                         new CustomException(
                                 "USER_NOT_FOUND",
                                 "회원 정보를 찾을 수 없습니다."));
+
+        // 리뷰 삭제와 반응 삭제를 같은 리뷰 행 잠금으로 직렬화한다.
+        reviewRepository.findByIdForUpdate(reviewId)
+                .orElseThrow(() -> new CustomException(
+                        "REVIEW_NOT_FOUND", "리뷰를 찾을 수 없습니다."));
 
         // 본인이 남긴 반응 조회
         ReviewReactions reactions = reactionRepository
