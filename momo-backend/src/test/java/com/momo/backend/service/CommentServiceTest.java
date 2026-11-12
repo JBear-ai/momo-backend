@@ -96,7 +96,10 @@ class CommentServiceTest {
         assertEquals(1L, result.getContent().get(0).getDislikeCount());
         assertNull(result.getContent().get(0).getMyReaction());
 
-        verify(userRepository, never()).findByLoginId(anyString());\n        verify(commentReactionRepository).findReactionSummariesByCommentIds(List.of(commentId));\n        verify(commentReactionRepository, never())\n                .countByComment_CommentIdAndLiked(commentId, true);
+        verify(userRepository, never()).findByLoginId(anyString());
+        verify(commentReactionRepository).findReactionSummariesByCommentIds(List.of(commentId));
+        verify(commentReactionRepository, never())
+                .countByComment_CommentIdAndLiked(commentId, true);
         verify(commentReactionRepository, never())
                 .findByUser_UserIdAndComment_CommentId(
                         org.mockito.ArgumentMatchers.anyLong(),
