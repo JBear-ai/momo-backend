@@ -17,7 +17,8 @@ import lombok.NoArgsConstructor;
                 )
         },
         indexes = {
-                @Index(name = "ix_movie_rating_movie_liked", columnList = "movie_code, liked")
+                @Index(name = "ix_movie_rating_movie_liked", columnList = "movie_code, liked"),
+                @Index(name = "ix_movie_rating_user_liked", columnList = "user_id, liked, movie_code")
         }
 )
 public class MovieRating {
