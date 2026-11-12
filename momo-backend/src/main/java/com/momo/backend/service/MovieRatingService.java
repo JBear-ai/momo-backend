@@ -11,7 +11,6 @@ import com.momo.backend.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -65,17 +64,8 @@ public class MovieRatingService {
                 .orElse(null);
 
         if (rating == null) {
-            try {
-                movieRatingRepository.saveAndFlush(
-                        new MovieRating(user, movie, liked)
-                );
-            } catch (DataIntegrityViolationException duplicate) {
-                // 다른 경로에서 먼저 등록된 경우에도 요청을 실패시키지 않고 기존 평가를 갱신한다.
-                MovieRating existing = movieRatingRepository
-                        .findByUser_UserIdAndMovie_MovieCode(user.getUserId(), movieCode)
-                        .orElseThrow(() -> duplicate);
-                existing.updateRating(liked);
-            }
+            // 사용자 행 잠금으로 같은 회원의 동시 INSERT를 직렬화한다.
+            movieRatingRepository.save(new MovieRating(user, movie, liked));
         } else {
             rating.updateRating(liked);
         }
