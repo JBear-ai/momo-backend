@@ -19,7 +19,7 @@ class ReviewReactionServiceTest {
         User user = mock(User.class);
 
         when(user.getUserId()).thenReturn(7L);
-        when(userRepository.findByLoginId("member")).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate("member")).thenReturn(Optional.of(user));
         when(reviewRepository.findById(11L)).thenReturn(Optional.of(mock(Review.class)));
 
         ReviewReactionService service = new ReviewReactionService(
@@ -27,8 +27,6 @@ class ReviewReactionServiceTest {
 
         service.saveReactions("member", 11L, true);
 
-        verify(reactionRepository).upsertReaction(7L, 11L, true);
-        verify(reactionRepository, never())
-                .findByUser_UserIdAndReview_ReviewId(anyLong(), anyLong());
+        verify(reactionRepository).findByUser_UserIdAndReview_ReviewId(7L, 11L);
     }
 }
