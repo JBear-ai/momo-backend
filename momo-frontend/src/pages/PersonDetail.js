@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { resolvePosterUrl } from "../utils/mediaUrl";
 
@@ -70,8 +70,6 @@ function formatReleaseDate(value) {
 
 function PersonDetail() {
   const { type, identifier } = useParams();
-  const { search } = useLocation();
-  const personId = new URLSearchParams(search).get("tmdbId");
   const navigate = useNavigate();
 
   const [person, setPerson] = useState(null);
@@ -99,9 +97,7 @@ function PersonDetail() {
         setFilmography([]);
         setVisibleCount(10);
 
-        const response = personId
-          ? await AxiosApi.getPersonDetailById(type, personId, controller.signal)
-          : await AxiosApi.getPersonDetail(type, identifier, controller.signal);
+        const response = await AxiosApi.getPersonDetail(type, identifier, controller.signal);
 
         const personData = response?.data?.personInfo;
         const movies = response?.data?.filmography;
@@ -147,14 +143,23 @@ function PersonDetail() {
       active = false;
       controller.abort();
     };
-  }, [type, identifier, personId]);
+  }, [type, identifier]);
 
-  // TMDb ID를 그대로 전달해 KOBIS 등록 여부와 관계없이 영화 상세 페이지를 연다.
-  const handleFilmographyClick = (movie) => {
+  // 필모그래피의 TMDb ID를 먼저 MOMO 영화 코드와 연결하고, 미연결이면 같은 영화 경로로 연다.
+  const handleFilmographyClick = async (movie) => {
     const tmdbId = Number(movie?.tmdbId);
     if (!Number.isSafeInteger(tmdbId) || tmdbId <= 0) return;
 
-    navigate(`/movie/tmdb/${tmdbId}`);
+    try {
+      const response = await AxiosApi.resolveFilmographyMovie(tmdbId);
+      const movieCode = response?.data?.movieCode;
+      navigate(`/movie/${encodeURIComponent(movieCode || tmdbId)}`);
+    } catch (error) {
+      // KOBIS 미등록 영화도 TMDb ID로 통합 영화 상세 경로에서 조회한다.
+      if (error.code !== "ERR_CANCELED") {
+        navigate(`/movie/${tmdbId}`);
+      }
+    }
   };
 
   // Enter 또는 Space 키로 작품 선택

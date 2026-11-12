@@ -328,7 +328,15 @@ const AxiosApi = {
     });
   },
 
-  // TMDb ID로 KOBIS 미등록 영화의 상세정보도 조회한다.
+  // URL 식별자 하나로 KOBIS 영화와 TMDb 영화를 조회한다.
+  movieDetailByIdentifier: async (identifier, signal) => {
+    return await axios.get(
+      `${HM_DOMAIN}/api/movies/resolve/${encodeURIComponent(identifier)}`,
+      { signal },
+    );
+  },
+
+  // 기존 API 호환용: TMDb ID로 KOBIS 미등록 영화 상세정보를 조회한다.
   movieDetailByTmdbId: async (tmdbId, signal) => {
     return await axios.get(
       `${HM_DOMAIN}/api/movies/tmdb/${encodeURIComponent(tmdbId)}`,

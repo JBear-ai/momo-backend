@@ -124,7 +124,7 @@ function normalizePeople(people) {
 }
 
 function MovieDetail() {
-  const { id, tmdbId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
   // =========================================================
@@ -179,9 +179,7 @@ function MovieDetail() {
         setError("");
         setMovie(null);
 
-        const detailResponse = tmdbId
-          ? await AxiosApi.movieDetailByTmdbId(tmdbId, controller.signal)
-          : await AxiosApi.movieDetail(id, controller.signal);
+        const detailResponse = await AxiosApi.movieDetailByIdentifier(id, controller.signal);
         const detailData = detailResponse.data;
         const movieCode = detailData.movieCode || null;
 
@@ -202,7 +200,7 @@ function MovieDetail() {
 
         if (!active) return;
         let moviePeople = Array.isArray(detailData.people) ? detailData.people : [];
-        if (movieCode && !tmdbId) {
+        if (movieCode && !detailData.tmdbId) {
           try {
             const peopleResponse = await AxiosApi.moviePeople(movieCode, controller.signal);
             moviePeople = Array.isArray(peopleResponse.data) ? peopleResponse.data : [];
@@ -215,7 +213,7 @@ function MovieDetail() {
         if (!active) return;
         setMovie({
           ...detailData,
-          id: movieCode || "TMDB-" + tmdbId,
+          id: movieCode || `TMDB-${detailData.tmdbId || id}`,
           movieCode,
           posterUrl,
           directorPeople: moviePeople.filter((person) => person.department === "director"),
@@ -254,14 +252,14 @@ function MovieDetail() {
       }
     }
 
-    if (id || tmdbId) fetchMovieDetail();
+    if (id) fetchMovieDetail();
     else setLoading(false);
 
     return () => {
       active = false;
       controller.abort();
     };
-  }, [id, tmdbId]);
+  }, [id]);
 
   // =========================================================
   // 5. 영화별 리뷰 및 평가 조회
@@ -507,12 +505,8 @@ function MovieDetail() {
 
     if (!identifier || identifier === "이름 없음") return;
 
-    // 영화 출연진에서 확보한 TMDb ID를 우선 전달해 동명이인 오연결을 방지한다.
-    const personId = Number(person.personId);
-    const query = Number.isSafeInteger(personId) && personId > 0
-      ? `?tmdbId=${encodeURIComponent(personId)}`
-      : "";
-    navigate(`/person/${type}/${encodeURIComponent(identifier)}${query}`);
+    // 인물 식별은 상세 화면에서 이름과 분야를 기준으로 처리하고 외부 ID는 URL에 노출하지 않는다.
+    navigate(`/person/${type}/${encodeURIComponent(identifier)}`);
   }
 
   // =========================================================

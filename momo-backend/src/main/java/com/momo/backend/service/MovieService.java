@@ -72,6 +72,11 @@ public class MovieService {
     private static final int GENRE_SCAN_SIZE = 100;
     private static final int GENRE_PAGE_SIZE = 10;
 
+    // MOMO DB에 등록된 KOBIS 영화 코드인지 확인한다.
+    public boolean isRegisteredMovieCode(String movieCode) {
+        return movieCode != null && movieRepository.existsById(movieCode);
+    }
+
     // 통합 캐시 조회
 
     private MovieCache findValidCache(String cacheType, String cacheKey) {
