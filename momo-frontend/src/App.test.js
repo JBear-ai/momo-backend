@@ -1,12 +1,22 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import FavoriteStar from "./components/common/FavoriteStar";
+import { toggleFavoriteMovieOnServer } from "./utils/favorites";
+
+jest.mock("./utils/favorites", () => {
+  const actual = jest.requireActual("./utils/favorites");
+  return {
+    ...actual,
+    toggleFavoriteMovieOnServer: jest.fn(),
+  };
+});
 
 beforeEach(() => {
   localStorage.clear();
+  jest.clearAllMocks();
 });
 
-test("로그인 회원은 관심 영화 버튼으로 목록을 등록하고 해제할 수 있다", () => {
+test("로그인 회원은 서버 저장 성공 후 관심 영화 상태를 등록하고 해제한다", async () => {
   localStorage.setItem("accessToken", "test-access-token");
   localStorage.setItem("username", "test-member");
 
@@ -15,20 +25,30 @@ test("로그인 회원은 관심 영화 버튼으로 목록을 등록하고 해�
     title: "테스트 영화",
   };
 
+  toggleFavoriteMovieOnServer
+    .mockResolvedValueOnce([movie])
+    .mockResolvedValueOnce([]);
+
   render(React.createElement(FavoriteStar, { movie }));
 
   fireEvent.click(screen.getByRole("button", { name: "관심 영화 추가" }));
 
-  expect(
-    screen.getByRole("button", { name: "관심 영화 해제" }),
-  ).toBeInTheDocument();
+  await waitFor(() => {
+    expect(
+      screen.getByRole("button", { name: "관심 영화 해제" }),
+    ).toBeInTheDocument();
+  });
 
-  const favorites = JSON.parse(
-    localStorage.getItem("momo-favorite-movies:test-member"),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "관심 영화 해제" }));
 
-  expect(favorites).toHaveLength(1);
-  expect(favorites[0].movieCode).toBe(movie.movieCode);
+  await waitFor(() => {
+    expect(
+      screen.getByRole("button", { name: "관심 영화 추가" }),
+    ).toBeInTheDocument();
+  });
+
+  expect(toggleFavoriteMovieOnServer).toHaveBeenNthCalledWith(1, movie, "test-member");
+  expect(toggleFavoriteMovieOnServer).toHaveBeenNthCalledWith(2, movie, "test-member");
 });
 
 test("로그인하지 않은 회원에게 관심 영화 버튼을 노출하지 않는다", () => {
