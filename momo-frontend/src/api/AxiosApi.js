@@ -388,6 +388,14 @@ const AxiosApi = {
   },
 
   // 9. 영화 포스터 상태 일괄 조회
+  moviePostersEnsure: async (movieCodes, signal) => {
+    return await axios.post(
+      `${HM_DOMAIN}/api/movies/posters/ensure`,
+      movieCodes,
+      { signal },
+    );
+  },
+
   moviePosterStatuses: async (movieCodes, signal) => {
     return await axios.post(
       `${HM_DOMAIN}/api/movies/posters/status`,
