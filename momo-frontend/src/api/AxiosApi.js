@@ -455,6 +455,23 @@ const AxiosApi = {
     );
   },
 
+  // 계정에 저장된 관심 영화 조회
+  favoriteMovies: async (signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/favorites`, { signal });
+  },
+
+  // 관심 영화 등록 및 기존 영화 정보 갱신
+  favoriteMovieAdd: async (movie) => {
+    return await axios.post(`${HM_DOMAIN}/api/favorites`, movie);
+  },
+
+  // 관심 영화 해제
+  favoriteMovieDelete: async (movieCode) => {
+    return await axios.delete(
+      `${HM_DOMAIN}/api/favorites/${encodeURIComponent(movieCode)}`,
+    );
+  },
+
   // 15. 로그인 사용자 정보 조회
   memberMe: async () => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me`, {
