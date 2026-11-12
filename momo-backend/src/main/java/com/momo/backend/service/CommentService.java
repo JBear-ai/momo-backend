@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Service;\n\nimport java.util.HashMap;\nimport java.util.List;\nimport java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -84,9 +84,54 @@ public class CommentService {
         Pageable pageable = PageRequest.of(page, 10);
         Long viewerId = currentUserId;
 
-        return commentRepository
-                .findByReview_ReviewIdOrderByCreatedAtAsc(reviewId, pageable)
-                .map(comment -> toResponse(comment, viewerId));
+        Page<Comment> comments = commentRepository
+                .findByReview_ReviewIdOrderByCreatedAtAsc(reviewId, pageable);
+
+        // 페이지에 포함된 댓글의 반응을 한 번에 조회해 댓글별 반복 쿼리를 방지한다.
+        List<Long> commentIds = comments.getContent().stream()
+                .map(Comment::getCommentId)
+                .toList();
+
+        Map<Long, long[]> reactionCounts = new HashMap<>();
+        Map<Long, Boolean> myReactions = new HashMap<>();
+
+        if (!commentIds.isEmpty()) {
+            List<CommentReactionRepository.CommentReactionSummary> summaries =
+                    commentReactionRepository.findReactionSummariesByCommentIds(commentIds);
+
+            for (CommentReactionRepository.CommentReactionSummary summary : summaries) {
+                Long commentId = summary.getCommentId();
+                long[] counts = reactionCounts.computeIfAbsent(
+                        commentId, key -> new long[2]
+                );
+
+                if (Boolean.TRUE.equals(summary.getLiked())) {
+                    counts[0]++;
+                } else {
+                    counts[1]++;
+                }
+
+                if (viewerId != null && viewerId.equals(summary.getUserId())) {
+                    myReactions.put(commentId, summary.getLiked());
+                }
+            }
+        }
+
+        return comments.map(comment -> {
+            Long commentId = comment.getCommentId();
+            long[] counts = reactionCounts.getOrDefault(commentId, new long[2]);
+            User author = comment.getUser();
+            boolean profileImageAvailable = author.getProfileImage() != null
+                    && !author.getProfileImage().isBlank();
+
+            return new CommentResponse(
+                    comment,
+                    profileImageAvailable,
+                    counts[0],
+                    counts[1],
+                    myReactions.get(commentId)
+            );
+        });
     }
 
     // 본인이 작성한 댓글 수정
