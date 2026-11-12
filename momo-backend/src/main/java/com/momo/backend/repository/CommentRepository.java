@@ -12,8 +12,27 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
+
+    interface ReviewCommentCountSummary {
+        Long getReviewId();
+        Long getCommentCount();
+    }
+
+    // 한 페이지 리뷰들의 댓글 수를 그룹 집계로 한 번에 조회한다.
+    @Query("""
+            select comment.review.reviewId as reviewId,
+                   count(comment.commentId) as commentCount
+              from Comment comment
+             where comment.review.reviewId in :reviewIds
+             group by comment.review.reviewId
+            """)
+    List<ReviewCommentCountSummary> countByReviewIds(
+            @Param("reviewIds") Collection<Long> reviewIds
+    );
 
     // 댓글 반응 등록과 댓글 수정·삭제가 같은 행 잠금을 사용한다.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
