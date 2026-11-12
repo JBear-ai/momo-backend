@@ -82,6 +82,10 @@ export function syncFavoriteMoviesFromServer(
   const promise = (async () => {
     const localFavorites = getFavoriteMovies(userId);
     const response = await AxiosApi.favoriteMovies();
+
+    // 조회 중 로그아웃하거나 다른 계정으로 전환되면 이전 계정의 응답을 폐기한다.
+    if (getCurrentFavoriteUserId() !== userId) return [];
+
     let serverFavorites = Array.isArray(response.data) ? response.data : [];
     const syncedKey = getFavoritesSyncedKey(userId);
 
@@ -91,6 +95,7 @@ export function syncFavoriteMoviesFromServer(
       );
 
       for (const movie of localFavorites) {
+        if (getCurrentFavoriteUserId() !== userId) return [];
         if (!movie?.movieCode || serverCodes.has(String(movie.movieCode))) {
           continue;
         }
@@ -103,7 +108,11 @@ export function syncFavoriteMoviesFromServer(
         });
       }
 
+      if (getCurrentFavoriteUserId() !== userId) return [];
+
       const refreshed = await AxiosApi.favoriteMovies();
+      if (getCurrentFavoriteUserId() !== userId) return [];
+
       serverFavorites = Array.isArray(refreshed.data) ? refreshed.data : [];
       localStorage.setItem(syncedKey, "true");
     }
@@ -148,6 +157,9 @@ export async function toggleFavoriteMovieOnServer(
       posterUrl: movie.posterUrl || "",
     });
   }
+
+  // 저장 요청 도중 계정이 변경되었으면 새 계정으로 후속 조회를 보내지 않는다.
+  if (getCurrentFavoriteUserId() !== userId) return [];
 
   const response = await AxiosApi.favoriteMovies();
   const favorites = Array.isArray(response.data) ? response.data : [];
