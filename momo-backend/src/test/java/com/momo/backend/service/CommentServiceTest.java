@@ -79,13 +79,10 @@ class CommentServiceTest {
 
         when(firstLike.getCommentId()).thenReturn(commentId);
         when(firstLike.getLiked()).thenReturn(true);
-        when(firstLike.getUserId()).thenReturn(10L);
         when(secondLike.getCommentId()).thenReturn(commentId);
         when(secondLike.getLiked()).thenReturn(true);
-        when(secondLike.getUserId()).thenReturn(11L);
         when(dislike.getCommentId()).thenReturn(commentId);
         when(dislike.getLiked()).thenReturn(false);
-        when(dislike.getUserId()).thenReturn(12L);
         when(commentReactionRepository.findReactionSummariesByCommentIds(List.of(commentId)))
                 .thenReturn(List.of(firstLike, secondLike, dislike));
 
