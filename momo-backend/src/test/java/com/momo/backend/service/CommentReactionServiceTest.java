@@ -28,5 +28,6 @@ class CommentReactionServiceTest {
         service.saveReaction("member", 21L, false);
 
         verify(reactionRepository).findByUser_UserIdAndComment_CommentId(9L, 21L);
+        verify(reactionRepository).save(any(com.momo.backend.entity.CommentReaction.class));
     }
 }
