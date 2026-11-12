@@ -313,14 +313,16 @@ function PersonDetail() {
                   },
 
                   // 작품 포스터
-                  movie.posterUrl
-                    ? React.createElement("img", {
-                        src: resolvePosterUrl(movie.posterUrl),
-                        alt: movie.title || "작품 포스터",
-                        loading: "lazy",
-                        onError: (event) => event.currentTarget.remove(),
-                      })
-                    : null,
+                  React.createElement(SafeImage, {
+                    src: resolvePosterUrl(movie.posterUrl),
+                    alt: movie.title || "작품 포스터",
+                    fallback: React.createElement(
+                      "div",
+                      { className: "poster-placeholder" },
+                      "MOMO"
+                    ),
+                    loading: "lazy",
+                  }),
 
                   // 작품 정보
                   React.createElement(
