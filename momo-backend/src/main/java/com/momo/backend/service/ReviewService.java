@@ -161,7 +161,7 @@ public class ReviewService {
             String loginId,
             ReviewCreateRequest dto) {
 
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
@@ -205,7 +205,11 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public ReviewResponse getReview(Long reviewId) {
 
-        Review review = reviewRepository.findById(reviewId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new CustomException("USER_NOT_FOUND", "회원 정보를 찾을 수 없습니다."));
+
+        // 작성자 행과 리뷰 행을 잠가 수정·탈퇴·반응 요청과 충돌하지 않게 한다.
+        Review review = reviewRepository.findByIdForUpdate(reviewId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "REVIEW_NOT_FOUND",
@@ -271,7 +275,11 @@ public class ReviewService {
             String loginId,
             ReviewUpdateRequest dto) {
 
-        Review review = reviewRepository.findById(reviewId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new CustomException("USER_NOT_FOUND", "회원 정보를 찾을 수 없습니다."));
+
+        // 리뷰 행 잠금은 새 댓글·리뷰 반응이 삭제 도중 추가되는 것을 막는다.
+        Review review = reviewRepository.findByIdForUpdate(reviewId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "REVIEW_NOT_FOUND",
