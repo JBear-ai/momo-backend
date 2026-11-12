@@ -1,7 +1,7 @@
 package com.momo.backend.repository;
 
 import com.momo.backend.entity.Comment;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Page;\nimport org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
