@@ -12,4 +12,9 @@ public interface MovieExternalIdMappingRepository
             String provider,
             String externalId
     );
+
+    Optional<MovieExternalIdMapping> findFirstByProviderAndMovieCodeOrderByMappingIdAsc(
+            String provider,
+            String movieCode
+    );
 }
