@@ -1,3 +1,4 @@
+import SafeImage from "../components/common/SafeImage";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
@@ -216,14 +217,11 @@ function MyReviews() {
                   key={review.reviewId}
                 >
                   <div className="my-review-poster">
-                    {info?.posterUrl ? (
-                      <img
-                        src={resolvePosterUrl(info.posterUrl)}
-                        alt={info.title || "영화 포스터"}
-                      />
-                    ) : (
-                      <div className="my-review-poster-placeholder">MOMO</div>
-                    )}
+                    <SafeImage
+                      src={resolvePosterUrl(info?.posterUrl)}
+                      alt={info?.title || "영화 포스터"}
+                      fallbackClassName="my-review-poster-placeholder"
+                    />
                   </div>
 
                   <div className="my-review-info">
