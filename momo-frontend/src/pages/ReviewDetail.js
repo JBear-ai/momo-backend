@@ -1,3 +1,4 @@
+import SafeImage from "../components/common/SafeImage";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
@@ -604,12 +605,11 @@ function ReviewDetail() {
       "div",
       { className: "review-detail-movie-poster" },
 
-      posterUrl
-        ? h("img", {
-            src: resolvePosterUrl(posterUrl),
-            alt: movie?.title || "영화 포스터",
-          })
-        : h("div", { className: "review-detail-poster-placeholder" }, "MOMO"),
+      h(SafeImage, {
+        src: resolvePosterUrl(posterUrl),
+        alt: movie?.title || "영화 포스터",
+        fallbackClassName: "review-detail-poster-placeholder",
+      }),
     ),
 
     h(
