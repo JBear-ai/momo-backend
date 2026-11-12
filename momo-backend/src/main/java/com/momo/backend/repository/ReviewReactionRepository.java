@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,19 @@ public interface ReviewReactionRepository
             where reaction.review.reviewId = :reviewId
             """)
     ReactionCountSummary findCountsByReviewId(@Param("reviewId") Long reviewId);
+
+    // 동시 좋아요/싫어요 요청을 DB upsert로 직렬화한다.
+    @Modifying
+    @Query(value = """
+            INSERT INTO review_reactions (user_id, review_id, liked)
+            VALUES (:userId, :reviewId, :liked)
+            ON DUPLICATE KEY UPDATE liked = VALUES(liked)
+            """, nativeQuery = true)
+    int upsertReaction(
+            @Param("userId") Long userId,
+            @Param("reviewId") Long reviewId,
+            @Param("liked") Boolean liked
+    );
 
     // 특정 회원이 특정 리뷰에 남긴 반응 조회
     Optional<ReviewReactions> findByUser_UserIdAndReview_ReviewId(
