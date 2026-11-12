@@ -228,7 +228,8 @@ public class MovieService {
                     movie.path("title").asString(""),
                     movie.path("releaseDate").asString(""),
                     movie.path("genre").asString(""),
-                    movie.path("director").asString("")));
+                    movie.path("director").asString(""),
+                    movie.path("posterUrl").asString("")));
         }
 
         return new MovieSearchPageResponse(
@@ -237,6 +238,64 @@ public class MovieService {
                 root.path("size").asInt(),
                 root.path("totalCount").asInt(),
                 root.path("hasNext").asBoolean());
+    }
+
+    // DB에 저장된 포스터 주소를 검색 결과에 연결한다.
+    // 기존 데이터는 조회만 하며 초기화하거나 재수집하지 않는다.
+    private MovieSearchPageResponse attachSavedPosterUrls(
+            MovieSearchPageResponse response) {
+        if (response == null || response.content() == null
+                || response.content().isEmpty()) {
+            return response;
+        }
+
+        List<String> movieCodes = response.content().stream()
+                .map(MovieSearchResponse::movieCode)
+                .filter(code -> !isBlank(code))
+                .distinct()
+                .toList();
+
+        Map<String, Movie> savedMovies = new HashMap<>();
+        movieRepository.findAllById(movieCodes)
+                .forEach(movie -> savedMovies.put(movie.getMovieCode(), movie));
+
+        Map<String, MoviePosterCache> savedPosterCaches = new HashMap<>();
+        moviePosterCacheRepository.findAllByMovieCodeIn(movieCodes)
+                .forEach(cache ->
+                        savedPosterCaches.put(cache.getMovieCode(), cache));
+
+        List<MovieSearchResponse> content = response.content().stream()
+                .map(movie -> {
+                    Movie savedMovie = savedMovies.get(movie.movieCode());
+                    MoviePosterCache savedCache =
+                            savedPosterCaches.get(movie.movieCode());
+
+                    String posterUrl = "";
+
+                    if (savedMovie != null && !isBlank(savedMovie.getPosterUrl())) {
+                        posterUrl = savedMovie.getPosterUrl();
+                    } else if (savedCache != null
+                            && savedCache.getStatus() == PosterStatus.SUCCESS
+                            && !isBlank(savedCache.getPosterUrl())) {
+                        posterUrl = savedCache.getPosterUrl();
+                    }
+
+                    return new MovieSearchResponse(
+                            movie.movieCode(),
+                            movie.title(),
+                            movie.releaseDate(),
+                            movie.genre(),
+                            movie.director(),
+                            posterUrl);
+                })
+                .toList();
+
+        return new MovieSearchPageResponse(
+                content,
+                response.page(),
+                response.size(),
+                response.totalCount(),
+                response.hasNext());
     }
 
     // 검색 결과를 Movie DB에 저장
@@ -290,7 +349,7 @@ public class MovieService {
 
                 enqueuePosterSearches(response.content());
 
-                return response;
+                return attachSavedPosterUrls(response);
 
             } catch (Exception e) {
 
@@ -364,7 +423,10 @@ public class MovieService {
                 totalCount,
                 hasNext);
 
-        // 5. 검색 결과 캐시 저장
+        // 이미 DB에 저장된 포스터를 검색 응답에 연결한다.
+        response = attachSavedPosterUrls(response);
+
+        // 5. 포스터 주소가 포함된 검색 결과 캐시 저장
         saveCache(
                 CACHE_SEARCH,
                 cacheKey,
