@@ -167,7 +167,7 @@ function ProfileEdit() {
 
   // 전체 유효성
   const isAllValid =
-    isNickname && isPasswordValid && !isSubmitting && !profileImageUploading;
+    isNickname && isEmail && isPasswordValid && !isSubmitting && !profileImageUploading;
 
   /* =========================
      현재 비밀번호 검증
@@ -401,7 +401,7 @@ function ProfileEdit() {
     }
 
     if (!isNickname) {
-      alert("닉네임은 한글, 영문, 숫자로 2~10자 입력해 주세요.");
+      alert("닉네임은 한글, 영문, 숫자로 2~12자 입력해 주세요.");
       return;
     }
 
@@ -409,7 +409,12 @@ function ProfileEdit() {
        이메일 검사
     ========================= */
 
-    if (email.trim() && !isEmail) {
+    if (!email.trim()) {
+      alert("이메일을 입력해 주세요.");
+      return;
+    }
+
+    if (!isEmail) {
       alert("올바른 이메일 형식을 입력해 주세요.");
       return;
     }
