@@ -2,6 +2,9 @@
 package com.momo.backend.service;
 
 import com.momo.backend.client.TmdbApiClient;
+import com.momo.backend.dto.movie.TmdbMovieDetailResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.momo.backend.entity.MovieSupplement;
 import lombok.RequiredArgsConstructor;
@@ -287,6 +290,122 @@ public class TmdbService {
         item.put("department", department);
         item.put("role", role);
         people.add(item);
+    }
+
+    // TMDb 영화 ID로 KOBIS 미등록 작품도 상세 화면에 표시한다.
+    public TmdbMovieDetailResponse getMovieDetailById(long tmdbId) {
+        if (tmdbId <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "올바르지 않은 TMDb 영화 ID입니다.");
+        }
+
+        try {
+            String json = tmdbApiClient.getMovieDetail(tmdbId);
+            if (json == null || json.isBlank()) {
+                throw new IllegalStateException("TMDb 영화 상세 응답이 비어 있습니다.");
+            }
+
+            JsonNode detail = objectMapper.readTree(json);
+            if (detail.path("id").asLong(0) != tmdbId) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "요청한 TMDb 영화 정보를 찾을 수 없습니다.");
+            }
+
+            String title = firstNonBlank(
+                    getText(detail, "title"), getText(detail, "original_title"));
+            if (title.isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "TMDb 영화 제목을 확인할 수 없습니다.");
+            }
+
+            String titleEn = firstNonBlank(getText(detail, "original_title"), title);
+            String releaseDate = firstNonBlank(
+                    selectKoreanTheatricalReleaseDate(detail.path("release_dates")),
+                    normalizeTmdbDate(getText(detail, "release_date")));
+
+            List<String> directors = new ArrayList<>();
+            List<String> actors = new ArrayList<>();
+            List<java.util.Map<String, Object>> people = new ArrayList<>();
+            java.util.Set<Long> seenPeople = new java.util.HashSet<>();
+
+            for (JsonNode crew : detail.path("credits").path("crew")) {
+                if (!"Director".equalsIgnoreCase(getText(crew, "job"))) {
+                    continue;
+                }
+
+                String name = getText(crew, "name");
+                if (!name.isBlank() && !directors.contains(name) && directors.size() < 5) {
+                    directors.add(name);
+                }
+                addMoviePerson(people, seenPeople, crew, "director", "Director");
+            }
+
+            for (JsonNode cast : detail.path("credits").path("cast")) {
+                String name = getText(cast, "name");
+                if (!name.isBlank() && !actors.contains(name) && actors.size() < 20) {
+                    actors.add(name);
+                }
+                if (people.size() < 80) {
+                    addMoviePerson(people, seenPeople, cast, "actor", getText(cast, "character"));
+                }
+            }
+
+            String genre = StreamSupport.stream(
+                    detail.path("genres").spliterator(), false)
+                    .map(node -> getText(node, "name"))
+                    .filter(name -> !name.isBlank())
+                    .distinct()
+                    .reduce((first, second) -> first + ", " + second)
+                    .orElse("");
+
+            String posterPath = getText(detail, "poster_path");
+            String posterUrl = posterPath.startsWith("/")
+                    && !posterPath.contains("..")
+                    && !posterPath.contains("?")
+                    && !posterPath.contains("#")
+                            ? IMAGE_BASE_URL + posterPath
+                            : "";
+
+            return new TmdbMovieDetailResponse(
+                    tmdbId,
+                    null,
+                    title,
+                    titleEn,
+                    releaseDate,
+                    detail.path("runtime").asInt(0) > 0
+                            ? detail.path("runtime").asString()
+                            : "",
+                    genre,
+                    String.join(", ", directors),
+                    actors,
+                    findKoreanWatchGrade(detail.path("release_dates")),
+                    getText(detail, "overview"),
+                    posterUrl,
+                    people);
+        } catch (ResponseStatusException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.error("TMDb 영화 ID 상세정보 조회 실패. tmdbId={}", tmdbId, exception);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "TMDb 영화 상세정보를 불러오지 못했습니다.",
+                    exception);
+        }
+    }
+
+    private String findKoreanWatchGrade(JsonNode releaseDates) {
+        for (JsonNode country : releaseDates.path("results")) {
+            if (!"KR".equalsIgnoreCase(getText(country, "iso_3166_1"))) {
+                continue;
+            }
+            for (JsonNode release : country.path("release_dates")) {
+                String certification = getText(release, "certification");
+                if (!certification.isBlank()) {
+                    return certification;
+                }
+            }
+        }
+        return "";
     }
 
     // 3. 영화 포스터 검색

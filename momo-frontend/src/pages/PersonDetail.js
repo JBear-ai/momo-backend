@@ -80,8 +80,6 @@ function PersonDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [navigatingMovieId, setNavigatingMovieId] = useState(null);
-
   // 인물 상세정보 조회
   useEffect(() => {
     const controller = new AbortController();
@@ -151,37 +149,12 @@ function PersonDetail() {
     };
   }, [type, identifier, personId]);
 
-  // 필모그래피 작품을 MOMO 영화 상세 페이지와 연결
-  const handleFilmographyClick = async (movie) => {
-    if (navigatingMovieId !== null) return;
+  // TMDb ID를 그대로 전달해 KOBIS 등록 여부와 관계없이 영화 상세 페이지를 연다.
+  const handleFilmographyClick = (movie) => {
+    const tmdbId = Number(movie?.tmdbId);
+    if (!Number.isSafeInteger(tmdbId) || tmdbId <= 0) return;
 
-    if (!movie?.tmdbId) {
-      return;
-    }
-
-    try {
-      setNavigatingMovieId(movie.tmdbId);
-
-      // 제목 검색 대신 TMDb 고유 ID로 KOBIS 영화 코드를 확인한다.
-      const response = await AxiosApi.resolveFilmographyMovie(movie.tmdbId);
-      const movieCode = response?.data?.movieCode;
-
-      if (!/^[A-Za-z0-9]{8}$/.test(String(movieCode || ""))) {
-        throw new Error("정확한 MOMO 영화 코드를 확인하지 못했습니다.");
-      }
-
-      navigate(`/movie/${movieCode}`);
-    } catch (navigationError) {
-      const status = navigationError?.response?.status;
-
-      // KOBIS에 등록되지 않았거나 동명 작품이 여러 개인 경우는
-      // 필모그래피에서 정상적으로 발생할 수 있는 미연결 상태로 처리한다.
-      if (status !== 404 && status !== 409) {
-        console.error("영화 상세 페이지 이동 실패:", navigationError);
-      }
-    } finally {
-      setNavigatingMovieId(null);
-    }
+    navigate(`/movie/tmdb/${tmdbId}`);
   };
 
   // Enter 또는 Space 키로 작품 선택
@@ -324,8 +297,6 @@ function PersonDetail() {
               filmography.slice(0, visibleCount).map((movie, index) => {
                 const movieId = movie.tmdbId ?? `${movie.title}-${index}`;
 
-                const isNavigating = navigatingMovieId === movieId;
-
                 return React.createElement(
                   "article",
                   {
@@ -338,7 +309,6 @@ function PersonDetail() {
                     tabIndex: 0,
                     style: { cursor: "pointer" },
                     "aria-label": `${movie.title || "작품"} 영화 상세정보 보기`,
-                    "aria-busy": isNavigating,
                   },
 
                   // 작품 포스터
@@ -359,9 +329,7 @@ function PersonDetail() {
                     React.createElement(
                       "strong",
                       null,
-                      isNavigating
-                        ? "영화 검색 중..."
-                        : movie.title || "제목 없음",
+                      movie.title || "제목 없음",
                     ),
 
                     movie.releaseDate &&
