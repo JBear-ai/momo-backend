@@ -350,12 +350,17 @@ function Layout() {
 
     checkLogin();
 
-    // 로그인 / 로그아웃 / 인증 만료 이벤트 감지
-    window.addEventListener("momo-auth-changed", checkLogin);
+    // 인증 상태가 바뀌면 관심 영화 화면도 현재 회원 기준으로 다시 읽는다.
+    const handleAuthChanged = () => {
+      window.dispatchEvent(new Event("momo-favorites-changed"));
+      checkLogin();
+    };
+
+    window.addEventListener("momo-auth-changed", handleAuthChanged);
 
     return () => {
       active = false;
-      window.removeEventListener("momo-auth-changed", checkLogin);
+      window.removeEventListener("momo-auth-changed", handleAuthChanged);
     };
   }, [location.pathname]);
 
