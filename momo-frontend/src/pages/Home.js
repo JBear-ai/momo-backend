@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import TodayRecommend from "../components/common/TodayRecommend";
 import FavoriteStar from "../components/common/FavoriteStar";
 import { getFavoriteMovies } from "../utils/favorites";
+import AxiosApi from "../api/AxiosApi";
 import { resolvePosterUrl } from "../utils/mediaUrl";
 import { getPosterPollDelay } from "../utils/posterPolling";
 
@@ -64,10 +65,7 @@ function Home() {
   // 어제 날짜의 박스오피스 목록 조회
   useEffect(() => {
     const targetDate = getYesterdayDate();
-    const apiBaseUrl = (
-      process.env.REACT_APP_API_BASE_URL || "http://localhost:8111"
-    ).replace(/\/+$/, "");
-
+    const controller = new AbortController();
     let cancelled = false;
     let refreshTimer = null;
 
@@ -78,17 +76,14 @@ function Home() {
 
       refreshTimer = window.setTimeout(async () => {
         try {
-          const response = await fetch(apiBaseUrl + "/api/movies/posters/status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(movieCodes),
-          });
+          const response = await AxiosApi.moviePosterStatuses(
+            movieCodes,
+            controller.signal,
+          );
 
-          if (!response.ok) {
-            throw new Error("포스터 상태 조회 실패");
-          }
+          if (cancelled) return;
 
-          const statuses = await response.json();
+          const statuses = Array.isArray(response.data) ? response.data : [];
           const statusByCode = new Map(
             statuses.map((item) => [item.movieCode, item]),
           );
@@ -96,47 +91,44 @@ function Home() {
           setMovies((currentMovies) =>
             currentMovies.map((movie) => {
               const status = statusByCode.get(movie.movieCode);
-              if (status && status.posterUrl) {
+              if (status?.status === "SUCCESS" && status.posterUrl) {
                 return { ...movie, posterUrl: status.posterUrl };
               }
-
               return movie;
             }),
           );
 
-          if (!cancelled) {
-            // 재시도 간격을 늘리면서 최대 6회까지만 확인한다.
-            const allHavePosters = movieCodes.every((code) => {
-              const status = statusByCode.get(code);
-              return status && status.status === "SUCCESS" && status.posterUrl;
-            });
+          const allHavePosters = movieCodes.every((code) => {
+            const status = statusByCode.get(code);
+            return status?.status === "SUCCESS" && status.posterUrl;
+          });
 
-            if (!allHavePosters) {
-              refreshPosterStatuses(movieCodes, attempt + 1);
-            }
+          if (!allHavePosters) {
+            refreshPosterStatuses(movieCodes, attempt + 1);
           }
         } catch (error) {
-          console.error(error);
-          if (!cancelled) {
+          if (
+            !cancelled &&
+            error.code !== "ERR_CANCELED" &&
+            error.name !== "CanceledError"
+          ) {
+            console.error("포스터 상태 조회 실패:", error);
             refreshPosterStatuses(movieCodes, attempt + 1);
           }
         }
       }, getPosterPollDelay(attempt));
     };
 
-    fetch(apiBaseUrl + "/api/boxoffice/daily?targetDate=" + targetDate)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("박스오피스 조회 실패");
-        }
+    const loadBoxOffice = async () => {
+      try {
+        const response = await AxiosApi.dailyBoxOffice(
+          targetDate,
+          controller.signal,
+        );
 
-        return response.json();
-      })
-      .then((data) => {
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
 
+        const data = response.data;
         const list = Array.isArray(data)
           ? data
           : data.movies || data.dailyBoxOfficeList || data.boxOfficeList || [];
@@ -160,21 +152,27 @@ function Home() {
           .map((movie) => movie.movieCode);
 
         refreshPosterStatuses(missingCodes);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error(error);
+      } catch (error) {
+        if (
+          !cancelled &&
+          error.code !== "ERR_CANCELED" &&
+          error.name !== "CanceledError"
+        ) {
+          console.error("박스오피스 조회 실패:", error);
           setMovies([]);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setLoading(false);
         }
-      });
+      }
+    };
+
+    loadBoxOffice();
 
     return () => {
       cancelled = true;
+      controller.abort();
       if (refreshTimer) {
         window.clearTimeout(refreshTimer);
       }
