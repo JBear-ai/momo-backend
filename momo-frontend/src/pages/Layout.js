@@ -480,6 +480,16 @@ function Layout() {
 
               <Link to="/profile">마이 페이지</Link>
             </FooterColumn>
+
+            {nickname && (
+              <FooterColumn>
+                <h4>My Activity</h4>
+
+                <Link to="/profile/reviews">작성한 리뷰</Link>
+
+                <Link to="/profile/liked-reviews">좋아요한 리뷰</Link>
+              </FooterColumn>
+            )}
           </FooterRight>
         </FooterContainer>
 
