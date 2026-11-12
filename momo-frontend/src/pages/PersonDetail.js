@@ -1,3 +1,4 @@
+import SafeImage from "../components/common/SafeImage";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
@@ -217,17 +218,12 @@ function PersonDetail() {
           "div",
           { className: "movie-detail-poster" },
 
-          person.profileUrl
-            ? React.createElement("img", {
-                src: person.profileUrl,
-                alt: person.name || "인물 사진",
-              })
-            : React.createElement(
-                "div",
-                { className: "poster-placeholder" },
-                React.createElement("span", null, "👤"),
-                React.createElement("p", null, person.name),
-              ),
+          React.createElement(SafeImage, {
+            src: person.profileUrl,
+            alt: person.name || "인물 사진",
+            fallbackClassName: "poster-placeholder",
+            fallbackText: person.name || "인물 사진",
+          }),
         ),
 
         React.createElement(
