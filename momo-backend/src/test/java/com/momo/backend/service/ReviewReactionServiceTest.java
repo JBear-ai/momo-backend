@@ -12,6 +12,30 @@ import static org.mockito.Mockito.*;
 class ReviewReactionServiceTest {
 
     @Test
+    void updatesExistingReviewReactionInsteadOfInsertingDuplicate() {
+        ReviewReactionRepository reactionRepository = mock(ReviewReactionRepository.class);
+        ReviewRepository reviewRepository = mock(ReviewRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        User user = mock(User.class);
+        com.momo.backend.entity.ReviewReactions existing =
+                mock(com.momo.backend.entity.ReviewReactions.class);
+
+        when(user.getUserId()).thenReturn(7L);
+        when(userRepository.findByLoginIdForUpdate("member")).thenReturn(Optional.of(user));
+        when(reviewRepository.findById(11L)).thenReturn(Optional.of(mock(Review.class)));
+        when(reactionRepository.findByUser_UserIdAndReview_ReviewId(7L, 11L))
+                .thenReturn(Optional.of(existing));
+
+        ReviewReactionService service = new ReviewReactionService(
+                reactionRepository, reviewRepository, userRepository);
+
+        service.saveReactions("member", 11L, false);
+
+        verify(existing).updateReaction(false);
+        verify(reactionRepository, never()).save(any());
+    }
+
+    @Test
     void writesReviewReactionWithAtomicUpsert() {
         ReviewReactionRepository reactionRepository = mock(ReviewReactionRepository.class);
         ReviewRepository reviewRepository = mock(ReviewRepository.class);
