@@ -350,12 +350,17 @@ function Layout() {
 
     checkLogin();
 
-    // 로그인 / 로그아웃 / 인증 만료 이벤트 감지
-    window.addEventListener("momo-auth-changed", checkLogin);
+    // 인증 상태가 바뀌면 관심 영화 화면도 현재 회원 기준으로 다시 읽는다.
+    const handleAuthChanged = () => {
+      window.dispatchEvent(new Event("momo-favorites-changed"));
+      checkLogin();
+    };
+
+    window.addEventListener("momo-auth-changed", handleAuthChanged);
 
     return () => {
       active = false;
-      window.removeEventListener("momo-auth-changed", checkLogin);
+      window.removeEventListener("momo-auth-changed", handleAuthChanged);
     };
   }, [location.pathname]);
 
@@ -480,6 +485,16 @@ function Layout() {
 
               <Link to="/profile">마이 페이지</Link>
             </FooterColumn>
+
+            {nickname && (
+              <FooterColumn>
+                <h4>My Activity</h4>
+
+                <Link to="/profile/reviews">작성한 리뷰</Link>
+
+                <Link to="/profile/liked-reviews">좋아요한 리뷰</Link>
+              </FooterColumn>
+            )}
           </FooterRight>
         </FooterContainer>
 
