@@ -195,37 +195,37 @@ public class PersonService {
             String kobisGenre = text(kobisMovie, "genreAlt");
             String kobisDirector = extractKobisDirectorText(kobisMovie);
 
-            try {
-                moviePersistenceService.saveSearchMovies(List.of(
-                        new MovieSearchResponse(
-                                movieCode,
-                                kobisTitle,
-                                kobisReleaseDate,
-                                kobisGenre,
-                                kobisDirector
-                        )
-                ));
+            if (!movieCode.matches("[A-Za-z0-9]{8}") || kobisTitle.isBlank()) {
+                throw new IllegalStateException("KOBIS 영화 검색 결과의 식별자 또는 제목이 올바르지 않습니다.");
+            }
 
-                // 제목 유사도 검색으로 검증된 연결 결과를 영구 저장한다.
-                // 동시 요청으로 unique 제약조건에 먼저 저장된 경우 기존 매핑을 재사용한다.
-                try {
-                    movieExternalIdMappingRepository.saveAndFlush(
-                            new MovieExternalIdMapping("TMDB", externalId, movieCode)
-                    );
-                } catch (DataIntegrityViolationException duplicateMapping) {
-                    String existingMovieCode = movieExternalIdMappingRepository
-                            .findByProviderAndExternalId("TMDB", externalId)
-                            .map(MovieExternalIdMapping::getMovieCode)
-                            .orElse(null);
-                    if (existingMovieCode != null) {
-                        return existingMovieCode;
-                    }
-                    throw duplicateMapping;
+            // 영화 데이터 저장이 성공한 경우에만 외부 ID 매핑을 확정한다.
+            // 저장 실패를 무시하면 매핑만 남거나 매 요청마다 재매칭하는 상태가 될 수 있다.
+            moviePersistenceService.saveSearchMovies(List.of(
+                    new MovieSearchResponse(
+                            movieCode,
+                            kobisTitle,
+                            kobisReleaseDate,
+                            kobisGenre,
+                            kobisDirector
+                    )
+            ));
+
+            // 제목 유사도 검색으로 검증된 연결 결과를 영구 저장한다.
+            // 같은 TMDb ID를 동시에 처리한 경우 unique 제약조건에 먼저 저장된 연결을 재사용한다.
+            try {
+                movieExternalIdMappingRepository.saveAndFlush(
+                        new MovieExternalIdMapping("TMDB", externalId, movieCode)
+                );
+            } catch (DataIntegrityViolationException duplicateMapping) {
+                String existingMovieCode = movieExternalIdMappingRepository
+                        .findByProviderAndExternalId("TMDB", externalId)
+                        .map(MovieExternalIdMapping::getMovieCode)
+                        .orElse(null);
+                if (existingMovieCode != null) {
+                    return existingMovieCode;
                 }
-            } catch (Exception persistenceError) {
-                // 영화 연결 자체는 유지하고, 상세 페이지에서 다시 저장할 수 있도록 기록만 남긴다.
-                log.warn("필모그래피 KOBIS 영화 정보 저장 실패. movieCode={}",
-                        movieCode, persistenceError);
+                throw duplicateMapping;
             }
 
             // 필모그래피 카드가 사용한 TMDb poster_path를 로컬 포스터 파일로 저장한다.
