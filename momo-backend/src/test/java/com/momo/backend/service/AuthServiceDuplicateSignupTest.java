@@ -4,6 +4,7 @@ import com.momo.backend.dto.auth.SignupRequest;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.repository.MovieRatingRepository;
+import com.momo.backend.repository.FavoriteMovieRepository;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
@@ -37,6 +38,7 @@ class AuthServiceDuplicateSignupTest {
                 mock(CommentReactionRepository.class),
                 mock(FirebaseStorageService.class),
                 mock(MovieRatingRepository.class),
+                mock(FavoriteMovieRepository.class),
                 mock(RefreshTokenService.class)
         );
 
