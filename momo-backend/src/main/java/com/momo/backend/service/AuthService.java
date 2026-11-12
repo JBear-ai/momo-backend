@@ -10,6 +10,7 @@ import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.repository.MovieRatingRepository;
+import com.momo.backend.repository.FavoriteMovieRepository;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
@@ -42,6 +43,7 @@ public class AuthService {
     private final CommentReactionRepository commentReactionRepository;
     private final FirebaseStorageService firebaseStorageService;
     private final MovieRatingRepository movieRatingRepository;
+    private final FavoriteMovieRepository favoriteMovieRepository;
     private final RefreshTokenService refreshTokenService;
 
     // 회원가입
@@ -205,6 +207,7 @@ public class AuthService {
 
         // 회원이 남긴 영화 좋아요 및 싫어요 삭제
         movieRatingRepository.deleteAuthoredByUserId(userId);
+        favoriteMovieRepository.deleteAllByUserId(userId);
 
         // 마지막으로 회원 정보 삭제
         userRepository.delete(user);
