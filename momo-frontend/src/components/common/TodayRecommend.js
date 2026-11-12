@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AxiosApi from "../../api/AxiosApi";
 import { getFavoriteMovies } from "../../utils/favorites";
 import { resolvePosterUrl } from "../../utils/mediaUrl";
+import { getPosterPollDelay } from "../../utils/posterPolling";
 
 const isValidMovieCode = (movieCode) => /^[A-Za-z0-9]{8}$/.test(String(movieCode || ""));
 const isValidReleaseDate = (releaseDate) => /^\d{8}$/.test(String(releaseDate || ""));
@@ -48,7 +49,7 @@ function TodayRecommend() {
     };
 
     const refreshRecommendationPoster = (movieCode, attempt = 0) => {
-      if (!active || attempt >= 180) return;
+      if (!active || attempt >= 3) return;
 
       posterRefreshTimer = window.setTimeout(async () => {
         try {
@@ -60,7 +61,7 @@ function TodayRecommend() {
             ? response.data.find((item) => item.movieCode === movieCode)
             : null;
 
-          if (status?.posterUrl) {
+          if (status?.status === "SUCCESS" && status.posterUrl) {
             if (active) {
               setMovie((current) =>
                 current?.movieCode === movieCode
@@ -70,13 +71,18 @@ function TodayRecommend() {
             }
             return;
           }
+
+          // FAILED는 재시도하지 않는다. PENDING·PROCESSING만 다음 확인을 예약한다.
+          if (status?.status !== "PENDING" && status?.status !== "PROCESSING") {
+            return;
+          }
         } catch (posterError) {
           if (posterError.code === "ERR_CANCELED") return;
           console.warn("추천 영화 포스터 상태 조회 실패:", posterError);
         }
 
         refreshRecommendationPoster(movieCode, attempt + 1);
-      }, 4000);
+      }, getPosterPollDelay(attempt));
     };
 
     const completeRecommendation = async (candidate) => {
