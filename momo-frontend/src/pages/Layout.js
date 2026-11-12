@@ -10,6 +10,7 @@ import styled from "styled-components";
 
 import textlogo from "../textlogo.png";
 import AxiosApi, { clearAuthSession } from "../api/AxiosApi";
+import { getCurrentFavoriteUserId, syncFavoriteMoviesFromServer } from "../utils/favorites";
 import MovieSearchAutocomplete from "../components/common/MovieSearchAutocomplete";
 
 const Container = styled.div`
@@ -254,6 +255,25 @@ function Layout() {
   const [logoutLoading, setLogoutLoading] = useState(false);
 
   // ========================================
+  // 로그인한 회원의 관심 영화는 서버를 기준으로 동기화한다.
+  useEffect(() => {
+    const syncFavorites = () => {
+      const currentUserId = getCurrentFavoriteUserId();
+      if (!currentUserId) return;
+
+      syncFavoriteMoviesFromServer(currentUserId).catch((error) => {
+        console.error("관심 영화 동기화 실패:", error);
+      });
+    };
+
+    syncFavorites();
+    window.addEventListener("momo-auth-changed", syncFavorites);
+
+    return () => {
+      window.removeEventListener("momo-auth-changed", syncFavorites);
+    };
+  }, []);
+
   // 서버 로그인 상태 확인
   // ========================================
 
