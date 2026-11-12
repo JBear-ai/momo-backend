@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import SafeImage from "../components/common/SafeImage";
 import { useNavigate } from "react-router-dom";
 import {
   getCurrentFavoriteUserId,
@@ -111,19 +112,15 @@ function FavoriteMovies() {
                         onClick: () => navigate(`/movie/${movie.movieCode}`),
                         "aria-label": `${movie.title} 상세 보기`,
                       },
-                      movie.posterUrl
-                        ? React.createElement("img", {
-                            src: resolvePosterUrl(movie.posterUrl),
-                            alt: `${movie.title} 포스터`,
-                            onError: (event) => {
-                              event.currentTarget.style.display = "none";
-                            },
-                          })
-                        : React.createElement(
-                            "div",
-                            { className: "favorite-page-no-poster" },
-                            "포스터 없음",
-                          ),
+                      React.createElement(SafeImage, {
+                        src: resolvePosterUrl(movie.posterUrl),
+                        alt: `${movie.title} 포스터`,
+                        fallback: React.createElement(
+                          "div",
+                          { className: "favorite-page-no-poster" },
+                          "포스터 없음",
+                        ),
+                      }),
                     ),
                     React.createElement(FavoriteStar, { movie }),
                   ),
