@@ -22,7 +22,7 @@ class CommentReactionServiceTest {
 
         when(user.getUserId()).thenReturn(9L);
         when(userRepository.findByLoginIdForUpdate("member")).thenReturn(Optional.of(user));
-        when(commentRepository.findById(21L)).thenReturn(Optional.of(mock(Comment.class)));
+        when(commentRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(mock(Comment.class)));
         when(reactionRepository.findByUser_UserIdAndComment_CommentId(9L, 21L))
                 .thenReturn(Optional.of(existing));
 
