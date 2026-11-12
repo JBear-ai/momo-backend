@@ -8,6 +8,7 @@ function SafeImage({
   fallbackClassName,
   fallbackText = "MOMO",
   fallback,
+  onError,
   ...imageProps
 }) {
   const [failed, setFailed] = useState(!src);
@@ -17,7 +18,7 @@ function SafeImage({
   }, [src]);
 
   if (!src || failed) {
-    if (fallback) return fallback;
+    if (fallback !== undefined) return fallback;
 
     return React.createElement(
       "div",
@@ -35,7 +36,10 @@ function SafeImage({
     src,
     alt,
     className,
-    onError: () => setFailed(true),
+    onError: (event) => {
+      setFailed(true);
+      onError?.(event);
+    },
   });
 }
 
