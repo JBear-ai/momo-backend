@@ -117,6 +117,30 @@ describe("회원별 관심 영화", () => {
     expect(getFavoriteMovies()).toEqual([movie]);
   });
 
+  test("계정 전환 중 이전 계정의 관심 영화가 새 계정으로 이전되지 않는다", async () => {
+    localStorage.setItem("accessToken", "token-a");
+    localStorage.setItem("username", "member-a");
+    toggleFavoriteMovie(movie);
+
+    let resolveServerFavorites;
+    AxiosApi.favoriteMovies.mockReturnValue(
+      new Promise((resolve) => {
+        resolveServerFavorites = resolve;
+      }),
+    );
+
+    const syncPromise = syncFavoriteMoviesFromServer("member-a");
+
+    // 서버 응답이 오기 전에 다른 회원으로 전환한다.
+    localStorage.setItem("accessToken", "token-b");
+    localStorage.setItem("username", "member-b");
+    resolveServerFavorites({ data: [] });
+
+    await expect(syncPromise).resolves.toEqual([]);
+    expect(AxiosApi.favoriteMovieAdd).not.toHaveBeenCalled();
+    expect(localStorage.getItem("momo-favorite-movies:member-b")).toBeNull();
+  });
+
   test("관심 영화 추가와 해제는 서버 저장 후 로컬 캐시를 갱신한다", async () => {
     localStorage.setItem("accessToken", "token-a");
     localStorage.setItem("username", "member-a");
