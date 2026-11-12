@@ -48,21 +48,23 @@ function AllReviews() {
         setReviews(reviewList);
         setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
 
-        // 댓글 수와 반응 통계는 페이지 단위로 집계하고, 포스터 수집 요청만 영화별로 유지한다.
+        // 통계와 포스터 수집 요청을 페이지 단위로 묶는다.
         const reviewIds = reviewList.map((review) => review.reviewId);
-        const [summaryResult, posterResults] = await Promise.all([
+        const movieCodes = [...new Set(
+          reviewList.map((review) => review.movieCode).filter(Boolean),
+        )];
+
+        const [summaryResult, posterResult] = await Promise.all([
           reviewIds.length
             ? AxiosApi.reviewSummaries(reviewIds, controller.signal)
                 .then((result) => ({ status: "fulfilled", data: result.data }))
                 .catch((reason) => ({ status: "rejected", reason }))
             : Promise.resolve({ status: "fulfilled", data: [] }),
-          Promise.allSettled(
-            reviewList.map((review) =>
-              review.movieCode
-                ? AxiosApi.moviePoster(review.movieCode, controller.signal)
-                : Promise.resolve(null),
-            ),
-          ),
+          movieCodes.length
+            ? AxiosApi.moviePostersEnsure(movieCodes, controller.signal)
+                .then((result) => ({ status: "fulfilled", data: result.data }))
+                .catch((reason) => ({ status: "rejected", reason }))
+            : Promise.resolve({ status: "fulfilled", data: [] }),
         ]);
 
         if (controller.signal.aborted) return;
@@ -70,24 +72,21 @@ function AllReviews() {
         if (summaryResult.status === "rejected") {
           console.error("리뷰 요약 조회 실패:", summaryResult.reason);
         }
+        if (posterResult.status === "rejected") {
+          console.error("일괄 포스터 조회 실패:", posterResult.reason);
+        }
 
         const summaryByReviewId = new Map(
           (summaryResult.data || []).map((summary) => [summary.reviewId, summary]),
         );
+        const posterByMovieCode = new Map(
+          (posterResult.data || []).map((poster) => [poster.movieCode, poster]),
+        );
         const infoMap = {};
 
-        reviewList.forEach((review, index) => {
-          const posterResult = posterResults[index];
-          const poster =
-            posterResult?.status === "fulfilled" && posterResult.value
-              ? posterResult.value.data
-              : null;
+        reviewList.forEach((review) => {
           const summary = summaryByReviewId.get(review.reviewId);
-
-          if (posterResult?.status === "rejected") {
-            console.error("영화 포스터 조회 실패:", posterResult.reason);
-          }
-
+          const poster = posterByMovieCode.get(review.movieCode);
           infoMap[review.reviewId] = {
             reviewId: review.reviewId,
             posterUrl: poster?.posterUrl || "",
