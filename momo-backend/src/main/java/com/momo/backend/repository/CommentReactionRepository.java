@@ -66,19 +66,6 @@ public interface CommentReactionRepository
             @Param("userId") Long userId
     );
 
-    // 동시 좋아요/싫어요 요청을 DB upsert로 직렬화한다.
-    @Modifying
-    @Query(value = """
-            INSERT INTO comment_reactions (user_id, comment_id, liked)
-            VALUES (:userId, :commentId, :liked)
-            ON DUPLICATE KEY UPDATE liked = VALUES(liked)
-            """, nativeQuery = true)
-    int upsertReaction(
-            @Param("userId") Long userId,
-            @Param("commentId") Long commentId,
-            @Param("liked") Boolean liked
-    );
-
     // 특정 회원이 특정 댓글에 남긴 반응 조회
     Optional<CommentReaction> findByUser_UserIdAndComment_CommentId(
             Long userId, Long commentId
