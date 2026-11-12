@@ -75,7 +75,8 @@ class CommentServiceTest {
                 .thenReturn(0L);
 
         CommentRequest request = new CommentRequest();
-        request.setContent("동시성 검증 댓글");
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                request, "content", "동시성 검증 댓글");
 
         CommentResponse response = commentService.createComment(15L, "member", request);
 
