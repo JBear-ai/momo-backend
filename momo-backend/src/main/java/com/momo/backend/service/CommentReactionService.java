@@ -2,7 +2,6 @@
 package com.momo.backend.service;
 
 import com.momo.backend.entity.Comment;
-import com.momo.backend.entity.CommentReaction;
 import com.momo.backend.entity.User;
 import com.momo.backend.exception.CustomException;
 import com.momo.backend.repository.CommentReactionRepository;
@@ -45,25 +44,8 @@ public class CommentReactionService {
             throw new IllegalArgumentException("좋아요 또는 싫어요를 선택해주세요.");
         }
 
-        // 기존에 남긴 반응이 있는지 확인
-        CommentReaction reaction = reactionRepository
-                .findByUser_UserIdAndComment_CommentId(
-                        user.getUserId(), commentId
-                )
-                .orElse(null);
-
-        if (reaction == null) {
-
-            // 반응이 없으면 새로 저장
-            reactionRepository.save(
-                    new CommentReaction(user, comment, liked)
-            );
-
-        } else {
-
-            // 기존 반응이 있으면 좋아요/싫어요 변경
-            reaction.updateReaction(liked);
-        }
+        // 단일 upsert 쿼리로 신규 등록과 기존 반응 변경을 함께 처리한다.
+        reactionRepository.upsertReaction(user.getUserId(), commentId, liked);
     }
 
     // 로그인한 사용자의 댓글 반응 취소
