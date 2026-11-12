@@ -44,74 +44,69 @@ function LikedReviews() {
         setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
         setTotalElements(data.page?.totalElements ?? data.totalElements ?? 0);
 
-        // 리뷰별 영화 정보, 포스터, 댓글, 반응 개수 조회
-        const results = await Promise.all(
-          reviewList.map(async (review) => {
-            const [detailResult, posterResult, commentsResult, reactionResult] =
-              await Promise.allSettled([
+        // 댓글·반응 통계는 페이지 단위로 집계하고, 영화 상세·포스터 요청만 개별 실행한다.
+        const reviewIds = reviewList.map((review) => review.reviewId);
+        const [summaryResult, results] = await Promise.all([
+          reviewIds.length
+            ? AxiosApi.reviewSummaries(reviewIds, controller.signal)
+                .then((result) => ({ status: "fulfilled", data: result.data }))
+                .catch((reason) => ({ status: "rejected", reason }))
+            : Promise.resolve({ status: "fulfilled", data: [] }),
+          Promise.all(
+            reviewList.map(async (review) => {
+              const [detailResult, posterResult] = await Promise.allSettled([
                 AxiosApi.movieDetail(review.movieCode, controller.signal),
-
                 AxiosApi.moviePoster(review.movieCode, controller.signal),
-
-                AxiosApi.reviewComments(review.reviewId, 0, controller.signal),
-
-                AxiosApi.reviewReactionCounts(
-                  review.reviewId,
-                  controller.signal,
-                ),
               ]);
 
-            if (controller.signal.aborted) return null;
+              if (controller.signal.aborted) return null;
 
-            const movie =
-              detailResult.status === "fulfilled"
-                ? detailResult.value.data
-                : null;
+              const movie =
+                detailResult.status === "fulfilled"
+                  ? detailResult.value.data
+                  : null;
+              const poster =
+                posterResult.status === "fulfilled"
+                  ? posterResult.value.data
+                  : null;
 
-            const poster =
-              posterResult.status === "fulfilled"
-                ? posterResult.value.data
-                : null;
+              if (detailResult.status === "rejected") {
+                console.error("영화 정보 조회 실패:", detailResult.reason);
+              }
+              if (posterResult.status === "rejected") {
+                console.error("영화 포스터 조회 실패:", posterResult.reason);
+              }
 
-            const comments =
-              commentsResult.status === "fulfilled"
-                ? commentsResult.value.data
-                : null;
-
-            const reactions =
-              reactionResult.status === "fulfilled"
-                ? reactionResult.value.data
-                : null;
-
-            return {
-              reviewId: review.reviewId,
-
-              title: movie?.title || "영화 정보 없음",
-
-              releaseDate: movie?.releaseDate || "",
-
-              posterUrl: poster?.posterUrl || "",
-
-              commentCount:
-                comments?.page?.totalElements ??
-                comments?.totalElements ??
-                comments?.content?.length ??
-                0,
-
-              likeCount: reactions?.likeCount ?? 0,
-            };
-          }),
-        );
+              return {
+                reviewId: review.reviewId,
+                title: movie?.title || "영화 정보 없음",
+                releaseDate: movie?.releaseDate || "",
+                posterUrl: poster?.posterUrl || "",
+              };
+            }),
+          ),
+        ]);
 
         if (controller.signal.aborted) return;
 
-        // 리뷰 ID를 기준으로 영화 및 통계 정보 연결
+        if (summaryResult.status === "rejected") {
+          console.error("리뷰 요약 조회 실패:", summaryResult.reason);
+        }
+
+        const summaryByReviewId = new Map(
+          (summaryResult.data || []).map((summary) => [summary.reviewId, summary]),
+        );
         const infoMap = {};
 
         results.forEach((result) => {
-          if (result) {
-            infoMap[result.reviewId] = result;
-          }
+          if (!result) return;
+          const summary = summaryByReviewId.get(result.reviewId);
+          infoMap[result.reviewId] = {
+            ...result,
+            commentCount: summary?.commentCount ?? 0,
+            likeCount: summary?.likeCount ?? 0,
+            dislikeCount: summary?.dislikeCount ?? 0,
+          };
         });
 
         setReviewInfo(infoMap);
