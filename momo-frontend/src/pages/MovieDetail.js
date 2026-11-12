@@ -431,11 +431,18 @@ function MovieDetail() {
   // =========================================================
 
   function moveToPersonDetail(person, type) {
-    const identifier = person.name?.trim();
+    const personId = Number(person.personId);
 
+    // TMDb 인물 ID가 있으면 동명이인 검색을 거치지 않고 고유 ID로 이동한다.
+    if (Number.isSafeInteger(personId) && personId > 0) {
+      navigate(`/person/${type}/${personId}`);
+      return;
+    }
+
+    const identifier = person.name?.trim();
     if (!identifier || identifier === "이름 없음") return;
 
-    // 인물 식별은 상세 화면에서 이름과 분야를 기준으로 처리하고 외부 ID는 URL에 노출하지 않는다.
+    // KOBIS 이름 정보만 있는 인물은 기존 이름 검색 경로를 유지한다.
     navigate(`/person/${type}/${encodeURIComponent(identifier)}`);
   }
 
