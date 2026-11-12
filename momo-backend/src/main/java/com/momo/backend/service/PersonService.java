@@ -388,8 +388,6 @@ public class PersonService {
 
             int totalCount = result.path("totCnt").asInt(candidates.size());
             maxPages = Math.min(5, Math.max(1, (totalCount + 99) / 100));
-            boolean foundOnPage = false;
-
             for (JsonNode candidate : candidates) {
                 String movieCode = text(candidate, "movieCd");
                 if (!PosterFileStorageService.isValidMovieCode(movieCode)) continue;
@@ -402,11 +400,11 @@ public class PersonService {
                 if (previous == null || score > previous.score()) {
                     matched.put(movieCode, new ScoredFilmographyCandidate(candidate, score));
                 }
-                foundOnPage = true;
             }
 
-            // 첫 페이지에서 후보가 확인되면 불필요한 페이지 호출을 하지 않는다.
-            if (foundOnPage || candidates.size() < 100) return;
+            // 동명·리메이크 작품이 다음 페이지에 있을 수 있으므로
+            // KOBIS가 반환한 전체 페이지(최대 5페이지)를 비교한다.
+            if (candidates.size() < 100) return;
         }
     }
 
