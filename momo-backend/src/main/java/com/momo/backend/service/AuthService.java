@@ -173,7 +173,9 @@ public class AuthService {
     // 회원 탈퇴
 
     public void deleteMyAccount(String loginId, String password) {
-        User user = getLoginUser(loginId);
+        // 회원 행을 잠가 다른 생성·반응 요청과 탈퇴 작업을 직렬화한다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
