@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AxiosApi from "../api/AxiosApi";
+import SafeImage from "./common/SafeImage";
 import momoLogo from "../image/std_logo.png";
 
 // 모든 화면에서 동일한 프로필 이미지 조회 및 MOMO 기본 로고 처리를 담당한다.
@@ -55,11 +56,14 @@ function ProfileAvatar({
   const imageSource = !failed && (src || loadedImage) ? (src || loadedImage) : momoLogo;
 
   return (
-    <img
+    <SafeImage
       className={className}
       src={imageSource}
       alt={alt}
       onError={() => setFailed(true)}
+      fallback={
+        <img className={className} src={momoLogo} alt={alt} />
+      }
     />
   );
 }
