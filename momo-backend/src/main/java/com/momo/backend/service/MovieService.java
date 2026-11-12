@@ -70,6 +70,13 @@ public class MovieService {
 
     private static final long SEARCH_CACHE_HOURS = 24;
     private static final long DAILY_BOX_OFFICE_CACHE_HOURS = 1;
+    private static final long BOX_OFFICE_HISTORY_REFRESH_MINUTES = 45;
+    private static final long BOX_OFFICE_HISTORY_FAILURE_RETRY_MINUTES = 5;
+
+    private final Object recentBoxOfficeHistoryLock = new Object();
+    private volatile LocalDate recentBoxOfficeHistoryDate;
+    private volatile LocalDateTime recentBoxOfficeHistoryNextRefreshAt;
+    private boolean recentBoxOfficeHistoryRefreshInProgress;
 
     // KOBIS 목록은 페이지당 최대 100개씩 전체 페이지를 순회한다.
     private static final int GENRE_SCAN_SIZE = 100;
@@ -1290,17 +1297,44 @@ public class MovieService {
     private void refreshRecentBoxOfficeHistory() {
         LocalDate today = LocalDate.now();
 
-        // 오늘 기준 어제부터 7일 전까지의 일별 순위를 누적한다.
-        for (int daysAgo = 1; daysAgo <= 7; daysAgo++) {
-            String targetDate = today.minusDays(daysAgo)
-                    .format(DateTimeFormatter.BASIC_ISO_DATE);
+        // 추천 화면을 열 때마다 7일 치 DB 이력 갱신을 반복하지 않는다.
+        // 날짜가 바뀌면 즉시 한 번 갱신하고, 성공하면 45분·일부 실패 시 5분 후 다시 시도한다.
+        synchronized (recentBoxOfficeHistoryLock) {
+            LocalDateTime now = LocalDateTime.now();
+            if (recentBoxOfficeHistoryRefreshInProgress
+                    || (today.equals(recentBoxOfficeHistoryDate)
+                    && recentBoxOfficeHistoryNextRefreshAt != null
+                    && recentBoxOfficeHistoryNextRefreshAt.isAfter(now))) {
+                return;
+            }
+            recentBoxOfficeHistoryRefreshInProgress = true;
+        }
 
-            try {
-                getDailyBoxOffice(targetDate);
-            } catch (Exception e) {
-                // 특정 날짜의 API 응답이 실패해도 나머지 날짜는 계속 확인한다.
-                log.warn("최근 박스오피스 이력 수집 실패. targetDate: {}",
-                        targetDate, e);
+        boolean failed = false;
+        try {
+            // 오늘 기준 어제부터 7일 전까지의 일별 순위를 누적한다.
+            for (int daysAgo = 1; daysAgo <= 7; daysAgo++) {
+                String targetDate = today.minusDays(daysAgo)
+                        .format(DateTimeFormatter.BASIC_ISO_DATE);
+
+                try {
+                    getDailyBoxOffice(targetDate);
+                } catch (Exception e) {
+                    failed = true;
+                    // 특정 날짜의 API 응답이 실패해도 나머지 날짜는 계속 확인한다.
+                    log.warn("최근 박스오피스 이력 수집 실패. targetDate: {}",
+                            targetDate, e);
+                }
+            }
+        } finally {
+            synchronized (recentBoxOfficeHistoryLock) {
+                recentBoxOfficeHistoryDate = today;
+                recentBoxOfficeHistoryNextRefreshAt = LocalDateTime.now().plusMinutes(
+                        failed
+                                ? BOX_OFFICE_HISTORY_FAILURE_RETRY_MINUTES
+                                : BOX_OFFICE_HISTORY_REFRESH_MINUTES
+                );
+                recentBoxOfficeHistoryRefreshInProgress = false;
             }
         }
     }
