@@ -4,12 +4,13 @@ import {
   NavLink,
   Outlet,
   useNavigate,
-  useSearchParams,
   useLocation,
 } from "react-router-dom";
 import styled from "styled-components";
+
 import textlogo from "../textlogo.png";
 import AxiosApi, { clearAuthSession } from "../api/AxiosApi";
+import MovieSearchAutocomplete from "../components/common/MovieSearchAutocomplete";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -51,52 +52,6 @@ const LogoImage = styled.img`
   width: auto;
   height: 38px;
   object-fit: contain;
-`;
-
-const SearchForm = styled.form`
-  display: flex;
-  align-items: center;
-  background-color: #fffaec;
-  border: 1px solid #efe6d0;
-  border-radius: 20px;
-  padding: 6px 16px;
-  width: 340px;
-  max-width: 100%;
-  box-sizing: border-box;
-  transition: all 0.2s ease;
-
-  &:focus-within {
-    border-color: #ffd43b;
-    box-shadow: 0 0 0 3px rgba(255, 212, 59, 0.2);
-  }
-`;
-
-const SearchInput = styled.input`
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 14px;
-  color: #1c1a17;
-
-  &::placeholder {
-    color: #948b7c;
-  }
-`;
-
-const SearchButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-  color: #594400;
-  padding: 2px 4px;
-  margin-left: 6px;
-
-  &:hover {
-    color: #1c1a17;
-  }
 `;
 
 const Navigation = styled.nav`
@@ -292,19 +247,11 @@ const FooterBottom = styled.div`
 
 function Layout() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const location = useLocation();
-
-  const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
 
   const [nickname, setNickname] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [logoutLoading, setLogoutLoading] = useState(false);
-
-  // URL 검색어 변경 시 헤더 검색창 동기화
-  useEffect(() => {
-    setKeyword(searchParams.get("keyword") || "");
-  }, [searchParams]);
 
   // ========================================
   // 서버 로그인 상태 확인
@@ -365,20 +312,6 @@ function Layout() {
   }, [location.pathname]);
 
   // ========================================
-  // 영화 검색
-  // ========================================
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-
-    const trimmedKeyword = keyword.trim();
-
-    if (!trimmedKeyword) return;
-
-    navigate(`/search?keyword=${encodeURIComponent(trimmedKeyword)}`);
-  };
-
-  // ========================================
   // 로그아웃
   // ========================================
 
@@ -420,17 +353,8 @@ function Layout() {
           <LogoImage src={textlogo} alt="MOMO" />
         </Logo>
 
-        <SearchForm onSubmit={handleSearchSubmit}>
-          <SearchInput
-            type="text"
-            placeholder="영화 제목 또는 키워드 검색"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            aria-label="영화 검색어"
-          />
-
-          <SearchButton type="submit">검색</SearchButton>
-        </SearchForm>
+        {/* 영화 검색 자동완성 공통 컴포넌트 */}
+        <MovieSearchAutocomplete />
 
         <Navigation>
           {!authLoading &&
