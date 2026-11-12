@@ -406,8 +406,8 @@ function Home() {
             "div",
             {"className":"home-favorites-empty"},
             React.createElement(
-            "div",
-            { "className": "home-favorites-empty" },
+            React.Fragment,
+            null,
             React.createElement("strong", null, "아직 관심 영화가 없어요."),
             React.createElement(
               "p",
