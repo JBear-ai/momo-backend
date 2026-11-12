@@ -3,6 +3,7 @@ package com.momo.backend.repository;
 
 import com.momo.backend.entity.MovieRating;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -44,6 +45,8 @@ public interface MovieRatingRepository
             Boolean liked
     );
 
-    // 특정 회원이 남긴 영화 평가 전체 삭제
-    void deleteByUser_UserId(Long userId);
+    // 회원 탈퇴 시 본인의 영화 평가를 한 번의 DELETE 쿼리로 정리한다.
+    @Modifying
+    @Query("delete from MovieRating rating where rating.user.userId = :userId")
+    int deleteAuthoredByUserId(@Param("userId") Long userId);
 }
