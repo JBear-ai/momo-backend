@@ -1,6 +1,7 @@
 package com.momo.backend.service;
 
 import com.momo.backend.dto.comment.CommentResponse;
+import com.momo.backend.dto.comment.CommentRequest;
 import com.momo.backend.entity.Comment;
 import com.momo.backend.entity.Review;
 import com.momo.backend.entity.User;
