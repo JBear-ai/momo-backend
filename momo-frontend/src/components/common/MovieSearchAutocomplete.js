@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import AxiosApi from "../../api/AxiosApi";
+import SafeImage from "./SafeImage";
 import { resolvePosterUrl } from "../../utils/mediaUrl";
 
 function MovieSearchAutocomplete() {
@@ -215,18 +216,13 @@ function MovieSearchAutocomplete() {
                 aria-label={`${movie.title} 상세 페이지 이동`}
               >
                 <div className="momo-search-poster">
-                  {movie.posterUrl ? (
-                    <img
-                      src={resolvePosterUrl(movie.posterUrl)}
-                      alt={`${movie.title} 포스터`}
-                      loading="lazy"
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div className="momo-search-poster-fallback">🎬</div>
-                  )}
+                  <SafeImage
+                    src={resolvePosterUrl(movie.posterUrl)}
+                    alt={`${movie.title} 포스터`}
+                    loading="lazy"
+                    fallbackClassName="momo-search-poster-fallback"
+                    fallbackText="🎬"
+                  />
                 </div>
 
                 <div className="momo-search-info">
