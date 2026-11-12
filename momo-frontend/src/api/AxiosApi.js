@@ -506,6 +506,15 @@ const AxiosApi = {
     });
   },
 
+  // 한 페이지의 리뷰 댓글·반응 통계를 한 번에 조회
+  reviewSummaries: async (reviewIds, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/reviews/summaries`, {
+      params: { reviewIds: reviewIds.join(",") },
+      withCredentials: true,
+      signal,
+    });
+  },
+
   // 18-1. 내가 작성한 리뷰 목록 조회
   myReviews: async (page = 0, signal) => {
     return await axios.get(`${HM_DOMAIN}/api/reviews/me`, {
