@@ -99,7 +99,7 @@ function PersonDetail() {
         setVisibleCount(10);
 
         // 숫자형 식별자는 TMDb 인물 고유 ID로 조회해 동명이인 오연결을 방지한다.
-        const response = /^\\d+$/.test(identifier)
+        const response = /^\d+$/.test(identifier)
           ? await AxiosApi.getPersonDetailById(type, identifier, controller.signal)
           : await AxiosApi.getPersonDetail(type, identifier, controller.signal);
 
