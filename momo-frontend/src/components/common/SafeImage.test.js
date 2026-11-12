@@ -30,6 +30,24 @@ describe("SafeImage", () => {
     );
   });
 
+  test("notifies the parent when the image fails", () => {
+    const onError = jest.fn();
+
+    render(
+      React.createElement(SafeImage, {
+        src: "/posters/missing.jpg",
+        alt: "영화 포스터",
+        fallback: null,
+        onError,
+      }),
+    );
+
+    fireEvent.error(screen.getByAltText("영화 포스터"));
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(screen.queryByAltText("영화 포스터")).not.toBeInTheDocument();
+  });
+
   test("replaces a broken image with the fallback", () => {
     render(
       React.createElement(SafeImage, {
