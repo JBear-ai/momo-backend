@@ -278,7 +278,7 @@ public class ReviewService {
         Pageable pageable = PageRequest.of(page, 10);
 
         return reviewRepository
-                .findByMovieCodeOrderByCreatedAtDesc(
+                .findByMovieCodeOrderByCreatedAtDescReviewIdDesc(
                         movieCode,
                         pageable
                 )
