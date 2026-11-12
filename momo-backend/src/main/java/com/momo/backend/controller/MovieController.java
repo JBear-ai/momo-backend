@@ -49,6 +49,35 @@ public class MovieController {
                                 movieService.searchMovies(keyword, page, size));
         }
 
+        // MOMO 영화 코드 또는 TMDb ID를 하나의 URL 식별자로 조회한다.
+        @GetMapping("/resolve/{identifier}")
+        public ResponseEntity<?> getMovieDetailByIdentifier(@PathVariable String identifier) {
+                if (identifier == null || identifier.isBlank()) {
+                        throw new ResponseStatusException(
+                                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                                        "영화 식별자가 비어 있습니다.");
+                }
+
+                // DB에 등록된 8자리 영화 코드를 우선 사용한다.
+                if (movieService.isRegisteredMovieCode(identifier)) {
+                        return ResponseEntity.ok(movieService.getMovieDetail(identifier));
+                }
+
+                // KOBIS 코드는 영문자를 포함할 수 있다. 숫자형 미등록 식별자는 TMDb ID로 처리한다.
+                if (identifier.matches("[A-Za-z0-9]{8}") && !identifier.matches("\\d{8}")) {
+                        return ResponseEntity.ok(movieService.getMovieDetail(identifier));
+                }
+
+                if (identifier.matches("\\d{1,10}")) {
+                        long tmdbId = Long.parseLong(identifier);
+                        return getMovieDetailByTmdbId(tmdbId);
+                }
+
+                throw new ResponseStatusException(
+                                org.springframework.http.HttpStatus.NOT_FOUND,
+                                "MOMO에서 해당 영화를 찾을 수 없습니다.");
+        }
+
         // TMDb ID로 상세정보와 인물 정보를 확보하고, KOBIS 연결은 기존 커뮤니티 기능에 재사용한다.
         @GetMapping("/tmdb/{tmdbId}")
         public ResponseEntity<?> getMovieDetailByTmdbId(@PathVariable long tmdbId) {
