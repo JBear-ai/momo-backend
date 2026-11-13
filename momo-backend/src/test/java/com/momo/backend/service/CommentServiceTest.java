@@ -233,6 +233,8 @@ class CommentServiceTest {
         LocalDateTime createdAt = LocalDateTime.now();
 
         User author = org.mockito.Mockito.mock(User.class);
+        Review review = org.mockito.Mockito.mock(Review.class);
+        when(review.getReviewId()).thenReturn(reviewId);
         when(reviewRepository.existsById(reviewId)).thenReturn(true);
         when(userRepository.findByLoginId("member"))
                 .thenReturn(java.util.Optional.of(author));
@@ -244,11 +246,13 @@ class CommentServiceTest {
         Comment second = org.mockito.Mockito.mock(Comment.class);
         when(first.getCommentId()).thenReturn(27L);
         when(first.getUser()).thenReturn(author);
+        when(first.getReview()).thenReturn(review);
         when(first.getContent()).thenReturn("첫 번째 댓글");
         when(first.getCreatedAt()).thenReturn(createdAt);
         when(first.getUpdatedAt()).thenReturn(createdAt);
         when(second.getCommentId()).thenReturn(28L);
         when(second.getUser()).thenReturn(author);
+        when(second.getReview()).thenReturn(review);
         when(second.getContent()).thenReturn("두 번째 댓글");
         when(second.getCreatedAt()).thenReturn(createdAt.plusSeconds(1));
         when(second.getUpdatedAt()).thenReturn(createdAt.plusSeconds(1));
