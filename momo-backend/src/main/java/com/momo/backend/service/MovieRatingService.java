@@ -1,4 +1,3 @@
-
 package com.momo.backend.service;
 
 import com.momo.backend.entity.Movie;
@@ -135,7 +134,6 @@ public class MovieRatingService {
             String loginId
     ) {
 
-        // 영화 존재 여부 확인
         if (!movieRepository.existsById(movieCode)) {
             throw new CustomException(
                     "MOVIE_NOT_FOUND",
@@ -143,45 +141,26 @@ public class MovieRatingService {
             );
         }
 
-        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
-        MovieRatingRepository.MovieRatingCountSummary counts =
-                movieRatingRepository.findCountsByMovieCode(movieCode);
-        long likeCount = counts.getLikeCount();
-        long dislikeCount = counts.getDislikeCount();
+        // 좋아요·싫어요 수와 로그인 회원의 반응을 단일 집계 쿼리로 조회한다.
+        // 기존의 전체 집계 + 회원 조회 + 회원별 평가 조회(최대 3회)를 1회로 줄인다.
+        MovieRatingRepository.MovieRatingResponseSummary summary =
+                movieRatingRepository.findResponseSummaryByMovieCode(
+                        movieCode,
+                        loginId == null || loginId.isBlank() ? null : loginId
+                );
 
+        long likeCount = summary == null ? 0L : summary.getLikeCount();
+        long dislikeCount = summary == null ? 0L : summary.getDislikeCount();
         long totalCount = likeCount + dislikeCount;
 
-        // 긍정 평가 비율 계산
-        Double positiveRate = null;
+        Double positiveRate = totalCount == 0
+                ? null
+                : Math.round((double) likeCount / totalCount * 1000) / 10.0;
 
-        if (totalCount > 0) {
-            positiveRate = Math.round(
-                    (double) likeCount / totalCount * 1000
-            ) / 10.0;
-        }
-
-        // 로그인하지 않은 회원의 평가 상태는 null
-        Boolean myRating = null;
-
-        // 로그인한 회원이면 기존 평가 확인
-        if (loginId != null) {
-
-            User user = userRepository.findByLoginId(loginId)
-                    .orElse(null);
-
-            if (user != null) {
-                myRating = movieRatingRepository
-                        .findByUser_UserIdAndMovie_MovieCode(
-                                user.getUserId(),
-                                movieCode
-                        )
-                        .map(rating -> rating == null ? null : rating.getLiked())
-                        .orElse(null);
-            }
-        }
+        Integer myRatingValue = summary == null ? null : summary.getMyRating();
+        Boolean myRating = myRatingValue == null ? null : myRatingValue == 1;
 
         Map<String, Object> result = new HashMap<>();
-
         result.put("movieCode", movieCode);
         result.put("likeCount", likeCount);
         result.put("dislikeCount", dislikeCount);
