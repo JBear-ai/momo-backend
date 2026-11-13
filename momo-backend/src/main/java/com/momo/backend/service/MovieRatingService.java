@@ -24,6 +24,7 @@ public class MovieRatingService {
     private final MovieRatingRepository movieRatingRepository;
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
+    private final MovieService movieService;
 
     // 영화 좋아요 또는 싫어요 등록 및 변경
     public void saveRating(
@@ -128,37 +129,42 @@ public class MovieRatingService {
     }
 
     // 특정 영화의 전체 평가 및 로그인 회원의 평가 상태 조회
-    @Transactional(readOnly = true)
     public Map<String, Object> getMovieRating(
             String movieCode,
             String loginId
     ) {
-
-        // 영화 존재 여부, 전체 반응 수, 로그인 회원의 반응을 한 번의 쿼리로 조회한다.
-        // 집계 결과가 없으면 영화 자체가 등록되지 않은 경우다.
-        MovieRatingRepository.MovieRatingResponseSummary summary =
-                movieRatingRepository.findResponseSummaryByMovieCode(
-                        movieCode,
-                        loginId == null || loginId.isBlank() ? null : loginId
+        // 상세정보 경로에서 등록이 누락된 KOBIS 영화도 평가 조회 시 DB에 먼저 등록한다.
+        if (!movieRepository.existsById(movieCode)) {
+            movieService.getMovieDetail(movieCode);
+            if (!movieRepository.existsById(movieCode)) {
+                throw new CustomException(
+                        "MOVIE_NOT_FOUND",
+                        "영화 정보를 등록하지 못했습니다."
                 );
-
-        if (summary == null) {
-            throw new CustomException(
-                    "MOVIE_NOT_FOUND",
-                    "영화 정보를 찾을 수 없습니다."
-            );
+            }
         }
 
-        long likeCount = summary.getLikeCount();
-        long dislikeCount = summary.getDislikeCount();
+        long likeCount = movieRatingRepository.countByMovie_MovieCodeAndLiked(
+                movieCode, true);
+        long dislikeCount = movieRatingRepository.countByMovie_MovieCodeAndLiked(
+                movieCode, false);
         long totalCount = likeCount + dislikeCount;
 
         Double positiveRate = totalCount == 0
                 ? null
                 : Math.round((double) likeCount / totalCount * 1000) / 10.0;
 
-        Integer myRatingValue = summary.getMyRating();
-        Boolean myRating = myRatingValue == null ? null : myRatingValue == 1;
+        Boolean myRating = null;
+        if (loginId != null && !loginId.isBlank()
+                && !"anonymousUser".equals(loginId)) {
+            User user = userRepository.findByLoginId(loginId).orElse(null);
+            if (user != null) {
+                MovieRating rating = movieRatingRepository
+                        .findByUser_UserIdAndMovie_MovieCode(user.getUserId(), movieCode)
+                        .orElse(null);
+                myRating = rating == null ? null : rating.getLiked();
+            }
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("movieCode", movieCode);
@@ -167,7 +173,6 @@ public class MovieRatingService {
         result.put("totalCount", totalCount);
         result.put("positiveRate", positiveRate);
         result.put("myRating", myRating);
-
         return result;
     }
 }

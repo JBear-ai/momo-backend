@@ -119,6 +119,21 @@ public class KobisApiClient {
         }));
     }
 
+    public String getWeeklyBoxOffice(String targetDate) {
+        return metrics.record("KOBIS", "getWeeklyBoxOffice", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire(
+                    "KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/boxoffice/searchWeeklyBoxOfficeList.json")
+                            .queryParam("key", apiKey)
+                            .queryParam("targetDt", targetDate)
+                            .queryParam("weekGb", 0)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+        }));
+    }
+
     public String searchMoviesByGenre(int page) {
         return searchCatalogMovies(page, 100, null, null,
                 com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
