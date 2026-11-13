@@ -140,21 +140,33 @@ public class MoviePosterCacheService {
                                 movieCode, missingCacheStatus, "");
                     }
 
-                    String posterUrl = isPosterFileAvailable(cache.getPosterUrl())
-                            ? cache.getPosterUrl()
-                            : "";
-                    return new MoviePosterStatusResponse(
-                            movieCode, cache.getStatus(), posterUrl);
+                    boolean cachePosterAvailable = isPosterFileAvailable(cache.getPosterUrl());
+                    String posterUrl = cachePosterAvailable ? cache.getPosterUrl() : "";
+
+                    // SUCCESS는 실제 로컬 파일까지 확인된 상태에만 사용한다.
+                    // 과거 외부 URL이나 유실된 파일을 SUCCESS로 반환하면 프런트엔드가 재조회하지 않는다.
+                    PosterStatus status = cache.getStatus() == PosterStatus.SUCCESS
+                            && !cachePosterAvailable
+                            ? PosterStatus.FAILED
+                            : cache.getStatus();
+
+                    return new MoviePosterStatusResponse(movieCode, status, posterUrl);
                 })
                 .toList();
     }
 
     public Optional<MoviePosterStatusResponse> findPosterStatus(String movieCode) {
         return posterCacheRepository.findById(movieCode)
-                .map(cache -> new MoviePosterStatusResponse(
-                        cache.getMovieCode(),
-                        cache.getStatus(),
-                        isPosterFileAvailable(cache.getPosterUrl()) ? cache.getPosterUrl() : ""
-                ));
+                .map(cache -> {
+                    boolean posterAvailable = isPosterFileAvailable(cache.getPosterUrl());
+                    PosterStatus status = cache.getStatus() == PosterStatus.SUCCESS && !posterAvailable
+                            ? PosterStatus.FAILED
+                            : cache.getStatus();
+                    return new MoviePosterStatusResponse(
+                            cache.getMovieCode(),
+                            status,
+                            posterAvailable ? cache.getPosterUrl() : ""
+                    );
+                });
     }
 }
