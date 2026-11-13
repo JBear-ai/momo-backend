@@ -367,10 +367,31 @@ public class MovieService {
             }
         }
 
-        // 2. 캐시가 없으면 KOBIS 검색
+        // 2. 캐시가 없으면 KOBIS 검색. 외부 API 장애 시 보관 기간 내 만료 캐시를 사용한다.
         log.info("KOBIS 영화 검색 API 요청. keyword: {}, page: {}, size: {}",
                 searchKeyword, page, size);
-        String json = kobisApiClient.searchMovies(searchKeyword, page, size);
+        String json;
+        try {
+            json = kobisApiClient.searchMovies(searchKeyword, page, size);
+        } catch (RuntimeException apiError) {
+            MovieCache staleCache = movieCacheRepository
+                    .findByCacheTypeAndCacheKey(CACHE_SEARCH, cacheKey)
+                    .orElse(null);
+            if (staleCache != null) {
+                try {
+                    MovieSearchPageResponse staleResponse =
+                            readCachedSearchPage(staleCache.getContentJson());
+                    log.warn("KOBIS 영화 검색 실패. 만료 캐시를 임시 반환합니다. keyword={}, page={}",
+                            searchKeyword, page, apiError);
+                    return attachSavedPosterUrls(staleResponse);
+                } catch (Exception cacheError) {
+                    apiError.addSuppressed(cacheError);
+                    log.warn("KOBIS 검색 대체 캐시를 사용할 수 없습니다. keyword={}, page={}",
+                            searchKeyword, page, cacheError);
+                }
+            }
+            throw apiError;
+        }
 
         JsonNode movieList = readRequiredArray(
                 json,
@@ -1196,9 +1217,31 @@ public class MovieService {
             }
         }
 
-        // 2. 캐시가 없으면 KOBIS 호출
+        // 2. 캐시가 없으면 KOBIS 호출. API 장애 시 보관 기간 내 만료 캐시를 임시 제공한다.
         log.info("KOBIS 일별 박스오피스 API 요청. targetDate: {}", targetDate);
-        String json = kobisApiClient.getDailyBoxOffice(targetDate);
+        String json;
+        try {
+            json = kobisApiClient.getDailyBoxOffice(targetDate);
+        } catch (RuntimeException apiError) {
+            MovieCache staleCache = movieCacheRepository
+                    .findByCacheTypeAndCacheKey(CACHE_DAILY_BOX_OFFICE, targetDate)
+                    .orElse(null);
+            if (staleCache != null) {
+                try {
+                    List<BoxOfficeResponse> staleMovies =
+                            readCachedBoxOffice(staleCache.getContentJson());
+                    log.warn("KOBIS 박스오피스 조회 실패. 만료 캐시를 임시 반환합니다. targetDate={}",
+                            targetDate, apiError);
+                    markBoxOfficeHistory(staleMovies, targetDate);
+                    return enrichBoxOfficePosters(staleMovies);
+                } catch (Exception cacheError) {
+                    apiError.addSuppressed(cacheError);
+                    log.warn("KOBIS 박스오피스 대체 캐시를 사용할 수 없습니다. targetDate={}",
+                            targetDate, cacheError);
+                }
+            }
+            throw apiError;
+        }
 
         JsonNode boxOfficeList = readRequiredArray(
                 json,
