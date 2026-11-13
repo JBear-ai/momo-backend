@@ -481,9 +481,10 @@ const AxiosApi = {
   },
 
   // 15. 로그인 사용자 정보 조회
-  memberMe: async () => {
+  memberMe: async (signal) => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me`, {
       withCredentials: true,
+      signal,
     });
   },
 
