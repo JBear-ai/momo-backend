@@ -1406,7 +1406,7 @@ public class MovieService {
                 if (updateLatestDailyRank) {
                     movie.markBoxOfficeEntered(item.rank(), targetDate);
                 } else {
-                    movie.markWeeklyBoxOfficeEntered(item.rank());
+                    movie.markWeeklyBoxOfficeEntered(item.rank(), targetDate);
                 }
             }
         }
