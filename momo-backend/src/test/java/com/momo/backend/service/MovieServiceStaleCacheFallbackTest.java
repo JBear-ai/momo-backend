@@ -165,7 +165,7 @@ class MovieServiceStaleCacheFallbackTest {
 
         assertEquals(1, response.content().size());
         assertEquals("", response.content().get(0).posterUrl());
-        verify(storageService).exists("/posters/missing-poster.jpg");
+        verify(storageService, atLeastOnce()).exists("/posters/missing-poster.jpg");
     }
 
     @Test
