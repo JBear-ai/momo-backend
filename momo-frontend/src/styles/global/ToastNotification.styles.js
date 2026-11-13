@@ -43,14 +43,16 @@ const ToastNotificationStyles = createGlobalStyle`
   .momo-toast-copy {
     display: grid;
     min-width: 0;
-    gap: 3px;
+    gap: 5px;
   }
 
-  .momo-toast-label {
-    color: #8A7953;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 1.1px;
+  .momo-toast-logo {
+    display: block;
+    width: auto;
+    max-width: 104px;
+    height: 22px;
+    object-fit: contain;
+    object-position: left center;
   }
 
   .momo-toast-copy strong {

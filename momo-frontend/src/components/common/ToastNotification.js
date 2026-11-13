@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import textlogo from "../../textlogo.png";
 
 function ToastNotification() {
   const [toast, setToast] = useState(null);
@@ -50,7 +51,7 @@ function ToastNotification() {
       </div>
 
       <div className="momo-toast-copy">
-        <span className="momo-toast-label">MOMO · MOVIEMEMO</span>
+        <img className="momo-toast-logo" src={textlogo} alt="MOMO" />
         <strong>{toast.nickname}님, 반가워요!</strong>
         <p>오늘도 마음에 남는 영화를 기록해 보세요.</p>
       </div>
