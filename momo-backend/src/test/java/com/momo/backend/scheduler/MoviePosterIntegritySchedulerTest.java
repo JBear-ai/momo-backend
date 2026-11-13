@@ -40,7 +40,7 @@ class MoviePosterIntegritySchedulerTest {
         // 실제 DB 경로 변경과 재수집 큐 등록은 캐시 서비스의 단일 트랜잭션에서 처리한다.
         verify(movieRepository, never()).save(any(Movie.class));
         verify(cacheService).repairMissingPosterFile(
-                "20260001", "테스트 영화", "20260101");
+                "20260001", "테스트 영화", "20260101", "/posters/missing.jpg");
         verify(cacheService, never()).resetMissingPoster(
                 anyString(), anyString(), anyString());
     }
