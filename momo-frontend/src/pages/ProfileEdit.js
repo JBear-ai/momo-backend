@@ -79,10 +79,11 @@ function ProfileEdit() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
 
     async function loadProfile() {
       try {
-        const userResponse = await AxiosApi.memberMe();
+        const userResponse = await AxiosApi.memberMe(controller.signal);
         const user = userResponse.data || {};
 
         if (!active) return;
@@ -103,7 +104,7 @@ function ProfileEdit() {
 
         // 실제 이미지 조회는 ProfileAvatar 공용 컴포넌트가 담당한다.
       } catch (error) {
-        if (!active) return;
+        if (!active || error.code === "ERR_CANCELED" || error.name === "CanceledError") return;
 
         console.error("회원정보 및 프로필 이미지 조회 실패:", error);
 
@@ -117,6 +118,7 @@ function ProfileEdit() {
 
     return () => {
       active = false;
+      controller.abort();
 
       if (profileImageUrlRef.current) {
         URL.revokeObjectURL(profileImageUrlRef.current);
