@@ -81,14 +81,11 @@ export function syncFavoriteMoviesFromServer(
 
   const promise = (async () => {
     const localFavorites = getFavoriteMovies(userId);
-    const shouldMigrateLegacy =
-      localStorage.getItem(LEGACY_MIGRATED_KEY) !== "true";
-    const legacyFavorites = shouldMigrateLegacy
-      ? getLegacyFavoriteMovies()
-      : [];
+    // 전역 legacy key에는 소유자 정보가 없다. 첫 로그인 계정으로 이전하면
+    // 공용 PC의 다른 회원 데이터가 섞일 수 있으므로 회원별 캐시만 이전한다.
     const moviesToMigrate = new Map();
 
-    [...legacyFavorites, ...localFavorites].forEach((movie) => {
+    localFavorites.forEach((movie) => {
       if (movie?.movieCode) {
         moviesToMigrate.set(String(movie.movieCode), movie);
       }
