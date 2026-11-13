@@ -1428,7 +1428,7 @@ public class MovieService {
             try {
                 List<BoxOfficeResponse> cachedMovies = readCachedBoxOffice(cached.getContentJson());
                 markBoxOfficeHistory(cachedMovies, targetDate);
-                return enrichBoxOfficePosters(cachedMovies);
+                return cachedMovies;
             } catch (Exception cacheError) {
                 log.warn("주간 박스오피스 캐시 변환 실패. KOBIS 재조회. targetDate={}",
                         targetDate, cacheError);
@@ -1448,7 +1448,7 @@ public class MovieService {
                     log.warn("주간 박스오피스 조회 실패. 만료 캐시를 임시 반환합니다. targetDate={}",
                             targetDate, apiError);
                     markBoxOfficeHistory(staleMovies, targetDate);
-                    return enrichBoxOfficePosters(staleMovies);
+                    return staleMovies;
                 } catch (Exception cacheError) {
                     apiError.addSuppressed(cacheError);
                 }
@@ -1478,9 +1478,9 @@ public class MovieService {
         }
 
         markBoxOfficeHistory(movies, targetDate);
-        List<BoxOfficeResponse> enriched = enrichBoxOfficePosters(movies);
-        saveCache(CACHE_WEEKLY_BOX_OFFICE, targetDate, enriched, WEEKLY_BOX_OFFICE_CACHE_HOURS);
-        return enriched;
+        // 추천 이력만 수집하므로 포스터 검색 작업은 등록하지 않는다.
+        saveCache(CACHE_WEEKLY_BOX_OFFICE, targetDate, movies, WEEKLY_BOX_OFFICE_CACHE_HOURS);
+        return movies;
     }
 
     // 최근 일별 7일 + 주간 16주 박스오피스 이력 확보
