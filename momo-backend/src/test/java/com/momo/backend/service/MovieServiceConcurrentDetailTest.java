@@ -16,7 +16,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 class MovieServiceConcurrentDetailTest {
 
@@ -103,6 +105,9 @@ class MovieServiceConcurrentDetailTest {
         }
 
         verify(kobisApiClient, times(1)).getMovieDetail(movieCode);
-        verify(movieRepository, times(1)).save(any(Movie.class));
+
+        ArgumentCaptor<Movie> savedMovieCaptor = ArgumentCaptor.forClass(Movie.class);
+        verify(movieRepository, times(2)).save(savedMovieCaptor.capture());
+        assertSame(savedMovieCaptor.getAllValues().get(0), savedMovieCaptor.getAllValues().get(1));
     }
 }
