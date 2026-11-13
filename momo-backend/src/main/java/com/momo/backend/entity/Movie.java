@@ -94,6 +94,14 @@ public class Movie {
         boxOfficeEntered = true;
     }
 
+    // 주간 이력은 흥행 진입 여부와 최고 순위만 갱신하고, 홈의 최신 일별 순위는 보존한다.
+    public void markWeeklyBoxOfficeEntered(int rank) {
+        if (rank > 0 && (bestBoxOfficeRank == null || rank < bestBoxOfficeRank)) {
+            bestBoxOfficeRank = rank;
+        }
+        boxOfficeEntered = true;
+    }
+
     public boolean canAttemptOverview(LocalDateTime now) {
         return overviewAttemptedAt == null
                 || overviewAttemptedAt.isBefore(now.minusDays(7));
