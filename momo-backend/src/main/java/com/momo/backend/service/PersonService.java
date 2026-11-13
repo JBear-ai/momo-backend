@@ -91,33 +91,49 @@ public class PersonService {
         if (personId <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "올바르지 않은 TMDb 인물 ID입니다.");
         }
-        try {
-            String detailJson = tmdbApiClient.getPersonDetail(personId, "ko-KR");
-            if (detailJson == null || detailJson.isBlank()) {
-                throw new IllegalStateException("TMDb 인물 상세 응답이 비어 있습니다.");
+        // ID 기반 화면 이동도 이름 검색과 동일하게 캐시·동시 요청 잠금을 적용한다.
+        String cacheKey = "ID|" + normalizedType + "|" + personId;
+        Object lock = CACHE_LOCKS[
+                Math.floorMod(cacheKey.hashCode(), CACHE_LOCKS.length)
+                ];
+
+        synchronized (lock) {
+            PersonDetailResponse cached = findValidCache(cacheKey);
+            if (cached != null) {
+                log.info("TMDb 인물 ID 캐시 HIT. type={}, personId={}", normalizedType, personId);
+                return cached;
             }
-            JsonNode detail = objectMapper.readTree(detailJson);
-            if (detail.path("id").asLong(0) != personId) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "요청한 TMDb 인물 ID와 응답이 일치하지 않습니다.");
+
+            try {
+                String detailJson = tmdbApiClient.getPersonDetail(personId, "ko-KR");
+                if (detailJson == null || detailJson.isBlank()) {
+                    throw new IllegalStateException("TMDb 인물 상세 응답이 비어 있습니다.");
+                }
+                JsonNode detail = objectMapper.readTree(detailJson);
+                if (detail.path("id").asLong(0) != personId) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "요청한 TMDb 인물 ID와 응답이 일치하지 않습니다.");
+                }
+                List<FilmographyItem> filmography = extractFilmography(detail, normalizedType);
+                PersonInfo personInfo = new PersonInfo(
+                        personId,
+                        text(detail, "name"),
+                        imageUrl(text(detail, "profile_path")),
+                        nullableText(detail, "birthday"),
+                        nullableText(detail, "deathday"),
+                        nullableText(detail, "place_of_birth"),
+                        nullableText(detail, "biography"),
+                        nullableText(detail, "known_for_department")
+                );
+                PersonDetailResponse response = new PersonDetailResponse(personInfo, filmography);
+                saveCache(cacheKey, response);
+                return response;
+            } catch (ResponseStatusException e) {
+                throw e;
+            } catch (Exception e) {
+                log.error("TMDb 인물 ID 조회 실패. type={}, personId={}", normalizedType, personId, e);
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "TMDb 인물 ID 조회 중 외부 API 오류가 발생했습니다.", e);
             }
-            List<FilmographyItem> filmography = extractFilmography(detail, normalizedType);
-            PersonInfo personInfo = new PersonInfo(
-                    personId,
-                    text(detail, "name"),
-                    imageUrl(text(detail, "profile_path")),
-                    nullableText(detail, "birthday"),
-                    nullableText(detail, "deathday"),
-                    nullableText(detail, "place_of_birth"),
-                    nullableText(detail, "biography"),
-                    nullableText(detail, "known_for_department")
-            );
-            return new PersonDetailResponse(personInfo, filmography);
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("TMDb 인물 ID 조회 실패. type={}, personId={}", normalizedType, personId, e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "TMDb 인물 ID 조회 중 외부 API 오류가 발생했습니다.", e);
         }
     }
 
