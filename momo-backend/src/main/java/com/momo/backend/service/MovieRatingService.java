@@ -136,6 +136,12 @@ public class MovieRatingService {
         // 상세정보 경로에서 등록이 누락된 KOBIS 영화도 평가 조회 시 DB에 먼저 등록한다.
         if (!movieRepository.existsById(movieCode)) {
             movieService.getMovieDetail(movieCode);
+            if (!movieRepository.existsById(movieCode)) {
+                throw new CustomException(
+                        "MOVIE_NOT_FOUND",
+                        "영화 정보를 등록하지 못했습니다."
+                );
+            }
         }
 
         long likeCount = movieRatingRepository.countByMovie_MovieCodeAndLiked(
