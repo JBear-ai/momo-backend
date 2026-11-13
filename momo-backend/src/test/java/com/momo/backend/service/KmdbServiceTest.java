@@ -1,13 +1,11 @@
 package com.momo.backend.service;
 
 import com.momo.backend.client.KmdbApiClient;
-import com.momo.backend.repository.MovieRepository;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
