@@ -169,6 +169,61 @@ class MovieServiceStaleCacheFallbackTest {
     }
 
     @Test
+    void reusesValidPosterStoredInSearchCacheWhenDatabaseRowsAreMissing() {
+        KobisApiClient kobis = mock(KobisApiClient.class);
+        MovieCacheRepository cacheRepository = mock(MovieCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        MoviePosterCacheRepository posterCacheRepository =
+                mock(MoviePosterCacheRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+
+        MovieCache stale = expiredCache(
+                "SEARCH",
+                "캐시 포스터|1|20",
+                """
+                {
+                  "content": [{
+                    "movieCode": "20260004",
+                    "title": "검색 캐시 포스터 영화",
+                    "releaseDate": "20260104",
+                    "genre": "드라마",
+                    "director": "테스트 감독",
+                    "posterUrl": "/posters/cached-search-poster.jpg"
+                  }],
+                  "page": 1,
+                  "size": 20,
+                  "totalCount": 1,
+                  "hasNext": false
+                }
+                """
+        );
+
+        when(cacheRepository.findByCacheTypeAndCacheKey("SEARCH", "캐시 포스터|1|20"))
+                .thenReturn(Optional.of(stale));
+        when(kobis.searchMovies("캐시 포스터", 1, 20))
+                .thenThrow(new ResourceAccessException("KOBIS unavailable"));
+        when(movieRepository.findAllById(List.of("20260004"))).thenReturn(List.of());
+        when(posterCacheRepository.findAllByMovieCodeIn(List.of("20260004")))
+                .thenReturn(List.of());
+        when(storageService.exists("/posters/cached-search-poster.jpg")).thenReturn(true);
+
+        MovieService service = createService(
+                kobis,
+                cacheRepository,
+                movieRepository,
+                posterCacheRepository,
+                mock(MoviePersistenceService.class),
+                storageService
+        );
+
+        var response = service.searchMovies("캐시 포스터", 1, 20);
+
+        assertEquals("/posters/cached-search-poster.jpg",
+                response.content().get(0).posterUrl());
+        verify(storageService).exists("/posters/cached-search-poster.jpg");
+    }
+
+    @Test
     void servesRetainedDailyBoxOfficeWhenKobisIsUnavailable() {
         KobisApiClient kobis = mock(KobisApiClient.class);
         MovieCacheRepository cacheRepository = mock(MovieCacheRepository.class);
