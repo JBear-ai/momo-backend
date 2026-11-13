@@ -3,11 +3,6 @@ package com.momo.backend.service;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.momo.backend.client.KobisApiClient;
 import com.momo.backend.entity.Movie;
-import com.momo.backend.repository.MovieRepository;
-import java.util.Optional;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieExternalIdMappingRepository;
 import com.momo.backend.repository.MoviePosterCacheRepository;
@@ -16,7 +11,9 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
