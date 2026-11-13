@@ -78,6 +78,27 @@ class MovieServiceRecommendationRefreshTest {
     }
 
     @Test
+    void weeklyHistoryDoesNotOverwriteLatestDailyRank() {
+        Movie movie = new Movie(
+                "20167904", "테스트 영화", "", "20260101",
+                "", "드라마", "", "", "");
+        movie.markBoxOfficeEntered(1, "20261112");
+
+        movie.markWeeklyBoxOfficeEntered(4);
+
+        assertEquals("20261112", movie.getLastBoxOfficeDate());
+        assertEquals(1, movie.getLastBoxOfficeRank());
+        assertEquals(1, movie.getBestBoxOfficeRank());
+    }
+
+    @Test
+    void normalizesWeeklyKobisReleaseDateBeforePersistence() {
+        assertEquals("20200102", MovieService.normalizeKobisReleaseDate("2020-01-02"));
+        assertEquals("20200102", MovieService.normalizeKobisReleaseDate("20200102"));
+        assertEquals("", MovieService.normalizeKobisReleaseDate(""));
+    }
+
+    @Test
     void refreshesSevenDaysOnlyOnceDuringTheRefreshWindow() {
         MovieService service = spy(new MovieService(
                 mock(MoviePosterAsyncService.class),
@@ -95,13 +116,11 @@ class MovieServiceRecommendationRefreshTest {
                 mockCache()
         ));
         doReturn(List.of()).when(service).getDailyBoxOffice(anyString());
-        doReturn(List.of()).when(service).getWeeklyBoxOffice(anyString());
-
         assertTrue(service.getBoxOfficeRecommendations(null).isEmpty());
         assertTrue(service.getBoxOfficeRecommendations(null).isEmpty());
 
-        // 첫 호출에서 일별 7일 + 주간 16주를 확인하고, 두 번째 조회는 캐시 갱신 구간을 재사용한다.
+        // 추천 API는 일별 이력만 확인하고, 주간 16주 수집은 별도 스케줄러가 담당한다.
         verify(service, times(7)).getDailyBoxOffice(anyString());
-        verify(service, times(16)).getWeeklyBoxOffice(anyString());
+        verify(service, never()).getWeeklyBoxOffice(anyString());
     }
 }
