@@ -2,9 +2,11 @@ package com.momo.backend.service;
 
 import com.momo.backend.entity.Comment;
 import com.momo.backend.entity.CommentReaction;
+import com.momo.backend.entity.Review;
 import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
+import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import java.util.Optional;
@@ -16,18 +18,25 @@ class CommentReactionServiceTest {
     void updatesExistingCommentReactionInsteadOfInsertingDuplicate() {
         CommentReactionRepository reactionRepository = mock(CommentReactionRepository.class);
         CommentRepository commentRepository = mock(CommentRepository.class);
+        ReviewRepository reviewRepository = mock(ReviewRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         User user = mock(User.class);
+        Comment comment = mock(Comment.class);
+        Review review = mock(Review.class);
         CommentReaction existing = mock(CommentReaction.class);
 
         when(user.getUserId()).thenReturn(9L);
         when(userRepository.findByLoginIdForUpdate("member")).thenReturn(Optional.of(user));
-        when(commentRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(mock(Comment.class)));
+        when(commentRepository.findById(21L)).thenReturn(Optional.of(comment));
+        when(comment.getReview()).thenReturn(review);
+        when(review.getReviewId()).thenReturn(15L);
+        when(reviewRepository.findByIdForUpdate(15L)).thenReturn(Optional.of(review));
+        when(commentRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(comment));
         when(reactionRepository.findByUser_UserIdAndComment_CommentId(9L, 21L))
                 .thenReturn(Optional.of(existing));
 
         CommentReactionService service = new CommentReactionService(
-                reactionRepository, commentRepository, userRepository);
+                reactionRepository, commentRepository, reviewRepository, userRepository);
 
         service.saveReaction("member", 21L, true);
 
@@ -39,15 +48,22 @@ class CommentReactionServiceTest {
     void writesCommentReactionWithAtomicUpsert() {
         CommentReactionRepository reactionRepository = mock(CommentReactionRepository.class);
         CommentRepository commentRepository = mock(CommentRepository.class);
+        ReviewRepository reviewRepository = mock(ReviewRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         User user = mock(User.class);
+        Comment comment = mock(Comment.class);
+        Review review = mock(Review.class);
 
         when(user.getUserId()).thenReturn(9L);
         when(userRepository.findByLoginIdForUpdate("member")).thenReturn(Optional.of(user));
-        when(commentRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(mock(Comment.class)));
+        when(commentRepository.findById(21L)).thenReturn(Optional.of(comment));
+        when(comment.getReview()).thenReturn(review);
+        when(review.getReviewId()).thenReturn(15L);
+        when(reviewRepository.findByIdForUpdate(15L)).thenReturn(Optional.of(review));
+        when(commentRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(comment));
 
         CommentReactionService service = new CommentReactionService(
-                reactionRepository, commentRepository, userRepository);
+                reactionRepository, commentRepository, reviewRepository, userRepository);
 
         service.saveReaction("member", 21L, false);
 
