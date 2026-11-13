@@ -105,7 +105,9 @@ public class AuthService {
     // 회원 정보 수정
 
     public UserResponse updateMyInfo(String loginId, UserUpdateRequest dto) {
-        User user = getLoginUser(loginId);
+        // 탈퇴·프로필 이미지 변경과 회원 정보 수정을 같은 회원 행 잠금으로 직렬화한다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         if (!user.getNickname().equals(dto.nickname())
                 && userRepository.existsByNickname(dto.nickname())) {
@@ -247,7 +249,9 @@ public class AuthService {
     public UserResponse updateProfileImage(
             String loginId, MultipartFile file) throws IOException {
 
-        User user = getLoginUser(loginId);
+        // 프로필 업로드와 회원 탈퇴가 동시에 실행되지 않도록 회원 행을 잠근다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         String oldProfileImage = user.getProfileImage();
 
@@ -298,7 +302,9 @@ public class AuthService {
     }
 
     public UserResponse removeProfileImage(String loginId) {
-        User user = getLoginUser(loginId);
+        // 프로필 삭제와 회원 탈퇴가 동시에 실행되지 않도록 회원 행을 잠근다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         String oldProfileImage = user.getProfileImage();
 
