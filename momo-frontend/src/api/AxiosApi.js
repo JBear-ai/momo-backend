@@ -735,6 +735,22 @@ const AxiosApi = {
       signal,
     });
   },
+  // 공용 채팅 이미지 업로드 및 인증 이미지 조회
+  chatImageUpload: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return await axios.post(`${HM_DOMAIN}/api/chat/images`, formData, {
+      withCredentials: true,
+    });
+  },
+
+  chatImageGet: async (imageId, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/chat/images/${encodeURIComponent(imageId)}`, {
+      responseType: "blob",
+      withCredentials: true,
+      signal,
+    });
+  },
 };
 
 export default AxiosApi;
