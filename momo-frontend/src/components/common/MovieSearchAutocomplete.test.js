@@ -3,9 +3,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import AxiosApi from "../../api/AxiosApi";
 import MovieSearchAutocomplete from "./MovieSearchAutocomplete";
 
+const mockSearchParams = new URLSearchParams();
+
 jest.mock("react-router-dom", () => ({
   useNavigate: () => jest.fn(),
-  useSearchParams: () => [new URLSearchParams()],
+  useSearchParams: () => [mockSearchParams],
 }));
 
 jest.mock("../../api/AxiosApi", () => ({
