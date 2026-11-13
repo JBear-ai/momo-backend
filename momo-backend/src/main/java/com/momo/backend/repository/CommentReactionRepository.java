@@ -31,6 +31,27 @@ public interface CommentReactionRepository
         long getDislikeCount();
     }
 
+    interface CommentResponseSummary {
+        Long getLikeCount();
+        Long getDislikeCount();
+        Integer getMyReaction();
+    }
+
+    // 댓글 생성·수정 응답의 반응 수와 현재 회원의 반응을 한 번에 집계한다.
+    @Query("""
+            select count(case when reaction.liked = true then 1 end) as likeCount,
+                   count(case when reaction.liked = false then 1 end) as dislikeCount,
+                   max(case when reaction.user.userId = :userId
+                            then case when reaction.liked = true then 1 else 0 end
+                            else null end) as myReaction
+            from CommentReaction reaction
+            where reaction.comment.commentId = :commentId
+            """)
+    CommentResponseSummary findResponseSummaryByCommentId(
+            @Param("commentId") Long commentId,
+            @Param("userId") Long userId
+    );
+
     // 단일 댓글의 좋아요/싫어요 수를 한 번의 DB 집계 쿼리로 조회한다.
     @Query("""
             select count(case when reaction.liked = true then 1 end) as likeCount,
