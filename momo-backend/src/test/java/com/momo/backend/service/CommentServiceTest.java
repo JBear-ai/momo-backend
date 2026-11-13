@@ -91,6 +91,76 @@ class CommentServiceTest {
     }
 
     @Test
+    void updatesCommentAfterLockingItsParentReview() {
+        User user = org.mockito.Mockito.mock(User.class);
+        Comment commentReference = org.mockito.Mockito.mock(Comment.class);
+        Review review = org.mockito.Mockito.mock(Review.class);
+        Comment comment = org.mockito.Mockito.mock(Comment.class);
+
+        when(userRepository.findByLoginIdForUpdate("member"))
+                .thenReturn(java.util.Optional.of(user));
+        when(commentRepository.findById(27L))
+                .thenReturn(java.util.Optional.of(commentReference));
+        when(commentReference.getReview()).thenReturn(review);
+        when(review.getReviewId()).thenReturn(15L);
+        when(reviewRepository.findByIdForUpdate(15L))
+                .thenReturn(java.util.Optional.of(review));
+        when(commentRepository.findByIdForUpdate(27L))
+                .thenReturn(java.util.Optional.of(comment));
+        when(comment.getUser()).thenReturn(user);
+        when(user.getLoginId()).thenReturn("member");
+
+        CommentRequest request = new CommentRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                request, "content", "수정된 댓글");
+
+        commentService.updateComment(27L, "member", request);
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                userRepository, commentRepository, reviewRepository, comment);
+        order.verify(userRepository).findByLoginIdForUpdate("member");
+        order.verify(commentRepository).findById(27L);
+        order.verify(reviewRepository).findByIdForUpdate(15L);
+        order.verify(commentRepository).findByIdForUpdate(27L);
+        order.verify(comment).updateComment("수정된 댓글");
+    }
+
+    @Test
+    void deletesCommentAfterLockingItsParentReview() {
+        User user = org.mockito.Mockito.mock(User.class);
+        Comment commentReference = org.mockito.Mockito.mock(Comment.class);
+        Review review = org.mockito.Mockito.mock(Review.class);
+        Comment comment = org.mockito.Mockito.mock(Comment.class);
+
+        when(userRepository.findByLoginIdForUpdate("member"))
+                .thenReturn(java.util.Optional.of(user));
+        when(commentRepository.findById(27L))
+                .thenReturn(java.util.Optional.of(commentReference));
+        when(commentReference.getReview()).thenReturn(review);
+        when(review.getReviewId()).thenReturn(15L);
+        when(reviewRepository.findByIdForUpdate(15L))
+                .thenReturn(java.util.Optional.of(review));
+        when(commentRepository.findByIdForUpdate(27L))
+                .thenReturn(java.util.Optional.of(comment));
+        when(comment.getUser()).thenReturn(user);
+        when(user.getLoginId()).thenReturn("member");
+
+        commentService.deleteComment(27L, "member");
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                userRepository,
+                commentRepository,
+                reviewRepository,
+                commentReactionRepository);
+        order.verify(userRepository).findByLoginIdForUpdate("member");
+        order.verify(commentRepository).findById(27L);
+        order.verify(reviewRepository).findByIdForUpdate(15L);
+        order.verify(commentRepository).findByIdForUpdate(27L);
+        order.verify(commentReactionRepository).deleteByComment_CommentId(27L);
+        order.verify(commentRepository).delete(comment);
+    }
+
+    @Test
     void anonymousVisitorCanReadCommentsWithoutPersonalReactionLookup() {
         Long reviewId = 15L;
         Long commentId = 27L;
