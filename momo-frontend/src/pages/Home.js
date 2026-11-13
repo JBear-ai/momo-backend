@@ -27,7 +27,7 @@ import {
   GenreList,
   BrandLine,
   EmptyPoster,
-} from "./Home.styles";
+} from "../styles/legacy/Home.styles";
 
 // 어제 날짜를 YYYYMMDD 형식으로 반환
 const getYesterdayDate = () => {
