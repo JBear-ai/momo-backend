@@ -118,6 +118,7 @@ class MovieRatingServiceTest {
         Map<String, Object> result = service.getMovieRating("20167904", null);
 
         verify(movieService).getMovieDetail("20167904");
+        verify(movieRepository, times(2)).existsById("20167904");
         assertEquals(0L, result.get("likeCount"));
         assertEquals(0L, result.get("dislikeCount"));
         assertEquals(0L, result.get("totalCount"));
