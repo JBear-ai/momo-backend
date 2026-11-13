@@ -1,6 +1,16 @@
 package com.momo.backend;
 
 import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.Movie;
+import com.momo.backend.entity.User;
+import com.momo.backend.entity.Review;
+import com.momo.backend.entity.Comment;
+import com.momo.backend.entity.ReviewReactions;
+import com.momo.backend.repository.MovieRepository;
+import com.momo.backend.repository.UserRepository;
+import com.momo.backend.repository.ReviewRepository;
+import com.momo.backend.repository.CommentRepository;
+import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.MoviePosterCacheRepository;
 import com.momo.backend.security.TokenProvider;
 import org.junit.jupiter.api.Test;
@@ -53,6 +63,21 @@ class MomoBackendApplicationTests {
 
     @Autowired
     private MoviePosterCacheRepository posterCacheRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private MovieRepository movieRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
+    private ReviewReactionRepository reviewReactionRepository;
 
     @Test
     void localPosterImageCanBeRequestedWithoutAnAuthorizationHeader() throws Exception {
@@ -170,6 +195,51 @@ class MomoBackendApplicationTests {
         String secondAccessToken = objectMapper.readTree(
                 secondLoginResult.getResponse().getContentAsString())
                 .path("accessToken").asString("");
+
+        // 실제 H2 DB 데이터로 리뷰 요약 API의 댓글·좋아요·싫어요 집계를 검증한다.
+        User firstUser = userRepository.findByLoginId(loginId).orElseThrow();
+        User secondUser = userRepository.findByLoginId(secondLoginId).orElseThrow();
+        String summaryMovieCode = "M" + suffix.substring(0, 7);
+
+        movieRepository.saveAndFlush(new Movie(
+                summaryMovieCode,
+                "요약 API 테스트 영화",
+                "",
+                "20250101",
+                "",
+                "드라마",
+                "테스트 감독",
+                "",
+                ""
+        ));
+
+        Review summaryReview = reviewRepository.saveAndFlush(new Review(
+                firstUser,
+                summaryMovieCode,
+                "요약 API 테스트 리뷰",
+                "요약 API 본문"
+        ));
+
+        commentRepository.saveAllAndFlush(List.of(
+                new Comment(summaryReview, firstUser, "첫 번째 댓글"),
+                new Comment(summaryReview, secondUser, "두 번째 댓글")
+        ));
+
+        reviewReactionRepository.saveAllAndFlush(List.of(
+                new ReviewReactions(firstUser, summaryReview, true),
+                new ReviewReactions(secondUser, summaryReview, false)
+        ));
+
+        mockMvc.perform(get("/api/reviews/summaries")
+                        .param("reviewIds", summaryReview.getReviewId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].reviewId").value(summaryReview.getReviewId()))
+                .andExpect(jsonPath("$[0].movieCode").value(summaryMovieCode))
+                .andExpect(jsonPath("$[0].movieTitle").value("요약 API 테스트 영화"))
+                .andExpect(jsonPath("$[0].releaseDate").value("20250101"))
+                .andExpect(jsonPath("$[0].commentCount").value(2))
+                .andExpect(jsonPath("$[0].likeCount").value(1))
+                .andExpect(jsonPath("$[0].dislikeCount").value(1));
 
         mockMvc.perform(get("/api/favorites")
                         .header("Authorization", "Bearer " + secondAccessToken))
