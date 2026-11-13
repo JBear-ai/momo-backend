@@ -1503,16 +1503,27 @@ public class MovieService {
     }
 
     // 사용자 요청과 분리된 백그라운드 작업에서 주간 16주 이력을 채운다.
-    public void refreshWeeklyBoxOfficeHistory() {
+    private static final int WEEKLY_HISTORY_BATCH_SIZE = 4;
+    private int nextWeeklyHistoryOffset = RECOMMENDATION_HISTORY_WEEKS - 1;
+
+    public synchronized void refreshWeeklyBoxOfficeHistory() {
         LocalDate today = LocalDate.now();
         LocalDate lastCompletedSunday = today.with(TemporalAdjusters.previous(DayOfWeek.SUNDAY));
-        for (int weeksAgo = RECOMMENDATION_HISTORY_WEEKS - 1; weeksAgo >= 0; weeksAgo--) {
+
+        // 한 번에 최대 4주만 조회해 스케줄러의 장시간 점유를 방지한다.
+        for (int count = 0; count < WEEKLY_HISTORY_BATCH_SIZE; count++) {
+            int weeksAgo = nextWeeklyHistoryOffset;
             String targetDate = lastCompletedSunday.minusWeeks(weeksAgo)
                     .format(DateTimeFormatter.BASIC_ISO_DATE);
             try {
                 getWeeklyBoxOffice(targetDate);
             } catch (Exception e) {
                 log.warn("백그라운드 주간 박스오피스 이력 수집 실패. targetDate={}", targetDate, e);
+            } finally {
+                nextWeeklyHistoryOffset--;
+                if (nextWeeklyHistoryOffset < 0) {
+                    nextWeeklyHistoryOffset = RECOMMENDATION_HISTORY_WEEKS - 1;
+                }
             }
         }
     }
