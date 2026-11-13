@@ -4,11 +4,13 @@ import com.momo.backend.dto.movie.MoviePosterResponse;
 import com.momo.backend.dto.movie.MoviePosterStatusResponse;
 import com.momo.backend.service.MoviePosterCacheService;
 import com.momo.backend.service.MovieService;
+import com.momo.backend.service.MoviePosterEnsureAsyncService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +25,7 @@ public class MoviePosterController {
 
     private final MovieService movieService;
     private final MoviePosterCacheService posterCacheService;
+    private final MoviePosterEnsureAsyncService posterEnsureAsyncService;
 
     @GetMapping("/{movieCode:[A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]}/poster")
     public ResponseEntity<MoviePosterResponse> getMoviePoster(
@@ -43,10 +46,11 @@ public class MoviePosterController {
 
         for (String movieCode : distinctMovieCodes) {
             try {
-                movieService.getMoviePoster(movieCode);
-            } catch (Exception exception) {
-                // 한 영화의 외부 정보 또는 포스터 조회 실패가 나머지 영화 처리를 중단시키지 않는다.
-                log.warn("일괄 포스터 수집 등록 실패. movieCode={}", movieCode, exception);
+                // Movie 행이 없는 과거 리뷰도 KOBIS 상세 조회를 요청 스레드에서 기다리지 않는다.
+                posterEnsureAsyncService.ensurePoster(movieCode);
+            } catch (TaskRejectedException rejected) {
+                // 비동기 큐가 가득 차면 요청을 버리고, 클라이언트가 다음 상태 갱신에서 재요청할 수 있게 한다.
+                log.warn("포스터 수집 대기열이 가득 차 요청을 등록하지 못했습니다. movieCode={}", movieCode);
             }
         }
 
