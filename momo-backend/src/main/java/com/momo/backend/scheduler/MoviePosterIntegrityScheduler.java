@@ -53,12 +53,15 @@ public class MoviePosterIntegrityScheduler {
                 }
 
                 // DB 경로 제거와 재수집 대기열 등록을 서비스의 단일 트랜잭션으로 처리한다.
-                posterCacheService.repairMissingPosterFile(
+                boolean repairQueued = posterCacheService.repairMissingPosterFile(
                         movie.getMovieCode(),
                         movie.getTitle(),
-                        movie.getReleaseDate()
+                        movie.getReleaseDate(),
+                        posterPath
                 );
-                repaired++;
+                if (repairQueued) {
+                    repaired++;
+                }
 
                 log.warn("누락된 포스터 파일 감지. 재수집 대기열로 이동. movieCode={}, path={}",
                         movie.getMovieCode(), posterPath);
