@@ -134,30 +134,30 @@ public class MovieRatingService {
             String loginId
     ) {
 
-        if (!movieRepository.existsById(movieCode)) {
-            throw new CustomException(
-                    "MOVIE_NOT_FOUND",
-                    "영화 정보를 찾을 수 없습니다."
-            );
-        }
-
-        // 좋아요·싫어요 수와 로그인 회원의 반응을 단일 집계 쿼리로 조회한다.
-        // 기존의 전체 집계 + 회원 조회 + 회원별 평가 조회(최대 3회)를 1회로 줄인다.
+        // 영화 존재 여부, 전체 반응 수, 로그인 회원의 반응을 한 번의 쿼리로 조회한다.
+        // 집계 결과가 없으면 영화 자체가 등록되지 않은 경우다.
         MovieRatingRepository.MovieRatingResponseSummary summary =
                 movieRatingRepository.findResponseSummaryByMovieCode(
                         movieCode,
                         loginId == null || loginId.isBlank() ? null : loginId
                 );
 
-        long likeCount = summary == null ? 0L : summary.getLikeCount();
-        long dislikeCount = summary == null ? 0L : summary.getDislikeCount();
+        if (summary == null) {
+            throw new CustomException(
+                    "MOVIE_NOT_FOUND",
+                    "영화 정보를 찾을 수 없습니다."
+            );
+        }
+
+        long likeCount = summary.getLikeCount();
+        long dislikeCount = summary.getDislikeCount();
         long totalCount = likeCount + dislikeCount;
 
         Double positiveRate = totalCount == 0
                 ? null
                 : Math.round((double) likeCount / totalCount * 1000) / 10.0;
 
-        Integer myRatingValue = summary == null ? null : summary.getMyRating();
+        Integer myRatingValue = summary.getMyRating();
         Boolean myRating = myRatingValue == null ? null : myRatingValue == 1;
 
         Map<String, Object> result = new HashMap<>();
