@@ -261,9 +261,10 @@ axios.interceptors.response.use(
 
 const AxiosApi = {
   // 1. 회원 아이디 중복 확인
-  memberIdExist: async (loginId) => {
+  memberIdExist: async (loginId, signal) => {
     return await axios.get(
       `${HM_DOMAIN}/api/auth/exists/id/${encodeURIComponent(loginId)}`,
+      { signal },
     );
   },
 
