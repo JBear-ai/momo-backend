@@ -1256,14 +1256,21 @@ public class MovieService {
 
     public List<BoxOfficeResponse> getDailyBoxOffice(
             String targetDate) {
+        return getDailyBoxOffice(targetDate, ApiCallBudgetService.TrafficType.USER_SEARCH);
+    }
+
+    // 백그라운드 수집도 같은 날짜별 캐시와 잠금을 사용하되 사용자 검색 예산과 구분한다.
+    public List<BoxOfficeResponse> getDailyBoxOffice(
+            String targetDate, ApiCallBudgetService.TrafficType trafficType) {
         String lockKey = "DAILY_BOX_OFFICE|" + (targetDate == null ? "" : targetDate);
         Object lock = CACHE_LOCKS[Math.floorMod(lockKey.hashCode(), CACHE_LOCKS.length)];
         synchronized (lock) {
-            return getDailyBoxOfficeInternal(targetDate);
+            return getDailyBoxOfficeInternal(targetDate, trafficType);
         }
     }
 
-    private List<BoxOfficeResponse> getDailyBoxOfficeInternal(String targetDate) {
+    private List<BoxOfficeResponse> getDailyBoxOfficeInternal(
+            String targetDate, ApiCallBudgetService.TrafficType trafficType) {
 
         if (targetDate == null
                 || !targetDate.matches("\\d{8}")) {
@@ -1295,7 +1302,9 @@ public class MovieService {
         log.info("KOBIS 일별 박스오피스 API 요청. targetDate: {}", targetDate);
         String json;
         try {
-            json = kobisApiClient.getDailyBoxOffice(targetDate);
+            json = trafficType == ApiCallBudgetService.TrafficType.PREFETCH
+                    ? kobisApiClient.getDailyBoxOffice(targetDate, trafficType)
+                    : kobisApiClient.getDailyBoxOffice(targetDate);
         } catch (RuntimeException apiError) {
             MovieCache staleCache = movieCacheRepository
                     .findByCacheTypeAndCacheKey(CACHE_DAILY_BOX_OFFICE, targetDate)
@@ -1528,13 +1537,13 @@ public class MovieService {
         }
     }
 
-    // 사용자 요청에서는 최근 일별 7일 이력만 갱신
+    // 최근 일별 이력은 추천 응답을 지연시키지 않도록 스케줄러에서 갱신한다.
 
-    private void refreshRecentBoxOfficeHistory() {
+    public void refreshRecentBoxOfficeHistory() {
         LocalDate today = LocalDate.now();
 
-        // 추천 화면을 열 때마다 7일 치 DB 이력 갱신을 반복하지 않는다.
-        // 날짜가 바뀌면 즉시 한 번 갱신하고, 성공하면 45분·일부 실패 시 5분 후 다시 시도한다.
+        // 스케줄러가 자주 실행되어도 갱신 주기 안에서는 중복 수집하지 않는다.
+        // 날짜가 바뀌면 다음 스케줄 실행에서 갱신하고, 성공하면 45분·일부 실패 시 5분 후 다시 시도한다.
         synchronized (recentBoxOfficeHistoryLock) {
             LocalDateTime now = LocalDateTime.now();
             if (recentBoxOfficeHistoryRefreshInProgress
@@ -1554,7 +1563,7 @@ public class MovieService {
                         .format(DateTimeFormatter.BASIC_ISO_DATE);
 
                 try {
-                    getDailyBoxOffice(targetDate);
+                    getDailyBoxOffice(targetDate, ApiCallBudgetService.TrafficType.PREFETCH);
                 } catch (Exception e) {
                     failed = true;
                     // 특정 날짜의 API 응답이 실패해도 나머지 날짜는 계속 확인한다.
@@ -1580,8 +1589,7 @@ public class MovieService {
     // 박스오피스 이력이 확인된 추천 후보 조회
 
     public List<Map<String, Object>> getBoxOfficeRecommendations(String genre) {
-        refreshRecentBoxOfficeHistory();
-
+        // 초기 수집 중에는 현재 DB 후보(없으면 빈 목록)를 반환하고 최근 7일 이력 갱신을 기다리지 않는다.
         String normalizedGenre = isBlank(genre)
                 ? null
                 : normalizeGenre(genre);

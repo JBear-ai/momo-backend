@@ -84,4 +84,29 @@ describe("TodayRecommend poster recovery", () => {
       "/posters/20260001-test.jpg",
     );
   });
+
+  test("does not log the access token when a recommendation request fails", async () => {
+    const error = Object.assign(new Error("request failed"), {
+      code: "ERR_BAD_RESPONSE",
+      response: { status: 503 },
+      config: { headers: { Authorization: "Bearer test-access-token" } },
+    });
+    AxiosApi.boxOfficeRecommendations.mockRejectedValue(error);
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      render(React.createElement(TodayRecommend));
+
+      await act(async () => {
+        for (let i = 0; i < 12; i += 1) {
+          await Promise.resolve();
+        }
+      });
+
+      expect(consoleError).toHaveBeenCalled();
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain("test-access-token");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });

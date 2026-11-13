@@ -9,6 +9,12 @@ import { getPosterPollDelay } from "../../utils/posterPolling";
 const isValidMovieCode = (movieCode) => /^[A-Za-z0-9]{8}$/.test(String(movieCode || ""));
 const isValidReleaseDate = (releaseDate) => /^\d{8}$/.test(String(releaseDate || ""));
 
+// Axios 오류 전체에는 Authorization 헤더가 포함될 수 있으므로 상태와 오류 코드만 기록한다.
+const requestFailureDetails = (error) => ({
+  status: error?.response?.status ?? null,
+  code: error?.code ?? null,
+});
+
 function TodayRecommend() {
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +49,7 @@ function TodayRecommend() {
         };
       } catch (detailError) {
         if (detailError.code === "ERR_CANCELED") throw detailError;
-        console.warn("추천 영화 줄거리 조회 실패:", detailError);
+        console.warn("추천 영화 줄거리 조회 실패:", requestFailureDetails(detailError));
         return { ...candidate, overview: "" };
       }
     };
@@ -78,7 +84,7 @@ function TodayRecommend() {
           }
         } catch (posterError) {
           if (posterError.code === "ERR_CANCELED") return;
-          console.warn("추천 영화 포스터 상태 조회 실패:", posterError);
+          console.warn("추천 영화 포스터 상태 조회 실패:", requestFailureDetails(posterError));
         }
 
         refreshRecommendationPoster(movieCode, attempt + 1);
@@ -101,7 +107,7 @@ function TodayRecommend() {
         }
       } catch (posterError) {
         if (posterError.code === "ERR_CANCELED") throw posterError;
-        console.warn("추천 영화 포스터 수집 등록 실패:", posterError);
+        console.warn("추천 영화 포스터 수집 등록 실패:", requestFailureDetails(posterError));
       }
 
       // 비동기 수집이 완료되면 추천 배너의 포스터도 자동으로 갱신한다.
@@ -153,7 +159,7 @@ function TodayRecommend() {
             likedMovies = Array.isArray(likedResponse.data) ? likedResponse.data : [];
           } catch (likedError) {
             if (likedError.code === "ERR_CANCELED") throw likedError;
-            console.warn("좋아요 영화 목록 조회 실패. 관심 영화로 대체합니다.", likedError);
+            console.warn("좋아요 영화 목록 조회 실패. 관심 영화로 대체합니다.", requestFailureDetails(likedError));
           }
         }
 
@@ -177,7 +183,7 @@ function TodayRecommend() {
             preferredGenre = detail.data?.genre || "";
           } catch (detailError) {
             if (detailError.code === "ERR_CANCELED") throw detailError;
-            console.warn("취향 분석용 영화 상세정보 조회 실패:", detailError);
+            console.warn("취향 분석용 영화 상세정보 조회 실패:", requestFailureDetails(detailError));
           }
         }
 
@@ -206,7 +212,7 @@ function TodayRecommend() {
             }
           } catch (genreError) {
             if (genreError.code === "ERR_CANCELED") throw genreError;
-            console.warn("장르 기반 추천 조회 실패. 박스오피스 전체 후보로 전환합니다.", genreError);
+            console.warn("장르 기반 추천 조회 실패. 박스오피스 전체 후보로 전환합니다.", requestFailureDetails(genreError));
           }
         }
 
@@ -227,7 +233,7 @@ function TodayRecommend() {
         if (active) setMovie(fallbackWithPoster);
       } catch (requestError) {
         if (requestError.code !== "ERR_CANCELED") {
-          console.error("오늘의 추천작 조회 실패:", requestError);
+          console.error("오늘의 추천작 조회 실패:", requestFailureDetails(requestError));
           if (active) setError(true);
         }
       } finally {

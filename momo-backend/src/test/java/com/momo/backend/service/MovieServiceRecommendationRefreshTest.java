@@ -60,9 +60,13 @@ class MovieServiceRecommendationRefreshTest {
     }
 
     private MovieService createService(MovieRepository movieRepository) {
+        return createService(movieRepository, mock(KobisApiClient.class));
+    }
+
+    private MovieService createService(MovieRepository movieRepository, KobisApiClient kobisApiClient) {
         return spy(new MovieService(
                 mock(MoviePosterAsyncService.class),
-                mock(KobisApiClient.class),
+                kobisApiClient,
                 mock(KmdbService.class),
                 mock(TmdbService.class),
                 mock(ObjectMapper.class),
@@ -140,12 +144,52 @@ class MovieServiceRecommendationRefreshTest {
                 mock(PosterFileStorageService.class),
                 mockCache()
         ));
-        doReturn(List.of()).when(service).getDailyBoxOffice(anyString());
+        doReturn(List.of()).when(service).getDailyBoxOffice(
+                anyString(), eq(ApiCallBudgetService.TrafficType.PREFETCH));
         assertTrue(service.getBoxOfficeRecommendations(null).isEmpty());
-        assertTrue(service.getBoxOfficeRecommendations(null).isEmpty());
+        verify(service, never()).getDailyBoxOffice(anyString());
+        verify(service, never()).getDailyBoxOffice(anyString(), any());
 
-        // 추천 API는 일별 이력만 확인하고, 주간 16주 수집은 별도 스케줄러가 담당한다.
-        verify(service, times(7)).getDailyBoxOffice(anyString());
+        service.refreshRecentBoxOfficeHistory();
+        service.refreshRecentBoxOfficeHistory();
+
+        // 백그라운드 갱신도 주기 안에서는 중복 수집하지 않고 사전 수집 예산을 사용한다.
+        verify(service, times(7)).getDailyBoxOffice(
+                anyString(), eq(ApiCallBudgetService.TrafficType.PREFETCH));
         verify(service, never()).getWeeklyBoxOffice(anyString());
+    }
+
+    @Test
+    void returnsAvailableCandidatesAfterInitialBackgroundCollection() {
+        MovieRepository repository = mock(MovieRepository.class);
+        MovieService service = createService(repository);
+        when(repository.findByBoxOfficeEnteredTrueOrderByBestBoxOfficeRankAscLastBoxOfficeDateDesc())
+                .thenReturn(List.of());
+
+        // 초기 DB가 비어 있어도 외부 수집을 기다리지 않고 빈 목록을 안전하게 반환한다.
+        assertTrue(service.getBoxOfficeRecommendations(null).isEmpty());
+        Movie collected = new Movie("20167904", "수집된 영화", "", "20200101",
+                "", "드라마", "", "", "");
+        collected.markBoxOfficeEntered(2, "20261112");
+        when(repository.findByBoxOfficeEnteredTrueOrderByBestBoxOfficeRankAscLastBoxOfficeDateDesc())
+                .thenReturn(List.of(collected));
+
+        assertEquals(1, service.getBoxOfficeRecommendations(null).size());
+        verify(service, never()).getDailyBoxOffice(anyString(), any());
+        verify(service, never()).getWeeklyBoxOffice(anyString());
+    }
+
+    @Test
+    void backgroundCollectionUsesPrefetchClientWhenTheCacheIsEmpty() {
+        KobisApiClient client = mock(KobisApiClient.class);
+        MovieService service = createService(mock(MovieRepository.class), client);
+        when(client.getDailyBoxOffice("20261112", ApiCallBudgetService.TrafficType.PREFETCH))
+                .thenThrow(new IllegalStateException("test failure"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> service.getDailyBoxOffice("20261112", ApiCallBudgetService.TrafficType.PREFETCH));
+
+        verify(client).getDailyBoxOffice("20261112", ApiCallBudgetService.TrafficType.PREFETCH);
+        verify(client, never()).getDailyBoxOffice(anyString());
     }
 }

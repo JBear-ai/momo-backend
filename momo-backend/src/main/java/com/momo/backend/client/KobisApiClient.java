@@ -106,9 +106,15 @@ public class KobisApiClient {
     }
 
     public String getDailyBoxOffice(String targetDate) {
+        return getDailyBoxOffice(targetDate,
+                com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
+    }
+
+    // 이력 사전 수집은 PREFETCH 예산을 사용해 사용자 검색에 예약된 호출량을 보호한다.
+    public String getDailyBoxOffice(String targetDate,
+            com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
         return metrics.record("KOBIS", "getDailyBoxOffice", () -> ExternalApiRetry.execute(() -> {
-            apiCallBudgetService.acquire(
-                    "KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
+            apiCallBudgetService.acquire("KOBIS", trafficType);
             return restClient.get()
                     .uri(uriBuilder -> uriBuilder.path("/boxoffice/searchDailyBoxOfficeList.json")
                             .queryParam("key", apiKey)
