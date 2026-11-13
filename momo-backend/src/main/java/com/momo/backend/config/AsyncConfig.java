@@ -12,6 +12,22 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableAsync
 public class AsyncConfig {
 
+    // 리뷰 목록의 누락 영화 확인은 KOBIS 상세 조회가 필요할 수 있어 별도 비동기 풀에서 처리한다.
+    // 큐가 가득 찬 경우 요청 스레드에서 외부 API를 실행하지 않고 요청 등록을 거부한다.
+    @Bean(name = "posterEnsureTaskExecutor")
+    public Executor posterEnsureTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("poster-ensure-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
+
     // 홈 박스오피스 포스터는 일반 사전 수집 작업과 분리해 먼저 처리한다.
     @Bean(name = "boxOfficePosterTaskExecutor")
     public Executor boxOfficePosterTaskExecutor() {
