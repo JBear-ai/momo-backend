@@ -58,6 +58,7 @@ describe("ChatPopup", () => {
     AxiosApi.memberMe.mockResolvedValue({ data: { userId: 7 } });
     AxiosApi.chatImageUpload.mockResolvedValue({ data: { imageId: "9c9bb1a8-f922-4ea1-8c41-2f2d987eadd1" } });
     AxiosApi.chatImageGet.mockResolvedValue({ data: new Blob(["image-bytes"], { type: "image/png" }) });
+    AxiosApi.profileImageByUserIdGet.mockResolvedValue({ data: new Blob(["avatar-bytes"], { type: "image/png" }) });
     AxiosApi.profileImageByUserIdGet.mockResolvedValue({ data: new Blob(["avatar"], { type: "image/png" }) });
     URL.createObjectURL = jest.fn(() => "blob:test-image");
     URL.revokeObjectURL = jest.fn();
