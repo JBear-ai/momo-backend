@@ -71,9 +71,9 @@ class ChatWebSocketHandlerTest {
         verify(recipient, org.mockito.Mockito.atLeast(1)).sendMessage(frames.capture());
         assertTrue(frames.getAllValues().stream().anyMatch(frame -> {
             var json = objectMapper.readTree(frame.getPayload());
-            return "MESSAGE".equals(json.path("type").asText())
-                    && "IMAGE".equals(json.path("message").path("messageType").asText())
-                    && imageId.equals(json.path("message").path("imageId").asText());
+            return "MESSAGE".equals(json.path("type").asString())
+                    && "IMAGE".equals(json.path("message").path("messageType").asString())
+                    && imageId.equals(json.path("message").path("imageId").asString());
         }));
     }
 
@@ -165,7 +165,7 @@ class ChatWebSocketHandlerTest {
                         throw new AssertionError(exception);
                     }
                 })
-                .filter(frame -> "PRESENCE".equals(frame.path("type").asText()))
+                .filter(frame -> "PRESENCE".equals(frame.path("type").asString()))
                 .map(frame -> frame.path("onlineCount").asInt())
                 .toList();
 
@@ -249,7 +249,6 @@ class ChatWebSocketHandlerTest {
         verify(session).close(any());
     }
 
-    @SuppressWarnings("unchecked")
     private ScheduledExecutorService scheduler() {
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
         ScheduledFuture<?> future = mock(ScheduledFuture.class);

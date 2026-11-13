@@ -67,7 +67,7 @@ class ChatMessageServiceTest {
 
         ChatHistoryPage last = service.getMessagesAfter(second.nextAfterId(), 50);
         assertEquals(List.of(111L, 112L, 113L, 114L, 115L, 116L, 117L, 118L, 119L, 120L),
-                last.messages().stream().map(ChatMessageResponse::id).toList());
+                last.messages().stream().map(message -> message.id()).toList());
         assertFalse(last.hasMore());
     }
 

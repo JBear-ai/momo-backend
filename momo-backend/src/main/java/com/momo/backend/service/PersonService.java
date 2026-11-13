@@ -185,7 +185,7 @@ public class PersonService {
             // 나머지 메타데이터가 충분히 일치하면 같은 작품으로 연결할 수 있다.
             List<ScoredFilmographyCandidate> rankedCandidates = matched.values().stream()
                     .filter(candidate -> candidate.score() >= 8)
-                    .sorted(Comparator.comparingInt(ScoredFilmographyCandidate::score).reversed())
+                    .sorted(Comparator.comparingInt((ScoredFilmographyCandidate candidate) -> candidate.score()).reversed())
                     .toList();
 
             if (rankedCandidates.isEmpty()) {
@@ -236,7 +236,7 @@ public class PersonService {
             } catch (DataIntegrityViolationException duplicateMapping) {
                 String existingMovieCode = movieExternalIdMappingRepository
                         .findByProviderAndExternalId("TMDB", externalId)
-                        .map(MovieExternalIdMapping::getMovieCode)
+                        .map(mapping -> mapping.getMovieCode())
                         .orElse(null);
                 if (existingMovieCode != null) {
                     return existingMovieCode;
@@ -740,7 +740,7 @@ public class PersonService {
         // 검색 결과 상위 후보의 TMDb 상세정보에서 원어 이름과 also_known_as를 확인한다.
         // 검색어와 문자 체계가 다른 별칭도 같은 인물 ID로 연결하되, 분야까지 재검증한다.
         List<ScoredPersonCandidate> ranked = candidates.values().stream()
-                .sorted(Comparator.comparingInt(ScoredPersonCandidate::score).reversed())
+                .sorted(Comparator.comparingInt((ScoredPersonCandidate candidate) -> candidate.score()).reversed())
                 .limit(5)
                 .toList();
 

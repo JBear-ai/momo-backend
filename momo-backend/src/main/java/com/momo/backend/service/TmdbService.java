@@ -2,7 +2,6 @@
 package com.momo.backend.service;
 
 import com.momo.backend.client.TmdbApiClient;
-import com.momo.backend.service.ApiCallBudgetService;
 import com.momo.backend.dto.movie.TmdbMovieDetailResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;

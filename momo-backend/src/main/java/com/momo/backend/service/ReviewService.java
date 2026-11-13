@@ -202,7 +202,7 @@ public class ReviewService {
         }
 
         List<String> movieCodes = reviewsById.values().stream()
-                .map(Review::getMovieCode)
+                .map(review -> review.getMovieCode())
                 .filter(code -> code != null && !code.isBlank())
                 .distinct()
                 .toList();
@@ -348,7 +348,7 @@ public class ReviewService {
             String loginId,
             ReviewUpdateRequest dto) {
 
-        User user = userRepository.findByLoginIdForUpdate(loginId)
+        userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() -> new CustomException("USER_NOT_FOUND", "회원 정보를 찾을 수 없습니다."));
 
         // 리뷰 행 잠금은 새 댓글·리뷰 반응이 삭제 도중 추가되는 것을 막는다.

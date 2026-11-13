@@ -63,13 +63,13 @@ public class ChatImageStorageService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지 파일을 선택해 주세요.");
         }
         if (file.getSize() > MAX_IMAGE_BYTES) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "이미지는 최대 5MB까지 업로드할 수 있습니다.");
+            throw new ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE, "이미지는 최대 5MB까지 업로드할 수 있습니다.");
         }
 
         try {
             byte[] bytes = file.getBytes();
             if (bytes.length == 0 || bytes.length > MAX_IMAGE_BYTES) {
-                throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "이미지는 최대 5MB까지 업로드할 수 있습니다.");
+                throw new ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE, "이미지는 최대 5MB까지 업로드할 수 있습니다.");
             }
             ImageFormat format = detectAndValidate(bytes);
             String imageId = UUID.randomUUID().toString();

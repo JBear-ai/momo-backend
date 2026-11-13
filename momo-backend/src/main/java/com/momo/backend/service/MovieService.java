@@ -22,7 +22,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -260,7 +259,7 @@ public class MovieService {
         }
 
         List<String> movieCodes = response.content().stream()
-                .map(MovieSearchResponse::movieCode)
+                .map(movie -> movie.movieCode())
                 .filter(code -> !isBlank(code))
                 .distinct()
                 .toList();
@@ -510,7 +509,7 @@ public class MovieService {
         // 포스터 수집 대상의 기존 영화 정보는 한 번에 조회한다.
         // 기존에는 영화 한 편마다 findById를 실행해 검색 페이지 크기만큼 추가 SELECT가 발생했다.
         List<String> movieCodes = movies.stream()
-                .map(MovieSearchResponse::movieCode)
+                .map(movie -> movie.movieCode())
                 .filter(code -> !isBlank(code))
                 .distinct()
                 .toList();
@@ -1152,7 +1151,7 @@ public class MovieService {
 
         List<String> codes = movies.stream()
                 .filter(item -> item != null)
-                .map(BoxOfficeResponse::movieCode)
+                .map(movie -> movie.movieCode())
                 .filter(code -> !isBlank(code))
                 .distinct()
                 .toList();

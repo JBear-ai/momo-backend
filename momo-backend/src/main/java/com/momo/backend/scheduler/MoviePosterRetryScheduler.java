@@ -56,8 +56,8 @@ public class MoviePosterRetryScheduler {
                 .forEach(candidates::add);
         candidates.addAll(posterCacheRepository.findTop50ByStatusAndUpdatedAtBeforeOrderByPriorityAscUpdatedAtAsc(
                 PosterStatus.PROCESSING, LocalDateTime.now().minusMinutes(10)));
-        candidates.sort(java.util.Comparator.comparingInt(MoviePosterCache::getPriority)
-                .thenComparing(MoviePosterCache::getUpdatedAt,
+        candidates.sort(java.util.Comparator.comparingInt((MoviePosterCache cache) -> cache.getPriority())
+                .thenComparing(cache -> cache.getUpdatedAt(),
                         java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
 
         int submitted = 0;

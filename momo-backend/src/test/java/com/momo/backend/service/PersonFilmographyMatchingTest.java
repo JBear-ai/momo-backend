@@ -394,7 +394,8 @@ class PersonFilmographyMatchingTest {
                 "PERSON_DETAIL", "ID|actor|900006",
                 new ObjectMapper().writeValueAsString(cachedResponse), 24);
         when(cacheRepository.findByCacheTypeAndCacheKey("PERSON_DETAIL", "ID|actor|900006"))
-                .thenReturn(java.util.Optional.empty(), java.util.Optional.of(cachedEntity));
+                .thenReturn(java.util.Optional.empty())
+                .thenReturn(java.util.Optional.of(cachedEntity));
 
         PersonService service = new PersonService(
                 tmdbApiClient,

@@ -57,9 +57,9 @@ class MoviePosterPersistenceServiceTest {
 
         when(movieRepository.findById(movieCode)).thenReturn(
                 java.util.Optional.of(movie));
-        when(posterCacheRepository.findById(movieCode)).thenReturn(
-                java.util.Optional.empty(),
-                java.util.Optional.of(pendingCache));
+        when(posterCacheRepository.findById(movieCode))
+                .thenReturn(java.util.Optional.empty())
+                .thenReturn(java.util.Optional.of(pendingCache));
         when(posterCacheRepository.tryClaim(
                 eq(movieCode), anyString(), any(), any(), any()))
                 .thenReturn(1);
