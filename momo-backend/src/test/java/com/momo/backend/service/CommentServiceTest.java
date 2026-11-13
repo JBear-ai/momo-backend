@@ -108,6 +108,14 @@ class CommentServiceTest {
         when(commentRepository.findByIdForUpdate(27L))
                 .thenReturn(java.util.Optional.of(comment));
         when(comment.getUser()).thenReturn(user);
+        when(comment.getReview()).thenReturn(review);
+        when(comment.getCommentId()).thenReturn(27L);
+        when(comment.getContent()).thenReturn("수정 전 댓글");
+        when(comment.getCreatedAt()).thenReturn(LocalDateTime.now());
+        when(comment.getUpdatedAt()).thenReturn(LocalDateTime.now());
+        when(user.getUserId()).thenReturn(7L);
+        when(user.getNickname()).thenReturn("작성자");
+        when(user.getProfileImage()).thenReturn(null);
         when(user.getLoginId()).thenReturn("member");
 
         CommentRequest request = new CommentRequest();
