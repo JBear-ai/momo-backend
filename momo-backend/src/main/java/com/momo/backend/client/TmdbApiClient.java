@@ -37,6 +37,18 @@ public class TmdbApiClient {
         this.apiCallBudgetService = apiCallBudgetService;
     }
 
+    // 테스트에서 외부 HTTP 응답을 대체할 수 있도록 RestClient 주입 경로를 제공한다.
+    TmdbApiClient(
+            RestClient restClient,
+            String apiKey,
+            ApiCallMetrics metrics,
+            com.momo.backend.service.ApiCallBudgetService apiCallBudgetService) {
+        this.restClient = restClient;
+        this.apiKey = apiKey;
+        this.metrics = metrics;
+        this.apiCallBudgetService = apiCallBudgetService;
+    }
+
     public String searchMovie(String title) {
         return searchMovie(title, "ko-KR");
     }
