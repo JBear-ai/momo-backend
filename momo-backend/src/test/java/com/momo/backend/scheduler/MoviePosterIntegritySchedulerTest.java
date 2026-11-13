@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.*;
 
 class MoviePosterIntegritySchedulerTest {
@@ -38,9 +37,12 @@ class MoviePosterIntegritySchedulerTest {
 
         scheduler.repairMissingPosterFiles();
 
-        assertNull(movie.getPosterUrl());
-        verify(movieRepository).save(movie);
-        verify(cacheService).resetMissingPoster("20260001", "테스트 영화", "20260101");
+        // 실제 DB 경로 변경과 재수집 큐 등록은 캐시 서비스의 단일 트랜잭션에서 처리한다.
+        verify(movieRepository, never()).save(any(Movie.class));
+        verify(cacheService).repairMissingPosterFile(
+                "20260001", "테스트 영화", "20260101");
+        verify(cacheService, never()).resetMissingPoster(
+                anyString(), anyString(), anyString());
     }
 
     @Test
