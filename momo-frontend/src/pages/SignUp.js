@@ -48,10 +48,14 @@ function SignUp() {
     setIdStatus("checking");
 
     let ignore = false;
+    const controller = new AbortController();
 
     const timer = setTimeout(async () => {
       try {
-        const response = await AxiosApi.memberIdExist(inputId.trim());
+        const response = await AxiosApi.memberIdExist(
+          inputId.trim(),
+          controller.signal,
+        );
 
         if (ignore) return;
 
@@ -66,6 +70,7 @@ function SignUp() {
 
     return () => {
       ignore = true;
+      controller.abort();
       clearTimeout(timer);
     };
   }, [inputId, isId]);
