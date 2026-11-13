@@ -402,6 +402,8 @@ public class MovieService {
                             readCachedSearchPage(staleCache.getContentJson());
                     log.warn("KOBIS 영화 검색 실패. 만료 캐시를 임시 반환합니다. keyword={}, page={}",
                             searchKeyword, page, apiError);
+                    // 만료 캐시도 포스터가 미수집 상태일 수 있으므로 비동기 수집을 다시 등록한다.
+                    enqueuePosterSearches(staleResponse.content());
                     return attachSavedPosterUrls(staleResponse);
                 } catch (Exception cacheError) {
                     apiError.addSuppressed(cacheError);
