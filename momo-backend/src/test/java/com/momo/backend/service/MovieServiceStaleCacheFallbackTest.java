@@ -2,6 +2,7 @@ package com.momo.backend.service;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.momo.backend.client.KobisApiClient;
+import com.momo.backend.entity.Movie;
 import com.momo.backend.entity.MovieCache;
 import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieExternalIdMappingRepository;
@@ -103,6 +104,68 @@ class MovieServiceStaleCacheFallbackTest {
         assertEquals(1, response.content().size());
         assertEquals("저장된 검색 결과", response.content().get(0).title());
         verify(kobis).searchMovies("테스트 영화", 1, 20);
+    }
+
+    @Test
+    void omitsMissingLocalPosterFromRetainedSearchResults() {
+        KobisApiClient kobis = mock(KobisApiClient.class);
+        MovieCacheRepository cacheRepository = mock(MovieCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        MoviePosterCacheRepository posterCacheRepository =
+                mock(MoviePosterCacheRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+
+        Movie savedMovie = new Movie(
+                "20260003", "포스터 파일이 유실된 영화", "", "20260101",
+                "", "드라마", "테스트 감독", "", ""
+        );
+        savedMovie.updatePosterUrl("/posters/missing-poster.jpg");
+
+        MovieCache stale = expiredCache(
+                "SEARCH",
+                "포스터 유실|1|20",
+                """
+                {
+                  "content": [{
+                    "movieCode": "20260003",
+                    "title": "포스터 파일이 유실된 영화",
+                    "releaseDate": "20260101",
+                    "genre": "드라마",
+                    "director": "테스트 감독",
+                    "posterUrl": "/posters/missing-poster.jpg"
+                  }],
+                  "page": 1,
+                  "size": 20,
+                  "totalCount": 1,
+                  "hasNext": false
+                }
+                """
+        );
+
+        when(cacheRepository.findByCacheTypeAndCacheKey("SEARCH", "포스터 유실|1|20"))
+                .thenReturn(Optional.of(stale));
+        when(kobis.searchMovies("포스터 유실", 1, 20))
+                .thenThrow(new ResourceAccessException("KOBIS unavailable"));
+        when(movieRepository.findAllById(List.of("20260003")))
+                .thenReturn(List.of(savedMovie));
+        when(posterCacheRepository.findAllByMovieCodeIn(List.of("20260003")))
+                .thenReturn(List.of());
+        when(storageService.exists("/posters/missing-poster.jpg")).thenReturn(false);
+
+        MovieService service = createService(
+                kobis,
+                cacheRepository,
+                movieRepository,
+                posterCacheRepository,
+                mock(MoviePersistenceService.class),
+                storageService
+        );
+
+        var response = service.searchMovies("포스터 유실", 1, 20);
+
+        assertEquals(1, response.content().size());
+        assertEquals("", response.content().get(0).posterUrl());
+        verify(storageService).exists("/posters/missing-poster.jpg");
     }
 
     @Test
