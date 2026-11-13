@@ -13,6 +13,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 class MovieRatingServiceTest {
@@ -97,10 +98,30 @@ class MovieRatingServiceTest {
         assertEquals(true, result.get("myRating"));
 
         verify(ratingRepository).findResponseSummaryByMovieCode("20261234", "member");
+        verify(movieRepository, never()).existsById(anyString());
         verify(ratingRepository, never()).findCountsByMovieCode(anyString());
         verify(ratingRepository, never())
                 .findByUser_UserIdAndMovie_MovieCode(anyLong(), anyString());
         verify(userRepository, never()).findByLoginId(anyString());
+    }
+
+    @Test
+    void missingMovieIsDetectedByTheAggregateQueryWithoutAnExtraExistsQuery() {
+        UserRepository userRepository = mock(UserRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        MovieRatingRepository ratingRepository = mock(MovieRatingRepository.class);
+
+        when(ratingRepository.findResponseSummaryByMovieCode("missing", null))
+                .thenReturn(null);
+
+        MovieRatingService service = new MovieRatingService(
+                ratingRepository, movieRepository, userRepository);
+
+        assertThrows(com.momo.backend.exception.CustomException.class,
+                () -> service.getMovieRating("missing", null));
+
+        verify(movieRepository, never()).existsById(anyString());
+        verify(ratingRepository).findResponseSummaryByMovieCode("missing", null);
     }
 
     @Test
@@ -130,6 +151,7 @@ class MovieRatingServiceTest {
         assertNull(result.get("myRating"));
 
         verify(ratingRepository).findResponseSummaryByMovieCode("20261234", null);
+        verify(movieRepository, never()).existsById(anyString());
         verify(userRepository, never()).findByLoginId(anyString());
     }
 }
