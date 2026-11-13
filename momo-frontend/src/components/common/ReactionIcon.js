@@ -1,34 +1,7 @@
 import React from "react";
-import styled from "styled-components";
+import { ButtonWrapper } from "../../styles/legacy/ReactionIcon.styles";
 import likeImg from "../../image/like.png";
 import dislikeImg from "../../image/dislike.png";
-
-const ButtonWrapper = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  transition: transform 0.1s ease;
-
-  &:hover {
-    transform: scale(1.05);
-  }
-
-  img {
-    width: 20px;
-    height: 20px;
-    object-fit: contain;
-  }
-
-  span {
-    font-size: 14px;
-    color: #666666;
-    font-weight: 500;
-  }
-`;
 
 // 1. 좋아요 버튼 컴포넌트
 export function LikeButton({ onClick, count }) {
