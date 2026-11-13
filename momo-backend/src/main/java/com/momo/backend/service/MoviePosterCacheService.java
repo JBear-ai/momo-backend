@@ -95,6 +95,13 @@ public class MoviePosterCacheService {
     }
 
     public List<MoviePosterStatusResponse> findPosterStatuses(Collection<String> movieCodes) {
+        return findPosterStatuses(movieCodes, PosterStatus.FAILED);
+    }
+
+    // 비동기 ensure 요청 직후에는 캐시 행이 아직 없을 수 있으므로 호출 목적에 맞는 초기 상태를 반환한다.
+    public List<MoviePosterStatusResponse> findPosterStatuses(
+            Collection<String> movieCodes,
+            PosterStatus missingCacheStatus) {
         if (movieCodes == null || movieCodes.isEmpty()) {
             return List.of();
         }
@@ -130,7 +137,7 @@ public class MoviePosterCacheService {
                     MoviePosterCache cache = caches.get(movieCode);
                     if (cache == null) {
                         return new MoviePosterStatusResponse(
-                                movieCode, PosterStatus.FAILED, "");
+                                movieCode, missingCacheStatus, "");
                     }
 
                     String posterUrl = isPosterFileAvailable(cache.getPosterUrl())
