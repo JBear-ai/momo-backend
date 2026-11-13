@@ -4,9 +4,10 @@ import AxiosApi from "../../api/AxiosApi";
 import MovieSearchAutocomplete from "./MovieSearchAutocomplete";
 
 const mockSearchParams = new URLSearchParams();
+const mockNavigate = jest.fn();
 
 jest.mock("react-router-dom", () => ({
-  useNavigate: () => jest.fn(),
+  useNavigate: () => mockNavigate,
   useSearchParams: () => [mockSearchParams],
 }));
 
@@ -50,6 +51,36 @@ describe("MovieSearchAutocomplete poster refresh", () => {
     jest.clearAllTimers();
     jest.useRealTimers();
     jest.clearAllMocks();
+  });
+
+  test("moves through results with arrow keys and opens the active result with Enter", async () => {
+    render(React.createElement(MovieSearchAutocomplete));
+
+    const input = screen.getByLabelText("영화 검색어");
+    fireEvent.change(input, { target: { value: "테스트" } });
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      for (let i = 0; i < 8; i += 1) {
+        await Promise.resolve();
+      }
+    });
+
+    const option = screen.getByRole("option", {
+      name: "테스트 영화 상세 페이지 이동",
+    });
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+
+    expect(input).toHaveAttribute(
+      "aria-activedescendant",
+      "momo-search-option-20260001",
+    );
+    expect(option).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/movie/20260001");
   });
 
   test("refreshes an open search result when its queued poster becomes available", async () => {
