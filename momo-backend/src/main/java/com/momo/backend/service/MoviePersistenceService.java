@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,24 +26,32 @@ public class MoviePersistenceService {
             return;
         }
 
-        List<String> codes = movies.stream()
-                .filter(item -> item != null)
-                .map(item -> item == null ? null : item.movieCode())
-                .filter(code -> code != null && !code.isBlank())
-                .distinct()
-                .toList();
-        if (codes.isEmpty()) return;
+        // 같은 영화 코드가 한 응답에 중복으로 들어와도 신규 Entity를 한 번만 만든다.
+        Map<String, MovieSearchResponse> uniqueMovies = new LinkedHashMap<>();
+        for (MovieSearchResponse item : movies) {
+            if (item == null
+                    || item.movieCode() == null
+                    || item.movieCode().isBlank()
+                    || item.title() == null
+                    || item.title().isBlank()) {
+                continue;
+            }
+
+            MovieSearchResponse previous = uniqueMovies.putIfAbsent(item.movieCode(), item);
+            if (previous != null) {
+                log.debug("중복 영화 검색 결과 제거. movieCode={}", item.movieCode());
+            }
+        }
+
+        if (uniqueMovies.isEmpty()) return;
+        List<String> codes = new ArrayList<>(uniqueMovies.keySet());
 
         Map<String, Movie> existing = new HashMap<>();
         movieRepository.findAllById(codes).forEach(movie ->
                 existing.put(movie.getMovieCode(), movie));
         List<Movie> inserts = new ArrayList<>();
 
-        for (MovieSearchResponse item : movies) {
-            if (item == null || item.movieCode() == null || item.movieCode().isBlank()
-                    || item.title() == null || item.title().isBlank()) {
-                continue;
-            }
+        for (MovieSearchResponse item : uniqueMovies.values()) {
             Movie saved = existing.get(item.movieCode());
             if (saved == null) {
                 inserts.add(new Movie(
