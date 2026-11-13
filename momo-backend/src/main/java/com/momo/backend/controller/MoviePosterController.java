@@ -2,6 +2,7 @@ package com.momo.backend.controller;
 
 import com.momo.backend.dto.movie.MoviePosterResponse;
 import com.momo.backend.dto.movie.MoviePosterStatusResponse;
+import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.service.MoviePosterCacheService;
 import com.momo.backend.service.MovieService;
 import com.momo.backend.service.MoviePosterEnsureAsyncService;
@@ -54,7 +55,8 @@ public class MoviePosterController {
             }
         }
 
-        return ResponseEntity.ok(posterCacheService.findPosterStatuses(distinctMovieCodes));
+        return ResponseEntity.ok(
+                posterCacheService.findPosterStatuses(distinctMovieCodes, PosterStatus.PENDING));
     }
 
     @PostMapping("/posters/status")
