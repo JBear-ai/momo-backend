@@ -61,11 +61,16 @@ public class MoviePosterCacheService {
     // DB의 포스터 경로 제거와 재수집 대기열 등록을 한 트랜잭션으로 처리한다.
     // 중간에 서버가 종료되어도 '경로만 지워지고 작업은 등록되지 않는' 상태가 남지 않는다.
     @Transactional
-    public void repairMissingPosterFile(String movieCode, String title, String releaseDate) {
-        Movie movie = movieRepository.findById(movieCode).orElse(null);
-        if (movie != null) {
-            movie.updatePosterUrl(null);
-            movieRepository.save(movie);
+    public boolean repairMissingPosterFile(
+            String movieCode,
+            String title,
+            String releaseDate,
+            String expectedPosterUrl) {
+        // 스케줄러가 파일 존재 여부를 검사한 뒤 새 포스터가 저장됐을 수 있다.
+        // DB 경로가 검사 당시 값과 일치할 때만 CAS 방식으로 제거한다.
+        int cleared = movieRepository.clearPosterUrlIfMatches(movieCode, expectedPosterUrl);
+        if (cleared != 1) {
+            return false;
         }
 
         if (!posterCacheRepository.existsById(movieCode)) {
@@ -75,6 +80,7 @@ public class MoviePosterCacheService {
         LocalDateTime now = LocalDateTime.now();
         posterCacheRepository.resetMissingPoster(
                 movieCode, now, now.minusMinutes(PROCESSING_TIMEOUT_MINUTES));
+        return true;
     }
 
     @Transactional
