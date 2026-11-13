@@ -280,15 +280,18 @@ public class MovieService {
                     MoviePosterCache savedCache =
                             savedPosterCaches.get(movie.movieCode());
 
-                    String posterUrl = "";
-
-                    if (savedMovie != null && !isBlank(savedMovie.getPosterUrl())) {
-                        posterUrl = savedMovie.getPosterUrl();
-                    } else if (savedCache != null
+                    String moviePosterUrl = savedMovie == null
+                            ? ""
+                            : getAvailablePosterUrl(savedMovie.getPosterUrl());
+                    String cachedPosterUrl = savedCache != null
                             && savedCache.getStatus() == PosterStatus.SUCCESS
-                            && !isBlank(savedCache.getPosterUrl())) {
-                        posterUrl = savedCache.getPosterUrl();
-                    }
+                            ? getAvailablePosterUrl(savedCache.getPosterUrl())
+                            : "";
+
+                    // DB의 로컬 파일 경로가 유실된 경우 캐시의 정상 포스터를 우선 사용한다.
+                    String posterUrl = !isBlank(moviePosterUrl)
+                            ? moviePosterUrl
+                            : cachedPosterUrl;
 
                     return new MovieSearchResponse(
                             movie.movieCode(),
@@ -306,6 +309,18 @@ public class MovieService {
                 response.size(),
                 response.totalCount(),
                 response.hasNext());
+    }
+
+    // 로컬 포스터 경로는 실제 파일이 존재할 때만 검색 결과에 연결한다.
+    // 외부 URL은 기존 동작을 유지한다.
+    private String getAvailablePosterUrl(String posterUrl) {
+        if (isBlank(posterUrl)) {
+            return "";
+        }
+        if (posterUrl.startsWith("/posters/")) {
+            return posterFileStorageService.exists(posterUrl) ? posterUrl : "";
+        }
+        return posterUrl;
     }
 
     // 검색 결과를 Movie DB에 저장
