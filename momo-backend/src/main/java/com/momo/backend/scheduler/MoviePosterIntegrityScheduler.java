@@ -61,10 +61,13 @@ public class MoviePosterIntegrityScheduler {
                 );
                 if (repairQueued) {
                     repaired++;
+                    log.warn("누락된 포스터 파일 감지. 재수집 대기열로 이동. movieCode={}, path={}",
+                            movie.getMovieCode(), posterPath);
+                } else {
+                    // 검사 이후 다른 작업이 새 포스터 경로를 저장한 경우 정상 경합으로 처리한다.
+                    log.debug("포스터 경로가 이미 변경되어 복구를 건너뜁니다. movieCode={}",
+                            movie.getMovieCode());
                 }
-
-                log.warn("누락된 포스터 파일 감지. 재수집 대기열로 이동. movieCode={}, path={}",
-                        movie.getMovieCode(), posterPath);
             }
 
             if (batch.size() < 100) {
