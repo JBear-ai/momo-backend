@@ -18,6 +18,7 @@ public interface MovieRatingRepository
     }
 
     interface MovieRatingResponseSummary {
+        String getMovieCode();
         long getLikeCount();
         long getDislikeCount();
         Integer getMyRating();
@@ -26,13 +27,16 @@ public interface MovieRatingRepository
     // 전체 반응 수와 현재 회원의 반응을 한 번의 집계 쿼리로 조회한다.
     // loginId가 null이면 myRating은 null로 반환된다.
     @Query("""
-            select count(case when rating.liked = true then 1 end) as likeCount,
+            select movie.movieCode as movieCode,
+                   count(case when rating.liked = true then 1 end) as likeCount,
                    count(case when rating.liked = false then 1 end) as dislikeCount,
                    max(case when rating.user.loginId = :loginId
                             then case when rating.liked = true then 1 else 0 end
                             else null end) as myRating
-            from MovieRating rating
-            where rating.movie.movieCode = :movieCode
+            from Movie movie
+            left join MovieRating rating on rating.movie = movie
+            where movie.movieCode = :movieCode
+            group by movie.movieCode
             """)
     MovieRatingResponseSummary findResponseSummaryByMovieCode(
             @Param("movieCode") String movieCode,
