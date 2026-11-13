@@ -211,18 +211,15 @@ public class CommentService {
     private CommentResponse toResponse(Comment comment, Long currentUserId) {
         Long commentId = comment.getCommentId();
 
-        // 좋아요와 싫어요 수는 단일 집계 쿼리로 조회한다.
-        CommentReactionRepository.ReactionCountSummary counts =
-                commentReactionRepository.findCountsByCommentId(commentId);
-        long likeCount = counts == null ? 0L : counts.getLikeCount();
-        long dislikeCount = counts == null ? 0L : counts.getDislikeCount();
-
-        Boolean myReaction = currentUserId == null
-                ? null
-                : commentReactionRepository
-                        .findByUser_UserIdAndComment_CommentId(currentUserId, commentId)
-                        .map(reaction -> reaction.getLiked())
-                        .orElse(null);
+        // 반응 수와 현재 회원의 반응을 하나의 집계 쿼리로 조회한다.
+        CommentReactionRepository.CommentResponseSummary summary =
+                commentReactionRepository.findResponseSummaryByCommentId(commentId, currentUserId);
+        long likeCount = summary == null || summary.getLikeCount() == null
+                ? 0L : summary.getLikeCount();
+        long dislikeCount = summary == null || summary.getDislikeCount() == null
+                ? 0L : summary.getDislikeCount();
+        Integer reactionValue = summary == null ? null : summary.getMyReaction();
+        Boolean myReaction = reactionValue == null ? null : reactionValue == 1;
 
         boolean profileImageAvailable = comment.getUser().getProfileImage() != null
                 && !comment.getUser().getProfileImage().isBlank();
