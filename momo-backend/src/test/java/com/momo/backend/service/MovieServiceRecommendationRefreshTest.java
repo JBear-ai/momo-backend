@@ -112,6 +112,18 @@ class MovieServiceRecommendationRefreshTest {
     }
 
     @Test
+    void refreshesWeeklyHistoryInSmallBackgroundBatches() {
+        MovieService service = createService(mock(MovieRepository.class));
+        doReturn(List.of()).when(service).getWeeklyBoxOffice(anyString());
+
+        service.refreshWeeklyBoxOfficeHistory();
+        verify(service, times(4)).getWeeklyBoxOffice(anyString());
+
+        service.refreshWeeklyBoxOfficeHistory();
+        verify(service, times(8)).getWeeklyBoxOffice(anyString());
+    }
+
+    @Test
     void refreshesSevenDaysOnlyOnceDuringTheRefreshWindow() {
         MovieService service = spy(new MovieService(
                 mock(MoviePosterAsyncService.class),
