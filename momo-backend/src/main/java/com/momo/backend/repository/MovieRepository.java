@@ -4,13 +4,31 @@ import com.momo.backend.entity.Movie;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface MovieRepository extends JpaRepository<Movie, String> {
+
+    // 무결성 스케줄러가 검사한 파일 경로와 현재 DB 경로가 같을 때만 제거한다.
+    // 검사와 복구 사이에 새 포스터가 저장된 경우 최신 경로를 덮어쓰지 않는다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query("""
+            update Movie movie
+               set movie.posterUrl = null
+             where movie.movieCode = :movieCode
+               and movie.posterUrl = :expectedPosterUrl
+            """)
+    int clearPosterUrlIfMatches(
+            @Param("movieCode") String movieCode,
+            @Param("expectedPosterUrl") String expectedPosterUrl
+    );
+
 
     List<Movie> findByBoxOfficeEnteredTrueOrderByBestBoxOfficeRankAscLastBoxOfficeDateDesc();
 
