@@ -261,10 +261,6 @@ class MoviePosterCacheServiceTest {
     void repairsMissingPosterFileAndQueuesRetryInOneServiceOperation() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
         MovieRepository movieRepository = mock(MovieRepository.class);
-        Movie movie = new Movie(
-                "20260016", "복구 대상 영화", "", "20260101", "", "", "", "", "");
-        movie.updatePosterUrl("/posters/20260016-missing.jpg");
-
         MoviePosterCache cache = new MoviePosterCache(
                 "20260016", "복구 대상 영화", "20260101");
         when(movieRepository.clearPosterUrlIfMatches(
