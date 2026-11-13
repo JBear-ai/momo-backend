@@ -9,7 +9,7 @@ import FavoritesAndProfileOverridesStyles from "./legacy/FavoritesAndProfileOver
 import ReviewDetailCommentsStyles from "./legacy/ReviewDetailComments.styles";
 import MyReviewsStyles from "./legacy/MyReviews.styles";
 import ResponsiveAndPosterOverridesStyles from "./legacy/ResponsiveAndPosterOverrides.styles";
-import PersonDetailStyles from "./PersonDetail.styles";
+import PersonDetailStyles from "./legacy/PersonDetail.styles";
 import LikedReviewsStyles from "./legacy/LikedReviews.styles";
 import MovieSearchAutocompleteStyles from "./legacy/MovieSearchAutocomplete.styles";
 
