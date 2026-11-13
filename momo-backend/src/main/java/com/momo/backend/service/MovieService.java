@@ -287,11 +287,15 @@ public class MovieService {
                             && savedCache.getStatus() == PosterStatus.SUCCESS
                             ? getAvailablePosterUrl(savedCache.getPosterUrl())
                             : "";
+                    // 검색 응답 캐시에 남은 주소도 실제 파일이 있는 경우에만 마지막 fallback으로 사용한다.
+                    String responsePosterUrl = getAvailablePosterUrl(movie.posterUrl());
 
-                    // DB의 로컬 파일 경로가 유실된 경우 캐시의 정상 포스터를 우선 사용한다.
+                    // DB, 포스터 캐시, 검색 응답 순서로 사용할 수 있는 포스터를 선택한다.
                     String posterUrl = !isBlank(moviePosterUrl)
                             ? moviePosterUrl
-                            : cachedPosterUrl;
+                            : !isBlank(cachedPosterUrl)
+                                    ? cachedPosterUrl
+                                    : responsePosterUrl;
 
                     return new MovieSearchResponse(
                             movie.movieCode(),
