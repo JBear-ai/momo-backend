@@ -2,6 +2,8 @@ import AxiosApi from "../api/AxiosApi";
 
 const FAVORITES_KEY_PREFIX = "momo-favorite-movies:";
 const FAVORITES_SYNCED_KEY_PREFIX = "momo-favorites-server-synced:";
+const LEGACY_FAVORITES_KEY = "momo-favorite-movies";
+const LEGACY_MIGRATED_KEY = "momo-favorites-legacy-migrated";
 
 let syncPromise = null;
 let syncPromiseUserId = null;
@@ -23,6 +25,16 @@ function getFavoritesSyncedKey(userId) {
   return userId
     ? FAVORITES_SYNCED_KEY_PREFIX + encodeURIComponent(userId)
     : null;
+}
+
+function getLegacyFavoriteMovies() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LEGACY_FAVORITES_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("기존 관심 영화 데이터 조회 실패:", error);
+    return [];
+  }
 }
 
 function notifyFavoritesChanged(favorites) {
@@ -81,6 +93,19 @@ export function syncFavoriteMoviesFromServer(
 
   const promise = (async () => {
     const localFavorites = getFavoriteMovies(userId);
+    const shouldMigrateLegacy =
+      localStorage.getItem(LEGACY_MIGRATED_KEY) !== "true";
+    const legacyFavorites = shouldMigrateLegacy
+      ? getLegacyFavoriteMovies()
+      : [];
+    const moviesToMigrate = new Map();
+
+    [...legacyFavorites, ...localFavorites].forEach((movie) => {
+      if (movie?.movieCode) {
+        moviesToMigrate.set(String(movie.movieCode), movie);
+      }
+    });
+
     const response = await AxiosApi.favoriteMovies();
 
     // 조회 중 로그아웃하거나 다른 계정으로 전환되면 이전 계정의 응답을 폐기한다.
@@ -94,9 +119,9 @@ export function syncFavoriteMoviesFromServer(
         serverFavorites.map((movie) => String(movie.movieCode)),
       );
 
-      for (const movie of localFavorites) {
+      for (const movie of moviesToMigrate.values()) {
         if (getCurrentFavoriteUserId() !== userId) return [];
-        if (!movie?.movieCode || serverCodes.has(String(movie.movieCode))) {
+        if (serverCodes.has(String(movie.movieCode))) {
           continue;
         }
 
@@ -106,6 +131,7 @@ export function syncFavoriteMoviesFromServer(
           releaseDate: movie.releaseDate || "",
           posterUrl: movie.posterUrl || "",
         });
+        serverCodes.add(String(movie.movieCode));
       }
 
       if (getCurrentFavoriteUserId() !== userId) return [];
@@ -115,6 +141,13 @@ export function syncFavoriteMoviesFromServer(
 
       serverFavorites = Array.isArray(refreshed.data) ? refreshed.data : [];
       localStorage.setItem(syncedKey, "true");
+
+      // 기존 전역 키는 첫 계정으로 성공적으로 이전된 뒤에만 제거한다.
+      // 그래야 네트워크 오류나 계정 전환으로 이전이 중단돼도 원본이 보존된다.
+      if (shouldMigrateLegacy) {
+        localStorage.removeItem(LEGACY_FAVORITES_KEY);
+        localStorage.setItem(LEGACY_MIGRATED_KEY, "true");
+      }
     }
 
     // 동기화 중 로그아웃하거나 다른 계정으로 전환된 응답은 저장하지 않는다.
