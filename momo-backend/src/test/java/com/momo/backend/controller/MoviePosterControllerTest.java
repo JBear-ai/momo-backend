@@ -29,7 +29,7 @@ class MoviePosterControllerTest {
                 new MoviePosterStatusResponse("20261101", PosterStatus.SUCCESS, "/posters/one.jpg"),
                 new MoviePosterStatusResponse("2026A101", PosterStatus.PROCESSING, "")
         );
-        when(cacheService.findPosterStatuses(codes)).thenReturn(statuses);
+        when(cacheService.findPosterStatuses(codes, PosterStatus.PENDING)).thenReturn(statuses);
 
         ResponseEntity<List<MoviePosterStatusResponse>> response =
                 controller.ensurePosterCollection(codes);
@@ -39,7 +39,7 @@ class MoviePosterControllerTest {
         verify(ensureAsyncService).ensurePoster("20261101");
         verify(ensureAsyncService).ensurePoster("2026A101");
         verifyNoInteractions(movieService);
-        verify(cacheService).findPosterStatuses(codes);
+        verify(cacheService).findPosterStatuses(codes, PosterStatus.PENDING);
     }
 
     @Test
