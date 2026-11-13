@@ -21,7 +21,7 @@ public class FirebaseConfig {
 
         // 서비스 계정 키 파일을 읽은 뒤 사용이 끝나면 자동으로 닫습니다.
         try (FileInputStream serviceAccount =
-                     new FileInputStream("./config/firebase-service-account.json")) {
+                     new FileInputStream("momo-backend/config/firebase-service-account.json")) {
 
             // Firebase Admin SDK 인증 정보와 Storage 버킷을 설정합니다.
             FirebaseOptions options = FirebaseOptions.builder()
