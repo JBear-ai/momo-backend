@@ -1,56 +1,80 @@
 package com.momo.backend.service;
 
 import com.momo.backend.dto.movie.MovieSearchResponse;
-import com.momo.backend.entity.Movie;
-import com.momo.backend.repository.MovieRepository;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
+import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 class MoviePersistenceServiceTest {
 
     @Test
-    void persistsOnlyOneMovieWhenKobisResponseRepeatsTheSameMovieCode() {
-        MovieRepository movieRepository = mock(MovieRepository.class);
-        when(movieRepository.findAllById(List.of("20260001"))).thenReturn(List.of());
-
-        MoviePersistenceService service = new MoviePersistenceService(movieRepository);
+    void removesDuplicateMovieCodesFromTheSameKobisResponse() {
+        MoviePersistenceWriter writer = mock(MoviePersistenceWriter.class);
+        MoviePersistenceService service = new MoviePersistenceService(writer);
 
         service.saveSearchMovies(List.of(
-                new MovieSearchResponse(
-                        "20260001", "첫 번째 제목", "20260101", "드라마", "감독 A"),
-                new MovieSearchResponse(
-                        "20260001", "중복 제목", "20260101", "드라마", "감독 A")
+                new MovieSearchResponse("20260001", "첫 번째 제목", "20260101", "드라마", "감독 A"),
+                new MovieSearchResponse("20260001", "중복 제목", "20260101", "드라마", "감독 A")
         ));
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Iterable<Movie>> captor = ArgumentCaptor.forClass(Iterable.class);
-        verify(movieRepository).saveAll(captor.capture());
-
-        List<Movie> savedMovies = new java.util.ArrayList<>();
-        captor.getValue().forEach(savedMovies::add);
-
-        assertEquals(1, savedMovies.size());
-        assertEquals("20260001", savedMovies.get(0).getMovieCode());
-        assertEquals("첫 번째 제목", savedMovies.get(0).getTitle());
-        verify(movieRepository).findAllById(List.of("20260001"));
+        verify(writer).saveOrSupplement(argThat(movie ->
+                "20260001".equals(movie.movieCode())
+                        && "첫 번째 제목".equals(movie.title())
+        ));
+        verifyNoMoreInteractions(writer);
     }
 
     @Test
-    void skipsInvalidMovieRowsBeforeQueryingTheDatabase() {
-        MovieRepository movieRepository = mock(MovieRepository.class);
-        MoviePersistenceService service = new MoviePersistenceService(movieRepository);
+    void skipsInvalidMovieRowsWithoutCallingTheWriter() {
+        MoviePersistenceWriter writer = mock(MoviePersistenceWriter.class);
+        MoviePersistenceService service = new MoviePersistenceService(writer);
 
-        service.saveSearchMovies(java.util.Arrays.asList(
+        service.saveSearchMovies(Arrays.asList(
                 null,
                 new MovieSearchResponse("", "제목", "", "", ""),
                 new MovieSearchResponse("20260002", " ", "", "", "")
         ));
 
-        verifyNoInteractions(movieRepository);
+        verifyNoInteractions(writer);
+    }
+
+    @Test
+    void recoversConcurrentPrimaryKeyConflictInANewTransaction() {
+        MoviePersistenceWriter writer = mock(MoviePersistenceWriter.class);
+        MovieSearchResponse movie = new MovieSearchResponse(
+                "20260003", "동시 저장 영화", "20260103", "드라마", "감독 B"
+        );
+        doThrow(new DataIntegrityViolationException("duplicate movieCode"))
+                .when(writer).saveOrSupplement(movie);
+
+        MoviePersistenceService service = new MoviePersistenceService(writer);
+        service.saveSearchMovies(List.of(movie));
+
+        verify(writer).saveOrSupplement(movie);
+        verify(writer).supplementAfterConcurrentInsert(movie);
+        verifyNoMoreInteractions(writer);
+    }
+
+    @Test
+    void continuesWithOtherMoviesAfterRecoveringOneDuplicateInsert() {
+        MoviePersistenceWriter writer = mock(MoviePersistenceWriter.class);
+        MovieSearchResponse first = new MovieSearchResponse(
+                "20260004", "동시 저장 영화", "20260104", "드라마", "감독 C"
+        );
+        MovieSearchResponse second = new MovieSearchResponse(
+                "20260005", "다음 영화", "20260105", "액션", "감독 D"
+        );
+        doThrow(new DataIntegrityViolationException("duplicate movieCode"))
+                .when(writer).saveOrSupplement(first);
+
+        MoviePersistenceService service = new MoviePersistenceService(writer);
+        service.saveSearchMovies(List.of(first, second));
+
+        verify(writer).supplementAfterConcurrentInsert(first);
+        verify(writer).saveOrSupplement(second);
     }
 }
