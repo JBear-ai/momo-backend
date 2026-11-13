@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/prefer-screen-queries -- Playwright page queries are not Testing Library render queries. */
 const { test, expect } = require("@playwright/test");
 
 test("회원가입, 로그인, 로그아웃이 브라우저에서 이어진다", async ({ page }) => {
