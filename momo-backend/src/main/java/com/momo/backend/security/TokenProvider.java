@@ -131,6 +131,11 @@ public class TokenProvider {
         return parseClaims(token).getSubject();
     }
 
+    /** 검증된 Access Token의 만료 시각을 WebSocket 연결 수명 관리에 제공한다. */
+    public java.time.Instant getExpiration(String token) {
+        return parseClaims(token).getExpiration().toInstant();
+    }
+
     // 8. JWT 서명을 검증하고 저장된 정보 추출
     private Claims parseClaims(String token) {
 

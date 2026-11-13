@@ -29,6 +29,7 @@ import textlogo from "../textlogo.png";
 import AxiosApi, { clearAuthSession } from "../api/AxiosApi";
 import { getCurrentFavoriteUserId, syncFavoriteMoviesFromServer } from "../utils/favorites";
 import MovieSearchAutocomplete from "../components/common/MovieSearchAutocomplete";
+import ChatPopup from "../components/chat/ChatPopup";
 
 // ========================================
 // Layout 컴포넌트
@@ -241,6 +242,7 @@ function Layout() {
           <p>Designed for Movie Lovers with Warm Analog 감성</p>
         </FooterBottom>
       </Footer>
+      <ChatPopup />
     </Container>
   );
 }

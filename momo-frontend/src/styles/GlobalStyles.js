@@ -13,6 +13,7 @@ import ResponsiveAndPosterOverridesStyles from "./legacy/ResponsiveAndPosterOver
 import PersonDetailStyles from "./legacy/PersonDetail.styles";
 import LikedReviewsStyles from "./legacy/LikedReviews.styles";
 import MovieSearchAutocompleteStyles from "./legacy/MovieSearchAutocomplete.styles";
+import ChatPopupGlobalStyles from "./legacy/chatPopup.style";
 
 /**
  * 전역 디자인 토큰·리셋과 기능별 styled-components를 한 곳에서 조립합니다.
@@ -37,6 +38,7 @@ function GlobalStyles() {
       <MovieSearchAutocompleteStyles />
       <ResponsiveAndPosterOverridesStyles />
       <PersonDetailStyles />
+      <ChatPopupGlobalStyles />
     </>
   );
 }
