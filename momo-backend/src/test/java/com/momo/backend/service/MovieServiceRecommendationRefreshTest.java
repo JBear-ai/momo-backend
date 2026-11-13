@@ -40,11 +40,13 @@ class MovieServiceRecommendationRefreshTest {
                 mockCache()
         ));
         doReturn(List.of()).when(service).getDailyBoxOffice(anyString());
+        doReturn(List.of()).when(service).getWeeklyBoxOffice(anyString());
 
         assertTrue(service.getBoxOfficeRecommendations(null).isEmpty());
         assertTrue(service.getBoxOfficeRecommendations(null).isEmpty());
 
-        // 첫 호출만 어제부터 7일치 이력을 확인하고, 두 번째 추천 조회는 반복 작업을 생략한다.
+        // 첫 호출에서 일별 7일 + 주간 16주를 확인하고, 두 번째 조회는 캐시 갱신 구간을 재사용한다.
         verify(service, times(7)).getDailyBoxOffice(anyString());
+        verify(service, times(16)).getWeeklyBoxOffice(anyString());
     }
 }
