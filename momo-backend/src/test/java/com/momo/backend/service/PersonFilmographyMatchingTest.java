@@ -359,7 +359,7 @@ class PersonFilmographyMatchingTest {
     }
 
     @Test
-    void cachesPersonDetailByTmdbIdAndRoleAcrossRepeatedRequests() {
+    void cachesPersonDetailByTmdbIdAndRoleAcrossRepeatedRequests() throws Exception {
         long personId = 900006L;
         TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
         when(tmdbApiClient.getPersonDetail(personId, "ko-KR")).thenReturn("""
@@ -382,6 +382,20 @@ class PersonFilmographyMatchingTest {
                 """);
 
         MovieCacheRepository cacheRepository = mock(MovieCacheRepository.class);
+        var cachedResponse = new com.momo.backend.dto.person.PersonDetailResponse(
+                new com.momo.backend.dto.person.PersonDetailResponse.PersonInfo(
+                        personId, "ID 캐시 인물", "https://image.tmdb.org/t/p/w500/person.jpg",
+                        null, null, null, null, "Acting"),
+                java.util.List.of(new com.momo.backend.dto.person.PersonDetailResponse.FilmographyItem(
+                        700001L, "ID 캐시 영화", "2024-01-01",
+                        "https://image.tmdb.org/t/p/w500/movie.jpg", "주연"))
+        );
+        var cachedEntity = new com.momo.backend.entity.MovieCache(
+                "PERSON_DETAIL", "ID|actor|900006",
+                new ObjectMapper().writeValueAsString(cachedResponse), 24);
+        when(cacheRepository.findByCacheTypeAndCacheKey("PERSON_DETAIL", "ID|actor|900006"))
+                .thenReturn(java.util.Optional.empty(), java.util.Optional.of(cachedEntity));
+
         PersonService service = new PersonService(
                 tmdbApiClient,
                 mock(KobisApiClient.class),
