@@ -273,4 +273,50 @@ class MovieServiceStaleCacheFallbackTest {
         assertEquals("/posters/box-office.jpg", response.get(0).posterUrl());
         verify(kobis).getDailyBoxOffice(date);
     }
+    @Test
+    void servesStaleWeeklyBoxOfficeWhenKobisReturnsHttpSuccessErrorDocument() {
+        KobisApiClient kobis = mock(KobisApiClient.class);
+        MovieCacheRepository cacheRepository = mock(MovieCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        MoviePosterCacheRepository posterCacheRepository = mock(MoviePosterCacheRepository.class);
+        String date = "20261108";
+        MovieCache stale = expiredCache(
+                "WEEKLY_BOX_OFFICE",
+                date,
+                """
+                [{
+                  "rank": 3,
+                  "movieCode": "20260005",
+                  "title": "저장된 주간 박스오피스",
+                  "releaseDate": "20200102",
+                  "audienceCount": "100",
+                  "totalAudience": "1000",
+                  "posterUrl": ""
+                }]
+                """
+        );
+
+        when(cacheRepository.findByCacheTypeAndCacheKey("WEEKLY_BOX_OFFICE", date))
+                .thenReturn(Optional.of(stale));
+        when(kobis.getWeeklyBoxOffice(date))
+                .thenReturn("{\\"faultInfo\\":{\\"message\\":\\"KOBIS application error\\"}}");
+        when(movieRepository.findAllById(List.of("20260005"))).thenReturn(List.of());
+
+        MovieService service = createService(
+                kobis,
+                cacheRepository,
+                movieRepository,
+                posterCacheRepository,
+                mock(MoviePersistenceService.class),
+                mock(PosterFileStorageService.class)
+        );
+
+        var response = service.getWeeklyBoxOffice(date);
+
+        assertEquals(1, response.size());
+        assertEquals("저장된 주간 박스오피스", response.get(0).title());
+        assertEquals(3, response.get(0).rank());
+        verify(kobis).getWeeklyBoxOffice(date);
+    }
+
 }
