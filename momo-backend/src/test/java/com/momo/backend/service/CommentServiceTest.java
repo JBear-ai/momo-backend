@@ -70,10 +70,12 @@ class CommentServiceTest {
         when(comment.getContent()).thenReturn("동시성 검증 댓글");
         when(comment.getCreatedAt()).thenReturn(now);
         when(comment.getUpdatedAt()).thenReturn(now);
-        when(commentReactionRepository.countByComment_CommentIdAndLiked(27L, true))
-                .thenReturn(0L);
-        when(commentReactionRepository.countByComment_CommentIdAndLiked(27L, false))
-                .thenReturn(0L);
+        CommentReactionRepository.ReactionCountSummary reactionCounts =
+                org.mockito.Mockito.mock(CommentReactionRepository.ReactionCountSummary.class);
+        when(reactionCounts.getLikeCount()).thenReturn(0L);
+        when(reactionCounts.getDislikeCount()).thenReturn(0L);
+        when(commentReactionRepository.findCountsByCommentId(27L))
+                .thenReturn(reactionCounts);
 
         CommentRequest request = new CommentRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(
