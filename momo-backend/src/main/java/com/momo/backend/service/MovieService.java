@@ -581,11 +581,19 @@ public class MovieService {
 
     @Transactional
     public MovieDetailResponse getMovieDetail(String movieCode) {
-
         if (isBlank(movieCode)) {
             throw new IllegalArgumentException("영화 코드가 필요합니다.");
         }
 
+        // 같은 KOBIS 코드의 동시 상세 요청은 한 번만 외부 API와 DB 등록을 수행한다.
+        String lockKey = "MOVIE_DETAIL|" + movieCode;
+        Object lock = CACHE_LOCKS[Math.floorMod(lockKey.hashCode(), CACHE_LOCKS.length)];
+        synchronized (lock) {
+            return getMovieDetailInternal(movieCode);
+        }
+    }
+
+    private MovieDetailResponse getMovieDetailInternal(String movieCode) {
         Movie savedMovie = movieRepository.findById(movieCode)
                 .orElse(null);
 
