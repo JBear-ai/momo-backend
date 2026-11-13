@@ -150,6 +150,13 @@ public class CommentService {
         userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
+        Comment commentReference = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+
+        // 리뷰 삭제와 댓글 수정이 동일한 부모 리뷰 행 잠금을 사용한다.
+        reviewRepository.findByIdForUpdate(commentReference.getReview().getReviewId())
+                .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+
         Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("댓글을 찾을 수 없습니다."));
@@ -175,7 +182,14 @@ public class CommentService {
         userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
-        // 댓글 반응 등록·삭제와 같은 댓글 행 잠금을 사용한다.
+        // 리뷰 삭제와 댓글 삭제가 동일한 부모 리뷰 행 잠금을 사용한다.
+        Comment commentReference = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+
+        reviewRepository.findByIdForUpdate(commentReference.getReview().getReviewId())
+                .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+
+        // 부모 리뷰 잠금 이후 댓글 행을 잠근다.
         Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("댓글을 찾을 수 없습니다."));
