@@ -591,9 +591,39 @@ public class MovieService {
             }
         }
 
-        // 아직 검증된 ID 매핑이 없는 기존 영화만 제목·연도·감독 검증 검색을 사용한다.
+        // 기존 영화의 최초 인물 조회도 제목·연도·감독을 검증한 TMDb ID를 영구 저장한다.
         return tmdbService.findMoviePeople(
-                movie.getTitle(), movie.getTitleEn(), movie.getReleaseDate(), movie.getDirector());
+                movie.getTitle(),
+                movie.getTitleEn(),
+                movie.getReleaseDate(),
+                movie.getDirector(),
+                tmdbId -> saveVerifiedTmdbMovieMapping(movieCode, tmdbId));
+    }
+
+    private void saveVerifiedTmdbMovieMapping(String movieCode, long tmdbId) {
+        String externalId = String.valueOf(tmdbId);
+        var existing = movieExternalIdMappingRepository
+                .findByProviderAndExternalId("TMDB", externalId);
+        if (existing.isPresent()) {
+            if (!movieCode.equals(existing.get().getMovieCode())) {
+                log.warn("TMDb 영화 ID가 다른 KOBIS 영화에 이미 연결되어 있어 매핑을 덮어쓰지 않습니다. tmdbId={}, requested={}, saved={}",
+                        tmdbId, movieCode, existing.get().getMovieCode());
+            }
+            return;
+        }
+
+        try {
+            movieExternalIdMappingRepository.saveAndFlush(
+                    new MovieExternalIdMapping("TMDB", externalId, movieCode));
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicateMapping) {
+            // 동시에 다른 요청이 먼저 저장했다면 기존 연결을 최종 기준으로 사용한다.
+            var saved = movieExternalIdMappingRepository
+                    .findByProviderAndExternalId("TMDB", externalId);
+            if (saved.isEmpty() || !movieCode.equals(saved.get().getMovieCode())) {
+                log.warn("TMDb 영화 ID 매핑 충돌. 기존 매핑을 유지합니다. tmdbId={}, movieCode={}",
+                        tmdbId, movieCode);
+            }
+        }
     }
 
     // 영화 상세정보 조회
