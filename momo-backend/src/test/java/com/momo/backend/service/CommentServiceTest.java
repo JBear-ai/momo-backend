@@ -86,7 +86,8 @@ class CommentServiceTest {
 
         assertEquals(27L, response.getCommentId());
         verify(commentReactionRepository).findResponseSummaryByCommentId(27L, 7L);
-        verify(commentReactionRepository, never()).findCountsByCommentId(27L);
+        verify(commentReactionRepository, never())
+                .findResponseSummaryByCommentId(anyLong(), any());
         verify(commentReactionRepository, never())
                 .findByUser_UserIdAndComment_CommentId(7L, 27L);
 
