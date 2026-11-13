@@ -19,6 +19,7 @@ function MovieSearchAutocomplete() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   // URL 검색어 변경 시 검색창 동기화
   useEffect(() => {
@@ -64,6 +65,7 @@ function MovieSearchAutocomplete() {
         );
 
         setMovies(validMovies);
+        setActiveIndex(-1);
       } catch (err) {
         if (
           !controller.signal.aborted &&
@@ -215,10 +217,35 @@ function MovieSearchAutocomplete() {
     navigate(`/movie/${encodeURIComponent(movie.movieCode)}`);
   };
 
-  // 키보드 ESC로 자동완성 닫기
+  // 키보드로 자동완성 결과 이동 및 선택
   const handleKeyDown = (event) => {
     if (event.key === "Escape") {
       setIsOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+
+    if (!isOpen || movies.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        current >= movies.length - 1 ? 0 : current + 1,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        current <= 0 ? movies.length - 1 : current - 1,
+      );
+      return;
+    }
+
+    if (event.key === "Enter" && activeIndex >= 0) {
+      event.preventDefault();
+      handleMovieSelect(movies[activeIndex]);
     }
   };
 
@@ -249,10 +276,16 @@ function MovieSearchAutocomplete() {
           aria-label="영화 검색어"
           aria-expanded={isOpen}
           aria-autocomplete="list"
-          aria-controls="momo-search-listbox"
+          aria-controls={isOpen ? "momo-search-listbox" : undefined}
           aria-haspopup="listbox"
+          aria-activedescendant={
+            activeIndex >= 0 && movies[activeIndex]
+              ? `momo-search-option-${movies[activeIndex].movieCode}`
+              : undefined
+          }
           onChange={(event) => {
             setKeyword(event.target.value);
+            setActiveIndex(-1);
             setIsOpen(true);
           }}
           onFocus={() => {
@@ -287,13 +320,15 @@ function MovieSearchAutocomplete() {
 
           {!loading &&
             !error &&
-            movies.map((movie) => (
+            movies.map((movie, index) => (
               <button
                 type="button"
                 role="option"
-                aria-selected="false"
-                className="momo-search-result"
+                id={`momo-search-option-${movie.movieCode}`}
+                aria-selected={activeIndex === index}
+                className={`momo-search-result ${activeIndex === index ? "is-active" : ""}`}
                 key={movie.movieCode}
+                onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => handleMovieSelect(movie)}
                 aria-label={`${movie.title} 상세 페이지 이동`}
               >
