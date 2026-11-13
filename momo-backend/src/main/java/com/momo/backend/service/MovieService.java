@@ -9,11 +9,13 @@ import com.momo.backend.dto.movie.MovieSearchPageResponse;
 import com.momo.backend.entity.Movie;
 import com.momo.backend.entity.MovieCache;
 import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.MovieExternalIdMapping;
 import com.momo.backend.entity.MovieSupplement;
 import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.repository.MovieCacheRepository;
 import com.momo.backend.repository.MovieRepository;
 import com.momo.backend.repository.MoviePosterCacheRepository;
+import com.momo.backend.repository.MovieExternalIdMappingRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 
 import lombok.RequiredArgsConstructor;
@@ -51,6 +53,7 @@ public class MovieService {
     private final MoviePosterCacheService posterCacheService;
     private final MoviePersistenceService moviePersistenceService;
     private final MoviePosterCacheRepository moviePosterCacheRepository;
+    private final MovieExternalIdMappingRepository movieExternalIdMappingRepository;
     private final PosterFileStorageService posterFileStorageService;
     private final Cache<String, MovieCache> movieApiMemoryCache;
 
@@ -67,6 +70,13 @@ public class MovieService {
 
     private static final long SEARCH_CACHE_HOURS = 24;
     private static final long DAILY_BOX_OFFICE_CACHE_HOURS = 1;
+    private static final long BOX_OFFICE_HISTORY_REFRESH_MINUTES = 45;
+    private static final long BOX_OFFICE_HISTORY_FAILURE_RETRY_MINUTES = 5;
+
+    private final Object recentBoxOfficeHistoryLock = new Object();
+    private volatile LocalDate recentBoxOfficeHistoryDate;
+    private volatile LocalDateTime recentBoxOfficeHistoryNextRefreshAt;
+    private boolean recentBoxOfficeHistoryRefreshInProgress;
 
     // KOBIS 목록은 페이지당 최대 100개씩 전체 페이지를 순회한다.
     private static final int GENRE_SCAN_SIZE = 100;
@@ -228,7 +238,8 @@ public class MovieService {
                     movie.path("title").asString(""),
                     movie.path("releaseDate").asString(""),
                     movie.path("genre").asString(""),
-                    movie.path("director").asString("")));
+                    movie.path("director").asString(""),
+                    movie.path("posterUrl").asString("")));
         }
 
         return new MovieSearchPageResponse(
@@ -237,6 +248,83 @@ public class MovieService {
                 root.path("size").asInt(),
                 root.path("totalCount").asInt(),
                 root.path("hasNext").asBoolean());
+    }
+
+    // DB에 저장된 포스터 주소를 검색 결과에 연결한다.
+    // 기존 데이터는 조회만 하며 초기화하거나 재수집하지 않는다.
+    private MovieSearchPageResponse attachSavedPosterUrls(
+            MovieSearchPageResponse response) {
+        if (response == null || response.content() == null
+                || response.content().isEmpty()) {
+            return response;
+        }
+
+        List<String> movieCodes = response.content().stream()
+                .map(MovieSearchResponse::movieCode)
+                .filter(code -> !isBlank(code))
+                .distinct()
+                .toList();
+
+        Map<String, Movie> savedMovies = new HashMap<>();
+        movieRepository.findAllById(movieCodes)
+                .forEach(movie -> savedMovies.put(movie.getMovieCode(), movie));
+
+        Map<String, MoviePosterCache> savedPosterCaches = new HashMap<>();
+        moviePosterCacheRepository.findAllByMovieCodeIn(movieCodes)
+                .forEach(cache ->
+                        savedPosterCaches.put(cache.getMovieCode(), cache));
+
+        List<MovieSearchResponse> content = response.content().stream()
+                .map(movie -> {
+                    Movie savedMovie = savedMovies.get(movie.movieCode());
+                    MoviePosterCache savedCache =
+                            savedPosterCaches.get(movie.movieCode());
+
+                    String moviePosterUrl = savedMovie == null
+                            ? ""
+                            : getAvailablePosterUrl(savedMovie.getPosterUrl());
+                    String cachedPosterUrl = savedCache != null
+                            && savedCache.getStatus() == PosterStatus.SUCCESS
+                            ? getAvailablePosterUrl(savedCache.getPosterUrl())
+                            : "";
+                    // 검색 응답 캐시에 남은 주소도 실제 파일이 있는 경우에만 마지막 fallback으로 사용한다.
+                    String responsePosterUrl = getAvailablePosterUrl(movie.posterUrl());
+
+                    // DB, 포스터 캐시, 검색 응답 순서로 사용할 수 있는 포스터를 선택한다.
+                    String posterUrl = !isBlank(moviePosterUrl)
+                            ? moviePosterUrl
+                            : !isBlank(cachedPosterUrl)
+                                    ? cachedPosterUrl
+                                    : responsePosterUrl;
+
+                    return new MovieSearchResponse(
+                            movie.movieCode(),
+                            movie.title(),
+                            movie.releaseDate(),
+                            movie.genre(),
+                            movie.director(),
+                            posterUrl);
+                })
+                .toList();
+
+        return new MovieSearchPageResponse(
+                content,
+                response.page(),
+                response.size(),
+                response.totalCount(),
+                response.hasNext());
+    }
+
+    // 로컬 포스터 경로는 실제 파일이 존재할 때만 검색 결과에 연결한다.
+    // 외부 URL은 기존 동작을 유지한다.
+    private String getAvailablePosterUrl(String posterUrl) {
+        if (isBlank(posterUrl)) {
+            return "";
+        }
+        if (posterUrl.startsWith("/posters/")) {
+            return posterFileStorageService.exists(posterUrl) ? posterUrl : "";
+        }
+        return posterUrl;
     }
 
     // 검색 결과를 Movie DB에 저장
@@ -290,7 +378,7 @@ public class MovieService {
 
                 enqueuePosterSearches(response.content());
 
-                return response;
+                return attachSavedPosterUrls(response);
 
             } catch (Exception e) {
 
@@ -298,10 +386,33 @@ public class MovieService {
             }
         }
 
-        // 2. 캐시가 없으면 KOBIS 검색
+        // 2. 캐시가 없으면 KOBIS 검색. 외부 API 장애 시 보관 기간 내 만료 캐시를 사용한다.
         log.info("KOBIS 영화 검색 API 요청. keyword: {}, page: {}, size: {}",
                 searchKeyword, page, size);
-        String json = kobisApiClient.searchMovies(searchKeyword, page, size);
+        String json;
+        try {
+            json = kobisApiClient.searchMovies(searchKeyword, page, size);
+        } catch (RuntimeException apiError) {
+            MovieCache staleCache = movieCacheRepository
+                    .findByCacheTypeAndCacheKey(CACHE_SEARCH, cacheKey)
+                    .orElse(null);
+            if (staleCache != null) {
+                try {
+                    MovieSearchPageResponse staleResponse =
+                            readCachedSearchPage(staleCache.getContentJson());
+                    log.warn("KOBIS 영화 검색 실패. 만료 캐시를 임시 반환합니다. keyword={}, page={}",
+                            searchKeyword, page, apiError);
+                    // 만료 캐시도 포스터가 미수집 상태일 수 있으므로 비동기 수집을 다시 등록한다.
+                    enqueuePosterSearches(staleResponse.content());
+                    return attachSavedPosterUrls(staleResponse);
+                } catch (Exception cacheError) {
+                    apiError.addSuppressed(cacheError);
+                    log.warn("KOBIS 검색 대체 캐시를 사용할 수 없습니다. keyword={}, page={}",
+                            searchKeyword, page, cacheError);
+                }
+            }
+            throw apiError;
+        }
 
         JsonNode movieList = readRequiredArray(
                 json,
@@ -364,7 +475,10 @@ public class MovieService {
                 totalCount,
                 hasNext);
 
-        // 5. 검색 결과 캐시 저장
+        // 이미 DB에 저장된 포스터를 검색 응답에 연결한다.
+        response = attachSavedPosterUrls(response);
+
+        // 5. 포스터 주소가 포함된 검색 결과 캐시 저장
         saveCache(
                 CACHE_SEARCH,
                 cacheKey,
@@ -461,19 +575,77 @@ public class MovieService {
             movie = movieRepository.findById(movieCode).orElse(null);
         }
         if (movie == null) return List.of();
+
+        // 이미 검증된 TMDb 영화 ID가 있으면 제목 검색 대신 정확한 ID로 인물 정보를 조회한다.
+        var savedMapping = movieExternalIdMappingRepository
+                .findFirstByProviderAndMovieCodeOrderByMappingIdAsc("TMDB", movieCode);
+        if (savedMapping.isPresent()) {
+            try {
+                long tmdbId = Long.parseLong(savedMapping.get().getExternalId());
+                return tmdbService.getMovieDetailById(tmdbId).people();
+            } catch (NumberFormatException exception) {
+                log.warn("저장된 TMDb 영화 ID 형식이 올바르지 않습니다. movieCode={}", movieCode, exception);
+                return List.of();
+            } catch (RuntimeException exception) {
+                // 검증된 ID의 상세 조회가 실패하면 다른 제목 검색 결과로 잘못 연결하지 않는다.
+                log.warn("저장된 TMDb ID로 인물 정보를 조회하지 못했습니다. movieCode={}", movieCode, exception);
+                return List.of();
+            }
+        }
+
+        // 기존 영화의 최초 인물 조회도 제목·연도·감독을 검증한 TMDb ID를 영구 저장한다.
         return tmdbService.findMoviePeople(
-                movie.getTitle(), movie.getTitleEn(), movie.getReleaseDate(), movie.getDirector());
+                movie.getTitle(),
+                movie.getTitleEn(),
+                movie.getReleaseDate(),
+                movie.getDirector(),
+                tmdbId -> saveVerifiedTmdbMovieMapping(movieCode, tmdbId));
+    }
+
+    private void saveVerifiedTmdbMovieMapping(String movieCode, long tmdbId) {
+        String externalId = String.valueOf(tmdbId);
+        var existing = movieExternalIdMappingRepository
+                .findByProviderAndExternalId("TMDB", externalId);
+        if (existing.isPresent()) {
+            if (!movieCode.equals(existing.get().getMovieCode())) {
+                log.warn("TMDb 영화 ID가 다른 KOBIS 영화에 이미 연결되어 있어 매핑을 덮어쓰지 않습니다. tmdbId={}, requested={}, saved={}",
+                        tmdbId, movieCode, existing.get().getMovieCode());
+            }
+            return;
+        }
+
+        try {
+            movieExternalIdMappingRepository.saveAndFlush(
+                    new MovieExternalIdMapping("TMDB", externalId, movieCode));
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicateMapping) {
+            // 동시에 다른 요청이 먼저 저장했다면 기존 연결을 최종 기준으로 사용한다.
+            var saved = movieExternalIdMappingRepository
+                    .findByProviderAndExternalId("TMDB", externalId);
+            if (saved.isEmpty() || !movieCode.equals(saved.get().getMovieCode())) {
+                log.warn("TMDb 영화 ID 매핑 충돌. 기존 매핑을 유지합니다. tmdbId={}, movieCode={}",
+                        tmdbId, movieCode);
+            }
+        }
     }
 
     // 영화 상세정보 조회
+    // 이 메서드 전체를 트랜잭션으로 감싸면 Java 잠금 해제 후 DB 커밋이 발생한다.
+    // Repository 저장 트랜잭션이 잠금 안에서 커밋되도록 메서드 단위 트랜잭션은 사용하지 않는다.
 
-    @Transactional
     public MovieDetailResponse getMovieDetail(String movieCode) {
-
         if (isBlank(movieCode)) {
             throw new IllegalArgumentException("영화 코드가 필요합니다.");
         }
 
+        // 같은 KOBIS 코드의 동시 상세 요청은 한 번만 외부 API와 DB 등록을 수행한다.
+        String lockKey = "MOVIE_DETAIL|" + movieCode;
+        Object lock = CACHE_LOCKS[Math.floorMod(lockKey.hashCode(), CACHE_LOCKS.length)];
+        synchronized (lock) {
+            return getMovieDetailInternal(movieCode);
+        }
+    }
+
+    private MovieDetailResponse getMovieDetailInternal(String movieCode) {
         Movie savedMovie = movieRepository.findById(movieCode)
                 .orElse(null);
 
@@ -1105,9 +1277,31 @@ public class MovieService {
             }
         }
 
-        // 2. 캐시가 없으면 KOBIS 호출
+        // 2. 캐시가 없으면 KOBIS 호출. API 장애 시 보관 기간 내 만료 캐시를 임시 제공한다.
         log.info("KOBIS 일별 박스오피스 API 요청. targetDate: {}", targetDate);
-        String json = kobisApiClient.getDailyBoxOffice(targetDate);
+        String json;
+        try {
+            json = kobisApiClient.getDailyBoxOffice(targetDate);
+        } catch (RuntimeException apiError) {
+            MovieCache staleCache = movieCacheRepository
+                    .findByCacheTypeAndCacheKey(CACHE_DAILY_BOX_OFFICE, targetDate)
+                    .orElse(null);
+            if (staleCache != null) {
+                try {
+                    List<BoxOfficeResponse> staleMovies =
+                            readCachedBoxOffice(staleCache.getContentJson());
+                    log.warn("KOBIS 박스오피스 조회 실패. 만료 캐시를 임시 반환합니다. targetDate={}",
+                            targetDate, apiError);
+                    markBoxOfficeHistory(staleMovies, targetDate);
+                    return enrichBoxOfficePosters(staleMovies);
+                } catch (Exception cacheError) {
+                    apiError.addSuppressed(cacheError);
+                    log.warn("KOBIS 박스오피스 대체 캐시를 사용할 수 없습니다. targetDate={}",
+                            targetDate, cacheError);
+                }
+            }
+            throw apiError;
+        }
 
         JsonNode boxOfficeList = readRequiredArray(
                 json,
@@ -1206,17 +1400,44 @@ public class MovieService {
     private void refreshRecentBoxOfficeHistory() {
         LocalDate today = LocalDate.now();
 
-        // 오늘 기준 어제부터 7일 전까지의 일별 순위를 누적한다.
-        for (int daysAgo = 1; daysAgo <= 7; daysAgo++) {
-            String targetDate = today.minusDays(daysAgo)
-                    .format(DateTimeFormatter.BASIC_ISO_DATE);
+        // 추천 화면을 열 때마다 7일 치 DB 이력 갱신을 반복하지 않는다.
+        // 날짜가 바뀌면 즉시 한 번 갱신하고, 성공하면 45분·일부 실패 시 5분 후 다시 시도한다.
+        synchronized (recentBoxOfficeHistoryLock) {
+            LocalDateTime now = LocalDateTime.now();
+            if (recentBoxOfficeHistoryRefreshInProgress
+                    || (today.equals(recentBoxOfficeHistoryDate)
+                    && recentBoxOfficeHistoryNextRefreshAt != null
+                    && recentBoxOfficeHistoryNextRefreshAt.isAfter(now))) {
+                return;
+            }
+            recentBoxOfficeHistoryRefreshInProgress = true;
+        }
 
-            try {
-                getDailyBoxOffice(targetDate);
-            } catch (Exception e) {
-                // 특정 날짜의 API 응답이 실패해도 나머지 날짜는 계속 확인한다.
-                log.warn("최근 박스오피스 이력 수집 실패. targetDate: {}",
-                        targetDate, e);
+        boolean failed = false;
+        try {
+            // 오늘 기준 어제부터 7일 전까지의 일별 순위를 누적한다.
+            for (int daysAgo = 1; daysAgo <= 7; daysAgo++) {
+                String targetDate = today.minusDays(daysAgo)
+                        .format(DateTimeFormatter.BASIC_ISO_DATE);
+
+                try {
+                    getDailyBoxOffice(targetDate);
+                } catch (Exception e) {
+                    failed = true;
+                    // 특정 날짜의 API 응답이 실패해도 나머지 날짜는 계속 확인한다.
+                    log.warn("최근 박스오피스 이력 수집 실패. targetDate: {}",
+                            targetDate, e);
+                }
+            }
+        } finally {
+            synchronized (recentBoxOfficeHistoryLock) {
+                recentBoxOfficeHistoryDate = today;
+                recentBoxOfficeHistoryNextRefreshAt = LocalDateTime.now().plusMinutes(
+                        failed
+                                ? BOX_OFFICE_HISTORY_FAILURE_RETRY_MINUTES
+                                : BOX_OFFICE_HISTORY_REFRESH_MINUTES
+                );
+                recentBoxOfficeHistoryRefreshInProgress = false;
             }
         }
     }

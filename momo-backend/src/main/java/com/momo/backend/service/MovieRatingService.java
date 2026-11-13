@@ -39,7 +39,8 @@ public class MovieRatingService {
             );
         }
 
-        User user = userRepository.findByLoginId(loginId)
+        // 같은 회원의 같은 영화 평가 저장·변경·삭제를 직렬화한다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
@@ -63,9 +64,8 @@ public class MovieRatingService {
                 .orElse(null);
 
         if (rating == null) {
-            movieRatingRepository.save(
-                    new MovieRating(user, movie, liked)
-            );
+            // 사용자 행 잠금으로 같은 회원의 동시 INSERT를 직렬화한다.
+            movieRatingRepository.save(new MovieRating(user, movie, liked));
         } else {
             rating.updateRating(liked);
         }
@@ -77,7 +77,7 @@ public class MovieRatingService {
             String movieCode
     ) {
 
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
@@ -143,12 +143,11 @@ public class MovieRatingService {
             );
         }
 
-        // 좋아요 및 싫어요 개수 조회
-        long likeCount = movieRatingRepository
-                .countByMovie_MovieCodeAndLiked(movieCode, true);
-
-        long dislikeCount = movieRatingRepository
-                .countByMovie_MovieCodeAndLiked(movieCode, false);
+        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
+        MovieRatingRepository.MovieRatingCountSummary counts =
+                movieRatingRepository.findCountsByMovieCode(movieCode);
+        long likeCount = counts.getLikeCount();
+        long dislikeCount = counts.getDislikeCount();
 
         long totalCount = likeCount + dislikeCount;
 

@@ -48,6 +48,24 @@ class PosterFileStorageServiceTest {
     }
 
     @Test
+    void deleteIgnoresPosterPathsThatEscapeOrTargetThePosterDirectory() throws Exception {
+        Path posterDirectory = temporaryDirectory.resolve("posters");
+        Files.createDirectories(posterDirectory);
+        Path outsideFile = temporaryDirectory.resolve("outside.jpg");
+        Files.writeString(outsideFile, "keep");
+
+        PosterFileStorageService storageService =
+                new PosterFileStorageService(posterDirectory.toString());
+
+        storageService.delete("/posters/../outside.jpg");
+        storageService.delete("/posters/.");
+        storageService.delete("/posters/..");
+
+        assertTrue(Files.exists(outsideFile));
+        assertTrue(Files.isDirectory(posterDirectory));
+    }
+
+    @Test
     void reportsMissingOrUnsafePosterPathsAsUnavailable() {
         PosterFileStorageService storageService =
                 new PosterFileStorageService(temporaryDirectory.toString());

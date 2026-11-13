@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import styled from "styled-components";
+import {
+  SearchPage,
+  SearchHeading,
+  SearchInput,
+  MovieGrid,
+  MovieCard,
+  Poster,
+  MovieInfo,
+  SearchMessage,
+  LoadingMessage,
+  RetryButton,
+  ScrollSentinel,
+} from "../styles/legacy/Search.styles";
 
 import AxiosApi from "../api/AxiosApi";
 import FavoriteStar from "../components/common/FavoriteStar";
@@ -8,176 +20,6 @@ import { formatReleaseDate } from "../utils/releaseDate";
 import { resolvePosterUrl } from "../utils/mediaUrl";
 
 // 검색 페이지 디자인
-
-const SearchPage = styled.div`
-  width: 100%;
-  max-width: 1320px;
-  margin: 0 auto;
-  padding-bottom: 60px;
-  color: #1c1a17;
-`;
-
-const SearchHeading = styled.div`
-  margin-bottom: 32px;
-
-  h1 {
-    margin: 0 0 10px;
-    font-size: 30px;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-  }
-
-  p {
-    margin: 0;
-    color: #787062;
-    font-size: 14px;
-  }
-`;
-
-const SearchInput = styled.input`
-  width: 100%;
-  padding: 17px 20px;
-  box-sizing: border-box;
-  border: 1px solid #e2dbd0;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #1c1a17;
-  font-size: 15px;
-  outline: none;
-
-  &:focus {
-    border-color: #ffd43b;
-    box-shadow: 0 0 0 3px rgba(255, 212, 59, 0.18);
-  }
-
-  &::placeholder {
-    color: #948b7c;
-  }
-`;
-
-const MovieGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 28px 18px;
-  margin-top: 36px;
-
-  @media (max-width: 1000px) {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  @media (max-width: 700px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px 12px;
-  }
-
-  @media (max-width: 430px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-`;
-
-const MovieCard = styled.div`
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-
-  animation: appear 0.3s ease both;
-
-  @keyframes appear {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  &:hover img {
-    transform: scale(1.04);
-  }
-
-  &:focus-visible {
-    outline: 2px solid #a37e1c;
-    outline-offset: 4px;
-  }
-`;
-
-const Poster = styled.div`
-  position: relative;
-  width: 100%;
-  aspect-ratio: 2 / 2.85;
-  overflow: hidden;
-  border-radius: 10px;
-  border: 1px solid #e2dbd0;
-  background: #efece4;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.35s ease;
-  }
-`;
-
-const MovieInfo = styled.div`
-  padding-top: 12px;
-
-  h3 {
-    margin: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    color: #1c1a17;
-    font-size: 15px;
-    font-weight: 750;
-  }
-
-  p {
-    margin: 6px 0 0;
-    color: #787062;
-    font-size: 12px;
-  }
-`;
-
-const SearchMessage = styled.div`
-  padding: 70px 0;
-  text-align: center;
-  color: #787062;
-  font-size: 14px;
-`;
-
-const LoadingMessage = styled.div`
-  padding: 35px 0;
-  text-align: center;
-  color: #787062;
-  font-size: 13px;
-`;
-
-const RetryButton = styled.button`
-  margin-top: 12px;
-  padding: 9px 18px;
-  border: 1px solid #e2dbd0;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #1c1a17;
-  cursor: pointer;
-
-  &:hover {
-    background: #fff5d6;
-    border-color: #ffd43b;
-  }
-`;
-
-const ScrollSentinel = styled.div`
-  width: 100%;
-  height: 1px;
-`;
 
 // 검색 목록 임시 저장 (추가 11-05)
 // 상세 페이지에서 뒤로 왔을 때 API 재호출 방지
@@ -478,7 +320,35 @@ function Search() {
 
     const controller = new AbortController();
 
-    const POLLING_INTERVAL = 2500;
+    const POLLING_BASE_DELAY = 2500;
+    const MAX_POLL_ATTEMPTS = 4;
+    let pollAttempt = 0;
+
+    const markRemainingPostersFailed = () => {
+      const remaining = {};
+      movies.forEach((movie) => {
+        const status = posterStatusesRef.current[movie.movieCode];
+        if (status !== "success" && status !== "failed") {
+          remaining[movie.movieCode] = "failed";
+        }
+      });
+      if (Object.keys(remaining).length > 0) {
+        setPosterStatuses((previous) => ({ ...previous, ...remaining }));
+      }
+    };
+
+    const scheduleNextPoll = () => {
+      if (cancelled || controller.signal.aborted) return;
+      if (pollAttempt >= MAX_POLL_ATTEMPTS) {
+        markRemainingPostersFailed();
+        return;
+      }
+      const delay = Math.min(
+        POLLING_BASE_DELAY * (2 ** (pollAttempt - 1)),
+        10000,
+      );
+      timerId = setTimeout(checkPosterStatuses, delay);
+    };
 
     const checkPosterStatuses = async () => {
       if (cancelled || controller.signal.aborted) return;
@@ -508,6 +378,12 @@ function Search() {
         }
         return;
       }
+
+      if (pollAttempt >= MAX_POLL_ATTEMPTS) {
+        markRemainingPostersFailed();
+        return;
+      }
+      pollAttempt += 1;
 
       try {
         // 백엔드 일괄 조회 허용량(최대 20개)에 맞춰 순차 분할 요청한다.
@@ -596,7 +472,7 @@ function Search() {
         });
 
         if (hasPending && !cancelled) {
-          timerId = setTimeout(checkPosterStatuses, POLLING_INTERVAL);
+          scheduleNextPoll();
         }
       } catch (err) {
         if (
@@ -606,8 +482,8 @@ function Search() {
         ) {
           console.error("포스터 상태 조회 실패:", err);
 
-          // 일시적인 상태 조회 오류는 다음 주기에 다시 확인
-          timerId = setTimeout(checkPosterStatuses, POLLING_INTERVAL);
+          // 일시적인 상태 조회 오류도 최대 재시도 횟수 안에서만 확인한다.
+          scheduleNextPoll();
         }
       }
     };

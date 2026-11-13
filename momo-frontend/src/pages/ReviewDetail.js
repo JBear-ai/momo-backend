@@ -1,3 +1,4 @@
+import SafeImage from "../components/common/SafeImage";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
@@ -93,6 +94,8 @@ function ReviewDetail() {
   // 초기 데이터 조회
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
+    const { signal } = controller;
 
     const loadData = async () => {
       try {
@@ -100,7 +103,7 @@ function ReviewDetail() {
         setError("");
 
         // 리뷰 상세는 페이지 진입에 필수
-        const reviewResponse = await AxiosApi.reviewDetail(reviewId);
+        const reviewResponse = await AxiosApi.reviewDetail(reviewId, signal);
 
         if (!active) return;
 
@@ -112,14 +115,14 @@ function ReviewDetail() {
 
         // 나머지 데이터는 각각 독립적으로 조회
         const results = await Promise.allSettled([
-          AxiosApi.reviewComments(reviewId, 0),
-          AxiosApi.memberMe(),
-          AxiosApi.reviewReactionCounts(reviewId),
+          AxiosApi.reviewComments(reviewId, 0, signal),
+          AxiosApi.memberMe(signal),
+          AxiosApi.reviewReactionCounts(reviewId, signal),
           reviewData.movieCode
-            ? AxiosApi.movieDetail(reviewData.movieCode)
+            ? AxiosApi.movieDetail(reviewData.movieCode, signal)
             : Promise.resolve(null),
           reviewData.movieCode
-            ? AxiosApi.moviePoster(reviewData.movieCode)
+            ? AxiosApi.moviePoster(reviewData.movieCode, signal)
             : Promise.resolve(null),
         ]);
 
@@ -143,7 +146,7 @@ function ReviewDetail() {
           // 로그인 회원의 현재 리뷰 반응을 조회한다.
           if (userData) {
             try {
-              const reactionResponse = await AxiosApi.reviewMyReactionGet(reviewId);
+              const reactionResponse = await AxiosApi.reviewMyReactionGet(reviewId, signal);
               if (!active) return;
               setMyReaction(
                 typeof reactionResponse.data === "boolean"
@@ -151,7 +154,12 @@ function ReviewDetail() {
                   : null,
               );
             } catch (reactionError) {
-              if (reactionError.response?.status !== 401) {
+              if (
+                !signal.aborted &&
+                reactionError.code !== "ERR_CANCELED" &&
+                reactionError.name !== "CanceledError" &&
+                reactionError.response?.status !== 401
+              ) {
                 console.error("내 리뷰 반응 조회 실패:", reactionError);
               }
               setMyReaction(null);
@@ -188,7 +196,12 @@ function ReviewDetail() {
           console.error("영화 포스터 조회 실패:", results[4].reason);
         }
       } catch (err) {
-        if (!active) return;
+        if (
+          !active ||
+          signal.aborted ||
+          err.code === "ERR_CANCELED" ||
+          err.name === "CanceledError"
+        ) return;
 
         console.error("리뷰 상세 조회 실패:", err);
 
@@ -210,6 +223,7 @@ function ReviewDetail() {
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, [reviewId]);
 
@@ -604,12 +618,11 @@ function ReviewDetail() {
       "div",
       { className: "review-detail-movie-poster" },
 
-      posterUrl
-        ? h("img", {
-            src: resolvePosterUrl(posterUrl),
-            alt: movie?.title || "영화 포스터",
-          })
-        : h("div", { className: "review-detail-poster-placeholder" }, "MOMO"),
+      h(SafeImage, {
+        src: resolvePosterUrl(posterUrl),
+        alt: movie?.title || "영화 포스터",
+        fallbackClassName: "review-detail-poster-placeholder",
+      }),
     ),
 
     h(

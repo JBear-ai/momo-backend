@@ -16,6 +16,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -38,15 +42,15 @@ public class CommentService {
             String loginId,
             CommentRequest dto) {
 
-        // 댓글을 작성할 리뷰 조회
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
-
-        // 현재 로그인한 회원 조회
-        User user = userRepository.findByLoginId(loginId)
+        // 탈퇴와 댓글 작성이 겹치지 않도록 회원 행을 먼저 잠근다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        // 리뷰 삭제와 댓글 작성을 직렬화한다.
+        Review review = reviewRepository.findByIdForUpdate(reviewId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
 
         // 댓글 Entity 생성 및 저장
         Comment comment = new Comment(
@@ -84,9 +88,56 @@ public class CommentService {
         Pageable pageable = PageRequest.of(page, 10);
         Long viewerId = currentUserId;
 
-        return commentRepository
-                .findByReview_ReviewIdOrderByCreatedAtAsc(reviewId, pageable)
-                .map(comment -> toResponse(comment, viewerId));
+        Page<Comment> comments = commentRepository
+                .findByReview_ReviewIdOrderByCreatedAtAscCommentIdAsc(reviewId, pageable);
+
+        // 페이지에 포함된 댓글의 반응을 한 번에 조회해 댓글별 반복 쿼리를 방지한다.
+        List<Long> commentIds = comments.getContent().stream()
+                .map(Comment::getCommentId)
+                .toList();
+
+        Map<Long, long[]> reactionCounts = new HashMap<>();
+        Map<Long, Boolean> myReactions = new HashMap<>();
+
+        if (!commentIds.isEmpty()) {
+            List<CommentReactionRepository.CommentReactionCountSummary> countSummaries =
+                    commentReactionRepository.findReactionCountsByCommentIds(commentIds);
+
+            for (CommentReactionRepository.CommentReactionCountSummary summary : countSummaries) {
+                reactionCounts.put(
+                        summary.getCommentId(),
+                        new long[]{
+                                summary.getLikeCount() == null ? 0L : summary.getLikeCount(),
+                                summary.getDislikeCount() == null ? 0L : summary.getDislikeCount()
+                        }
+                );
+            }
+
+            if (viewerId != null) {
+                List<CommentReactionRepository.CommentUserReactionSummary> myReactionSummaries =
+                        commentReactionRepository.findMyReactionsByCommentIds(commentIds, viewerId);
+
+                for (CommentReactionRepository.CommentUserReactionSummary summary : myReactionSummaries) {
+                    myReactions.put(summary.getCommentId(), summary.getLiked());
+                }
+            }
+        }
+
+        return comments.map(comment -> {
+            Long commentId = comment.getCommentId();
+            long[] counts = reactionCounts.getOrDefault(commentId, new long[2]);
+            User author = comment.getUser();
+            boolean profileImageAvailable = author.getProfileImage() != null
+                    && !author.getProfileImage().isBlank();
+
+            return new CommentResponse(
+                    comment,
+                    profileImageAvailable,
+                    counts[0],
+                    counts[1],
+                    myReactions.get(commentId)
+            );
+        });
     }
 
     // 본인이 작성한 댓글 수정
@@ -95,8 +146,18 @@ public class CommentService {
             String loginId,
             CommentRequest dto) {
 
-        // 수정할 댓글 조회
-        Comment comment = commentRepository.findById(commentId)
+        // 탈퇴와 댓글 수정을 직렬화한 뒤 댓글 행을 잠근다.
+        userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        Comment commentReference = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+
+        // 리뷰 삭제와 댓글 수정이 동일한 부모 리뷰 행 잠금을 사용한다.
+        reviewRepository.findByIdForUpdate(commentReference.getReview().getReviewId())
+                .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+
+        Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("댓글을 찾을 수 없습니다."));
 
@@ -117,8 +178,19 @@ public class CommentService {
             Long commentId,
             String loginId) {
 
-        // 삭제할 댓글 조회
-        Comment comment = commentRepository.findById(commentId)
+        // 탈퇴와 댓글 삭제가 겹치지 않도록 회원을 먼저 잠근다.
+        userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        // 리뷰 삭제와 댓글 삭제가 동일한 부모 리뷰 행 잠금을 사용한다.
+        Comment commentReference = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+
+        reviewRepository.findByIdForUpdate(commentReference.getReview().getReviewId())
+                .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
+
+        // 부모 리뷰 잠금 이후 댓글 행을 잠근다.
+        Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("댓글을 찾을 수 없습니다."));
 
@@ -139,17 +211,15 @@ public class CommentService {
     private CommentResponse toResponse(Comment comment, Long currentUserId) {
         Long commentId = comment.getCommentId();
 
-        long likeCount = commentReactionRepository
-                .countByComment_CommentIdAndLiked(commentId, true);
-        long dislikeCount = commentReactionRepository
-                .countByComment_CommentIdAndLiked(commentId, false);
-
-        Boolean myReaction = currentUserId == null
-                ? null
-                : commentReactionRepository
-                        .findByUser_UserIdAndComment_CommentId(currentUserId, commentId)
-                        .map(reaction -> reaction.getLiked())
-                        .orElse(null);
+        // 반응 수와 현재 회원의 반응을 하나의 집계 쿼리로 조회한다.
+        CommentReactionRepository.CommentResponseSummary summary =
+                commentReactionRepository.findResponseSummaryByCommentId(commentId, currentUserId);
+        long likeCount = summary == null || summary.getLikeCount() == null
+                ? 0L : summary.getLikeCount();
+        long dislikeCount = summary == null || summary.getDislikeCount() == null
+                ? 0L : summary.getDislikeCount();
+        Integer reactionValue = summary == null ? null : summary.getMyReaction();
+        Boolean myReaction = reactionValue == null ? null : reactionValue == 1;
 
         boolean profileImageAvailable = comment.getUser().getProfileImage() != null
                 && !comment.getUser().getProfileImage().isBlank();

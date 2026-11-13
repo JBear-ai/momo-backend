@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
+import SafeImage from "../components/common/SafeImage";
 import { useNavigate } from "react-router-dom";
 import TodayRecommend from "../components/common/TodayRecommend";
 import FavoriteStar from "../components/common/FavoriteStar";
 import { getFavoriteMovies } from "../utils/favorites";
+import AxiosApi from "../api/AxiosApi";
 import { resolvePosterUrl } from "../utils/mediaUrl";
+import { getPosterPollDelay } from "../utils/posterPolling";
 
 import {
   HomePage,
@@ -24,7 +27,7 @@ import {
   GenreList,
   BrandLine,
   EmptyPoster,
-} from "./Home.styles";
+} from "../styles/legacy/Home.styles";
 
 // 어제 날짜를 YYYYMMDD 형식으로 반환
 const getYesterdayDate = () => {
@@ -63,31 +66,25 @@ function Home() {
   // 어제 날짜의 박스오피스 목록 조회
   useEffect(() => {
     const targetDate = getYesterdayDate();
-    const apiBaseUrl = (
-      process.env.REACT_APP_API_BASE_URL || "http://localhost:8111"
-    ).replace(/\/+$/, "");
-
+    const controller = new AbortController();
     let cancelled = false;
     let refreshTimer = null;
 
     const refreshPosterStatuses = (movieCodes, attempt = 0) => {
-      if (cancelled || attempt >= 180 || movieCodes.length === 0) {
+      if (cancelled || attempt >= 3 || movieCodes.length === 0) {
         return;
       }
 
       refreshTimer = window.setTimeout(async () => {
         try {
-          const response = await fetch(apiBaseUrl + "/api/movies/posters/status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(movieCodes),
-          });
+          const response = await AxiosApi.moviePosterStatuses(
+            movieCodes,
+            controller.signal,
+          );
 
-          if (!response.ok) {
-            throw new Error("포스터 상태 조회 실패");
-          }
+          if (cancelled) return;
 
-          const statuses = await response.json();
+          const statuses = Array.isArray(response.data) ? response.data : [];
           const statusByCode = new Map(
             statuses.map((item) => [item.movieCode, item]),
           );
@@ -95,47 +92,46 @@ function Home() {
           setMovies((currentMovies) =>
             currentMovies.map((movie) => {
               const status = statusByCode.get(movie.movieCode);
-              if (status && status.posterUrl) {
+              if (status?.status === "SUCCESS" && status.posterUrl) {
                 return { ...movie, posterUrl: status.posterUrl };
               }
-
               return movie;
             }),
           );
 
-          if (!cancelled) {
-            // 수집 작업이 끝날 때까지 최대 12분간 상태를 확인한다.
-            const allHavePosters = movieCodes.every((code) => {
-              const status = statusByCode.get(code);
-              return status && status.status === "SUCCESS" && status.posterUrl;
-            });
+          // 수집이 끝난 SUCCESS·FAILED 영화는 다시 조회하지 않는다.
+          // 아직 작업 중인 영화만 최대 3회까지 지수형 간격으로 확인한다.
+          const hasPendingPosters = movieCodes.some((code) => {
+            const status = statusByCode.get(code);
+            return status?.status === "PENDING" || status?.status === "PROCESSING";
+          });
 
-            if (!allHavePosters) {
-              refreshPosterStatuses(movieCodes, attempt + 1);
-            }
+          if (hasPendingPosters) {
+            refreshPosterStatuses(movieCodes, attempt + 1);
           }
         } catch (error) {
-          console.error(error);
-          if (!cancelled) {
+          if (
+            !cancelled &&
+            error.code !== "ERR_CANCELED" &&
+            error.name !== "CanceledError"
+          ) {
+            console.error("포스터 상태 조회 실패:", error);
             refreshPosterStatuses(movieCodes, attempt + 1);
           }
         }
-      }, 4000);
+      }, getPosterPollDelay(attempt));
     };
 
-    fetch(apiBaseUrl + "/api/boxoffice/daily?targetDate=" + targetDate)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("박스오피스 조회 실패");
-        }
+    const loadBoxOffice = async () => {
+      try {
+        const response = await AxiosApi.dailyBoxOffice(
+          targetDate,
+          controller.signal,
+        );
 
-        return response.json();
-      })
-      .then((data) => {
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
 
+        const data = response.data;
         const list = Array.isArray(data)
           ? data
           : data.movies || data.dailyBoxOfficeList || data.boxOfficeList || [];
@@ -159,21 +155,27 @@ function Home() {
           .map((movie) => movie.movieCode);
 
         refreshPosterStatuses(missingCodes);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error(error);
+      } catch (error) {
+        if (
+          !cancelled &&
+          error.code !== "ERR_CANCELED" &&
+          error.name !== "CanceledError"
+        ) {
+          console.error("박스오피스 조회 실패:", error);
           setMovies([]);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setLoading(false);
         }
-      });
+      }
+    };
+
+    loadBoxOffice();
 
     return () => {
       cancelled = true;
+      controller.abort();
       if (refreshTimer) {
         window.clearTimeout(refreshTimer);
       }
@@ -300,18 +302,15 @@ function Home() {
                     React.createElement(
                               PosterWrap,
                               null,
-                              (movie.posterUrl ? (
-                                                  React.createElement(
-                                          "img",
-                                          {"src":resolvePosterUrl(movie.posterUrl),"alt":movie.title}
-                                        )
-                                                ) : (
-                                                  React.createElement(
-                                          EmptyPoster,
-                                          null,
-                                          "포스터 준비 중"
-                                        )
-                                                )),
+                              React.createElement(SafeImage, {
+                                src: resolvePosterUrl(movie.posterUrl),
+                                alt: movie.title,
+                                fallback: React.createElement(
+                                  EmptyPoster,
+                                  null,
+                                  "포스터 준비 중"
+                                ),
+                              }),
                               React.createElement(
                                           Rank,
                                           null,

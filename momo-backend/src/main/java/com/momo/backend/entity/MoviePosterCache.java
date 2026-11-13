@@ -9,7 +9,13 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor
-@Table(name = "movie_poster_cache")
+@Table(
+        name = "movie_poster_cache",
+        indexes = {
+                @Index(name = "ix_poster_status_priority_updated", columnList = "status, priority, updated_at"),
+                @Index(name = "ix_poster_status_updated", columnList = "status, updated_at")
+        }
+)
 public class MoviePosterCache {
 
     // 영화 고유 코드

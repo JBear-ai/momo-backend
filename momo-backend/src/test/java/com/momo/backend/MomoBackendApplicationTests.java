@@ -1,6 +1,16 @@
 package com.momo.backend;
 
 import com.momo.backend.entity.MoviePosterCache;
+import com.momo.backend.entity.Movie;
+import com.momo.backend.entity.User;
+import com.momo.backend.entity.Review;
+import com.momo.backend.entity.Comment;
+import com.momo.backend.entity.ReviewReactions;
+import com.momo.backend.repository.MovieRepository;
+import com.momo.backend.repository.UserRepository;
+import com.momo.backend.repository.ReviewRepository;
+import com.momo.backend.repository.CommentRepository;
+import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.MoviePosterCacheRepository;
 import com.momo.backend.security.TokenProvider;
 import org.junit.jupiter.api.Test;
@@ -8,17 +18,26 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.http.MediaType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -41,7 +60,25 @@ class MomoBackendApplicationTests {
     private MockMvc mockMvc;
 
     @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
     private MoviePosterCacheRepository posterCacheRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private MovieRepository movieRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
+    private ReviewReactionRepository reviewReactionRepository;
 
     @Test
     void localPosterImageCanBeRequestedWithoutAnAuthorizationHeader() throws Exception {
@@ -67,6 +104,189 @@ class MomoBackendApplicationTests {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void signupLoginRefreshAndLogoutFlowKeepsTokensConsistent() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String loginId = "momo" + suffix;
+        String nickname = "m" + suffix;
+
+        String signupBody = """
+                {
+                  "loginId": "%s",
+                  "password": "MomoTest1!",
+                  "nickname": "%s",
+                  "email": "%s@example.com"
+                }
+                """.formatted(loginId, nickname, loginId);
+
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(signupBody))
+                .andExpect(status().isCreated());
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"loginId":"%s","password":"MomoTest1!"}
+                                """.formatted(loginId)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode login = objectMapper.readTree(
+                loginResult.getResponse().getContentAsString());
+        String accessToken = login.path("accessToken").asString("");
+        String refreshToken = login.path("refreshToken").asString("");
+        assertTrue(!accessToken.isBlank());
+        assertTrue(!refreshToken.isBlank());
+
+        String favoriteRequest = """
+                {
+                  "movieCode": "20261234",
+                  "title": "관심 영화 테스트",
+                  "releaseDate": "20261112",
+                  "posterUrl": "/posters/20261234.jpg"
+                }
+                """;
+
+        mockMvc.perform(post("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(favoriteRequest))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.movieCode").value("20261234"));
+
+        // 같은 영화 코드를 다시 등록해도 회원별 관심 영화는 중복되지 않는다.
+        mockMvc.perform(post("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(favoriteRequest))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("관심 영화 테스트"));
+
+        // 다른 회원에게 첫 번째 회원의 관심 영화가 노출되지 않는지 확인한다.
+        String secondLoginId = loginId + "b";
+        String secondNickname = "n" + suffix;
+        mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "%s",
+                                  "password": "MomoTest1!",
+                                  "nickname": "%s",
+                                  "email": "%s@example.com"
+                                }
+                                """.formatted(secondLoginId, secondNickname, secondLoginId)))
+                .andExpect(status().isCreated());
+
+        MvcResult secondLoginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"loginId":"%s","password":"MomoTest1!"}
+                                """.formatted(secondLoginId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String secondAccessToken = objectMapper.readTree(
+                secondLoginResult.getResponse().getContentAsString())
+                .path("accessToken").asString("");
+
+        // 실제 H2 DB 데이터로 리뷰 요약 API의 댓글·좋아요·싫어요 집계를 검증한다.
+        User firstUser = userRepository.findByLoginId(loginId).orElseThrow();
+        User secondUser = userRepository.findByLoginId(secondLoginId).orElseThrow();
+        String summaryMovieCode = "M" + suffix.substring(0, 7);
+
+        movieRepository.saveAndFlush(new Movie(
+                summaryMovieCode,
+                "요약 API 테스트 영화",
+                "",
+                "20250101",
+                "",
+                "드라마",
+                "테스트 감독",
+                "",
+                ""
+        ));
+
+        Review summaryReview = reviewRepository.saveAndFlush(new Review(
+                firstUser,
+                summaryMovieCode,
+                "요약 API 테스트 리뷰",
+                "요약 API 본문"
+        ));
+
+        commentRepository.saveAllAndFlush(List.of(
+                new Comment(summaryReview, firstUser, "첫 번째 댓글"),
+                new Comment(summaryReview, secondUser, "두 번째 댓글")
+        ));
+
+        reviewReactionRepository.saveAllAndFlush(List.of(
+                new ReviewReactions(firstUser, summaryReview, true),
+                new ReviewReactions(secondUser, summaryReview, false)
+        ));
+
+        mockMvc.perform(get("/api/reviews/summaries")
+                        .param("reviewIds", summaryReview.getReviewId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].reviewId").value(summaryReview.getReviewId()))
+                .andExpect(jsonPath("$[0].movieCode").value(summaryMovieCode))
+                .andExpect(jsonPath("$[0].movieTitle").value("요약 API 테스트 영화"))
+                .andExpect(jsonPath("$[0].releaseDate").value("20250101"))
+                .andExpect(jsonPath("$[0].commentCount").value(2))
+                .andExpect(jsonPath("$[0].likeCount").value(1))
+                .andExpect(jsonPath("$[0].dislikeCount").value(1));
+
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + secondAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+
+        // 두 번째 계정 조회 이후에도 첫 번째 계정의 데이터는 그대로 유지되어야 한다.
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mockMvc.perform(delete("/api/favorites/20261234")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/favorites")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+
+        MvcResult refreshResult = mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"%s"}
+                                """.formatted(refreshToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode refreshed = objectMapper.readTree(
+                refreshResult.getResponse().getContentAsString());
+        String newAccessToken = refreshed.path("accessToken").asString("");
+        String newRefreshToken = refreshed.path("refreshToken").asString("");
+        assertTrue(!newAccessToken.isBlank());
+        assertTrue(!newRefreshToken.isBlank());
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + newAccessToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"%s"}
+                                """.formatted(newRefreshToken)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

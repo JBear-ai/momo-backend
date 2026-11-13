@@ -31,14 +31,14 @@ public class ReviewReactionService {
     public void saveReactions(String loginId, Long reviewId, Boolean liked) {
 
         // 로그인한 회원 조회
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
                                 "회원 정보를 찾을 수 없습니다."));
 
         // 반응을 남길 리뷰 조회
-        Review review = reviewRepository.findById(reviewId)
+        Review review = reviewRepository.findByIdForUpdate(reviewId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "REVIEW_NOT_FOUND",
@@ -49,23 +49,15 @@ public class ReviewReactionService {
             throw new IllegalArgumentException("좋아요 또는 싫어요를 선택해주세요.");
         }
 
-        // 기존에 남긴 반응이 있는지 확인
+        // 회원 행 잠금이 같은 회원의 동시 반응 요청을 직렬화하므로
+        // 조회 후 INSERT/UPDATE를 수행해 DB 고유 제약조건 충돌을 방지한다.
         ReviewReactions reactions = reactionRepository
-                .findByUser_UserIdAndReview_ReviewId(
-                        user.getUserId(), reviewId
-                )
+                .findByUser_UserIdAndReview_ReviewId(user.getUserId(), reviewId)
                 .orElse(null);
 
         if (reactions == null) {
-
-            // 반응이 없으면 새로 저장
-            reactionRepository.save(
-                    new ReviewReactions(user, review, liked)
-            );
-
+            reactionRepository.save(new ReviewReactions(user, review, liked));
         } else {
-
-            // 기존 반응이 있으면 좋아요/싫어요 변경
             reactions.updateReaction(liked);
         }
     }
@@ -74,11 +66,16 @@ public class ReviewReactionService {
     public void deleteReaction(String loginId, Long reviewId) {
 
         // 로그인한 회원 조회
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByLoginIdForUpdate(loginId)
                 .orElseThrow(() ->
                         new CustomException(
                                 "USER_NOT_FOUND",
                                 "회원 정보를 찾을 수 없습니다."));
+
+        // 리뷰 삭제와 반응 삭제를 같은 리뷰 행 잠금으로 직렬화한다.
+        reviewRepository.findByIdForUpdate(reviewId)
+                .orElseThrow(() -> new CustomException(
+                        "REVIEW_NOT_FOUND", "리뷰를 찾을 수 없습니다."));
 
         // 본인이 남긴 반응 조회
         ReviewReactions reactions = reactionRepository
@@ -126,13 +123,11 @@ public class ReviewReactionService {
                     "리뷰를 찾을 수 없습니다.");
         }
 
-        // 좋아요 개수 조회
-        long likeCount = reactionRepository
-                .countByReview_ReviewIdAndLiked(reviewId, true);
-
-        // 싫어요 개수 조회
-        long dislikeCount = reactionRepository
-                .countByReview_ReviewIdAndLiked(reviewId, false);
+        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
+        ReviewReactionRepository.ReactionCountSummary counts =
+                reactionRepository.findCountsByReviewId(reviewId);
+        long likeCount = counts.getLikeCount();
+        long dislikeCount = counts.getDislikeCount();
 
         return new long[]{likeCount, dislikeCount};
     }

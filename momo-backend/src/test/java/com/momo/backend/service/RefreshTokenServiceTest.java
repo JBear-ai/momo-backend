@@ -56,7 +56,7 @@ class RefreshTokenServiceTest {
         RefreshToken storedToken = new RefreshToken(user, oldRefreshToken);
 
         when(user.getUserId()).thenReturn(userId);
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate(loginId)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByUserIdForUpdate(userId)).thenReturn(Optional.of(storedToken));
 
         TokenRefreshResponse response = refreshTokenService.reissue(oldRefreshToken);
@@ -82,7 +82,7 @@ class RefreshTokenServiceTest {
         RefreshToken storedToken = new RefreshToken(user, activeToken);
 
         when(user.getUserId()).thenReturn(userId);
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate(loginId)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByUserIdForUpdate(userId)).thenReturn(Optional.of(storedToken));
 
         CustomException error = assertThrows(
@@ -94,10 +94,16 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    void logoutDeletesOnlyAuthenticatedUsersRefreshToken() {
+    void logoutLocksMemberBeforeDeletingItsRefreshToken() {
+        when(user.getUserId()).thenReturn(1L);
+        when(userRepository.findByLoginIdForUpdate("momo-user"))
+                .thenReturn(Optional.of(user));
+
         refreshTokenService.deleteByLoginId("momo-user");
 
-        verify(refreshTokenRepository).deleteByUser_LoginId("momo-user");
+        InOrder order = inOrder(userRepository, refreshTokenRepository);
+        order.verify(userRepository).findByLoginIdForUpdate("momo-user");
+        order.verify(refreshTokenRepository).deleteByUser_UserId(1L);
     }
 
     @Test
@@ -118,7 +124,7 @@ class RefreshTokenServiceTest {
         String refreshToken = tokenProvider.createRefreshToken(loginId);
 
         when(user.getUserId()).thenReturn(userId);
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate(loginId)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByUserIdForUpdate(userId)).thenReturn(Optional.empty());
 
         CustomException error = assertThrows(

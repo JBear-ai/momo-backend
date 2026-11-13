@@ -1,60 +1,10 @@
 import React, { useState, useEffect } from "react";
+import SafeImage from "../components/common/SafeImage";
 import { useParams, useNavigate } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { formatReleaseDate } from "../utils/releaseDate";
 import { resolvePosterUrl } from "../utils/mediaUrl";
-
-function waitForPosterPoll(ms, signal) {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      const error = new Error("포스터 조회가 취소되었습니다.");
-      error.code = "ERR_CANCELED";
-      reject(error);
-      return;
-    }
-
-    const timerId = setTimeout(() => {
-      signal.removeEventListener("abort", handleAbort);
-      resolve();
-    }, ms);
-
-    const handleAbort = () => {
-      clearTimeout(timerId);
-      const error = new Error("포스터 조회가 취소되었습니다.");
-      error.code = "ERR_CANCELED";
-      reject(error);
-    };
-
-    signal.addEventListener("abort", handleAbort, { once: true });
-  });
-}
-
-// 최초 요청 시 수집 중인 포스터가 저장되면 상세 화면에 반영한다.
-async function waitForMoviePoster(movieCode, signal) {
-  const maxAttempts = 20;
-  const intervalMs = 1500;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    await waitForPosterPoll(intervalMs, signal);
-
-    const response = await AxiosApi.moviePosterStatuses([movieCode], signal);
-    const status = Array.isArray(response.data)
-      ? response.data.find((item) => item.movieCode === movieCode)
-      : null;
-    const posterUrl = status?.posterUrl?.trim() || "";
-
-    if (status?.status === "SUCCESS" && posterUrl) {
-      return posterUrl;
-    }
-
-    if (status?.status === "FAILED") {
-      return "";
-    }
-  }
-
-  return "";
-}
-
+import { getPosterPollDelay } from "../utils/posterPolling";
 // 숫자에 천 단위 쉼표 추가
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("ko-KR");
@@ -220,25 +170,6 @@ function MovieDetail() {
           actorPeople: moviePeople.filter((person) => person.department === "actor"),
         });
 
-        // 최초 포스터 응답이 비어 있으면 KOBIS 포스터 수집 완료를 확인한다.
-        if (movieCode && !posterUrl) {
-          waitForMoviePoster(movieCode, controller.signal)
-            .then((resolvedPosterUrl) => {
-              if (!active || !resolvedPosterUrl) return;
-
-              setMovie((currentMovie) => {
-                if (!currentMovie || currentMovie.movieCode !== movieCode) {
-                  return currentMovie;
-                }
-                return { ...currentMovie, posterUrl: resolvedPosterUrl };
-              });
-            })
-            .catch((posterError) => {
-              if (posterError.code !== "ERR_CANCELED") {
-                console.warn("포스터 수집 완료 확인 실패:", posterError);
-              }
-            });
-        }
       } catch (requestError) {
         if (!active || requestError.code === "ERR_CANCELED") return;
         console.error("영화 상세정보 조회 실패:", requestError);
@@ -260,6 +191,64 @@ function MovieDetail() {
       controller.abort();
     };
   }, [id]);
+
+  // 포스터 수집이 비동기로 끝나는 경우 상세 화면 이미지를 제한된 횟수만 갱신한다.
+  useEffect(() => {
+    const movieCode = movie?.movieCode;
+    if (!movieCode || movie?.posterUrl) return undefined;
+
+    const controller = new AbortController();
+    let active = true;
+    let timer = null;
+
+    const refreshPoster = (attempt = 0) => {
+      if (!active || attempt >= 3) return;
+
+      timer = window.setTimeout(async () => {
+        try {
+          const response = await AxiosApi.moviePosterStatuses(
+            [movieCode],
+            controller.signal,
+          );
+          if (!active) return;
+
+          const status = Array.isArray(response.data)
+            ? response.data.find((item) => item.movieCode === movieCode)
+            : null;
+
+          if (status?.status === "SUCCESS" && status.posterUrl) {
+            setMovie((current) =>
+              current?.movieCode === movieCode
+                ? { ...current, posterUrl: status.posterUrl }
+                : current,
+            );
+            return;
+          }
+
+          if (status?.status === "PENDING" || status?.status === "PROCESSING") {
+            refreshPoster(attempt + 1);
+          }
+        } catch (posterError) {
+          if (
+            active &&
+            posterError.code !== "ERR_CANCELED" &&
+            posterError.name !== "CanceledError"
+          ) {
+            console.warn("영화 상세 포스터 상태 조회 실패:", posterError);
+            refreshPoster(attempt + 1);
+          }
+        }
+      }, getPosterPollDelay(attempt));
+    };
+
+    refreshPoster();
+
+    return () => {
+      active = false;
+      if (timer !== null) window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [movie?.movieCode, movie?.posterUrl]);
 
   // =========================================================
   // 5. 영화별 리뷰 및 평가 조회
@@ -501,11 +490,18 @@ function MovieDetail() {
   // =========================================================
 
   function moveToPersonDetail(person, type) {
-    const identifier = person.name?.trim();
+    const personId = Number(person.personId);
 
+    // TMDb 인물 ID가 있으면 동명이인 검색을 거치지 않고 고유 ID로 이동한다.
+    if (Number.isSafeInteger(personId) && personId > 0) {
+      navigate(`/person/${type}/${personId}`);
+      return;
+    }
+
+    const identifier = person.name?.trim();
     if (!identifier || identifier === "이름 없음") return;
 
-    // 인물 식별은 상세 화면에서 이름과 분야를 기준으로 처리하고 외부 ID는 URL에 노출하지 않는다.
+    // KOBIS 이름 정보만 있는 인물은 기존 이름 검색 경로를 유지한다.
     navigate(`/person/${type}/${encodeURIComponent(identifier)}`);
   }
 
@@ -564,9 +560,10 @@ function MovieDetail() {
         ? React.createElement(
             "div",
             { className: "movie-detail-poster" },
-            React.createElement("img", {
+            React.createElement(SafeImage, {
               src: resolvePosterUrl(movie.posterUrl),
               alt: movie.title,
+              fallback: null,
               onError: () => {
                 setMovie((currentMovie) => currentMovie
                   ? { ...currentMovie, posterUrl: "" }
@@ -706,18 +703,16 @@ function MovieDetail() {
                   key: `${person.name}-${index}`,
                   onClick: () => moveToPersonDetail(person, "director"),
                 },
-                person.profileUrl
-                  ? React.createElement("img", {
-                      src: person.profileUrl,
-                      alt: person.name,
-                      loading: "lazy",
-                      onError: (event) => event.currentTarget.remove(),
-                    })
-                  : React.createElement(
-                      "div",
-                      null,
-                      React.createElement("span", null, "👤"),
-                    ),
+                React.createElement(SafeImage, {
+                  src: person.profileUrl,
+                  alt: person.name,
+                  loading: "lazy",
+                  fallback: React.createElement(
+                    "div",
+                    null,
+                    React.createElement("span", null, "👤"),
+                  ),
+                }),
                 React.createElement(
                   "div",
                   null,
@@ -752,18 +747,16 @@ function MovieDetail() {
                   key: `${person.name}-${index}`,
                   onClick: () => moveToPersonDetail(person, "actor"),
                 },
-                person.profileUrl
-                  ? React.createElement("img", {
-                      src: person.profileUrl,
-                      alt: person.name,
-                      loading: "lazy",
-                      onError: (event) => event.currentTarget.remove(),
-                    })
-                  : React.createElement(
-                      "div",
-                      null,
-                      React.createElement("span", null, "👤"),
-                    ),
+                React.createElement(SafeImage, {
+                  src: person.profileUrl,
+                  alt: person.name,
+                  loading: "lazy",
+                  fallback: React.createElement(
+                    "div",
+                    null,
+                    React.createElement("span", null, "👤"),
+                  ),
+                }),
                 React.createElement(
                   "div",
                   null,

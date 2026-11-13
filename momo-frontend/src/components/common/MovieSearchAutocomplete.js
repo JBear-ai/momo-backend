@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import AxiosApi from "../../api/AxiosApi";
+import SafeImage from "./SafeImage";
 import { resolvePosterUrl } from "../../utils/mediaUrl";
+import { getPosterPollDelay } from "../../utils/posterPolling";
 
 function MovieSearchAutocomplete() {
   const navigate = useNavigate();
@@ -14,10 +16,10 @@ function MovieSearchAutocomplete() {
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
 
   const [movies, setMovies] = useState([]);
-  const [posterUrls, setPosterUrls] = useState({});
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   // URL 검색어 변경 시 검색창 동기화
   useEffect(() => {
@@ -31,7 +33,6 @@ function MovieSearchAutocomplete() {
 
     if (!isOpen || trimmedKeyword.length < 2) {
       setMovies([]);
-      setPosterUrls({});
       setLoading(false);
       setError("");
       return;
@@ -44,7 +45,6 @@ function MovieSearchAutocomplete() {
       setLoading(true);
       setError("");
       setMovies([]);
-      setPosterUrls({});
 
       try {
         const response = await AxiosApi.movieSearch(
@@ -65,6 +65,7 @@ function MovieSearchAutocomplete() {
         );
 
         setMovies(validMovies);
+        setActiveIndex(-1);
       } catch (err) {
         if (
           !controller.signal.aborted &&
@@ -91,102 +92,86 @@ function MovieSearchAutocomplete() {
     };
   }, [keyword, isOpen]);
 
-  // 영화 포스터 상태 및 URL 조회
-  useEffect(() => {
-    if (!isOpen || movies.length === 0) return;
+  // 비동기 포스터 수집이 끝나면 열린 자동완성 결과의 이미지를 갱신한다.
+  // 최대 5회만 재조회해 검색창을 열어 둔 동안에도 불필요한 API 반복을 막는다.
+  const movieCodesKey = movies
+    .map((movie) => movie.movieCode)
+    .filter(Boolean)
+    .join("|");
 
+  useEffect(() => {
+    if (!isOpen || !movieCodesKey) return undefined;
+
+    const movieCodes = movieCodesKey.split("|");
     let cancelled = false;
     let timerId = null;
+    let controller = null;
+    let attempt = 0;
 
-    const controller = new AbortController();
+    const pollPosterStatuses = () => {
+      timerId = setTimeout(async () => {
+        controller = new AbortController();
 
-    const validMovies = movies.filter((movie) =>
-      /^[A-Za-z0-9]{8}$/.test(String(movie.movieCode || "")),
-    );
+        try {
+          const response = await AxiosApi.moviePosterStatuses(
+            movieCodes,
+            controller.signal,
+          );
 
-    const movieCodes = validMovies.map((movie) => String(movie.movieCode));
+          if (cancelled) return;
 
-    const checkPosters = async () => {
-      if (cancelled || controller.signal.aborted) return;
+          const statuses = Array.isArray(response.data) ? response.data : [];
+          const statusByMovieCode = new Map(
+            statuses.map((status) => [status.movieCode, status]),
+          );
 
-      if (movieCodes.length === 0) return;
+          setMovies((currentMovies) =>
+            currentMovies.map((movie) => {
+              const status = statusByMovieCode.get(movie.movieCode);
 
-      try {
-        const response = await AxiosApi.moviePosterStatuses(
-          movieCodes,
-          controller.signal,
-        );
+              if (
+                status?.status === "SUCCESS" &&
+                status.posterUrl &&
+                status.posterUrl !== movie.posterUrl
+              ) {
+                return { ...movie, posterUrl: status.posterUrl };
+              }
 
-        if (cancelled || controller.signal.aborted) return;
+              return movie;
+            }),
+          );
 
-        const statuses = Array.isArray(response.data) ? response.data : [];
+          const hasPendingPoster = statuses.some(
+            (status) =>
+              status.status === "PENDING" || status.status === "PROCESSING",
+          );
 
-        const statusMap = new Map();
-
-        statuses.forEach((item) => {
-          if (item.movieCode) {
-            statusMap.set(String(item.movieCode), item);
+          if (hasPendingPoster && attempt < 4 && !cancelled) {
+            attempt += 1;
+            pollPosterStatuses();
           }
-        });
-
-        const nextPosterUrls = {};
-        let hasPending = false;
-
-        validMovies.forEach((movie) => {
-          const item = statusMap.get(String(movie.movieCode));
-
-          if (!item) {
-            hasPending = true;
-            return;
+        } catch (pollError) {
+          if (
+            !cancelled &&
+            pollError.code !== "ERR_CANCELED" &&
+            pollError.name !== "CanceledError" &&
+            attempt < 4
+          ) {
+            attempt += 1;
+            pollPosterStatuses();
           }
-
-          const posterUrl = item.posterUrl?.trim() || "";
-          const blockedUrl = /cineq|cinestation/i.test(posterUrl);
-
-          if (item.status === "SUCCESS" && posterUrl && !blockedUrl) {
-            nextPosterUrls[movie.movieCode] = resolvePosterUrl(posterUrl);
-          } else if (item.status !== "FAILED" && !blockedUrl) {
-            // 아직 포스터 수집이 끝나지 않은 상태
-            hasPending = true;
-          }
-        });
-
-        if (cancelled) return;
-
-        setPosterUrls((prev) => ({
-          ...prev,
-          ...nextPosterUrls,
-        }));
-
-        // 아직 포스터 수집 중인 영화가 있으면 다시 조회
-        if (hasPending && !cancelled) {
-          timerId = setTimeout(checkPosters, 2500);
         }
-      } catch (err) {
-        if (
-          !cancelled &&
-          err.code !== "ERR_CANCELED" &&
-          err.name !== "CanceledError"
-        ) {
-          console.error("영화 포스터 조회 실패:", err);
-
-          // 일시적인 오류는 다음 주기에 재시도
-          timerId = setTimeout(checkPosters, 2500);
-        }
-      }
+      }, getPosterPollDelay(attempt));
     };
 
-    checkPosters();
+    pollPosterStatuses();
 
     return () => {
       cancelled = true;
-      controller.abort();
-
-      if (timerId) {
-        clearTimeout(timerId);
-      }
+      clearTimeout(timerId);
+      controller?.abort();
     };
-  }, [movies, isOpen]);
+  }, [isOpen, movieCodesKey]);
 
   // 검색창 외부 클릭 시 자동완성 닫기
   useEffect(() => {
@@ -232,10 +217,35 @@ function MovieSearchAutocomplete() {
     navigate(`/movie/${encodeURIComponent(movie.movieCode)}`);
   };
 
-  // 키보드 ESC로 자동완성 닫기
+  // 키보드로 자동완성 결과 이동 및 선택
   const handleKeyDown = (event) => {
     if (event.key === "Escape") {
       setIsOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+
+    if (!isOpen || movies.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        current >= movies.length - 1 ? 0 : current + 1,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        current <= 0 ? movies.length - 1 : current - 1,
+      );
+      return;
+    }
+
+    if (event.key === "Enter" && activeIndex >= 0) {
+      event.preventDefault();
+      handleMovieSelect(movies[activeIndex]);
     }
   };
 
@@ -266,10 +276,16 @@ function MovieSearchAutocomplete() {
           aria-label="영화 검색어"
           aria-expanded={isOpen}
           aria-autocomplete="list"
-          aria-controls="momo-search-listbox"
+          aria-controls={isOpen ? "momo-search-listbox" : undefined}
           aria-haspopup="listbox"
+          aria-activedescendant={
+            activeIndex >= 0 && movies[activeIndex]
+              ? `momo-search-option-${movies[activeIndex].movieCode}`
+              : undefined
+          }
           onChange={(event) => {
             setKeyword(event.target.value);
+            setActiveIndex(-1);
             setIsOpen(true);
           }}
           onFocus={() => {
@@ -304,32 +320,26 @@ function MovieSearchAutocomplete() {
 
           {!loading &&
             !error &&
-            movies.map((movie) => (
+            movies.map((movie, index) => (
               <button
                 type="button"
                 role="option"
-                aria-selected="false"
-                className="momo-search-result"
+                id={`momo-search-option-${movie.movieCode}`}
+                aria-selected={activeIndex === index}
+                className={`momo-search-result ${activeIndex === index ? "is-active" : ""}`}
                 key={movie.movieCode}
+                onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => handleMovieSelect(movie)}
                 aria-label={`${movie.title} 상세 페이지 이동`}
               >
                 <div className="momo-search-poster">
-                  {posterUrls[movie.movieCode] ? (
-                    <img
-                      src={posterUrls[movie.movieCode]}
-                      alt={`${movie.title} 포스터`}
-                      loading="lazy"
-                      onError={() => {
-                        setPosterUrls((prev) => ({
-                          ...prev,
-                          [movie.movieCode]: "",
-                        }));
-                      }}
-                    />
-                  ) : (
-                    <div className="momo-search-poster-fallback">🎬</div>
-                  )}
+                  <SafeImage
+                    src={resolvePosterUrl(movie.posterUrl)}
+                    alt={`${movie.title} 포스터`}
+                    loading="lazy"
+                    fallbackClassName="momo-search-poster-fallback"
+                    fallbackText="🎬"
+                  />
                 </div>
 
                 <div className="momo-search-info">

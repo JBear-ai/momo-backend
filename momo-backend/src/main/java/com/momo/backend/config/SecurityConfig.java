@@ -120,7 +120,8 @@ public class SecurityConfig {
                                                 // 영화 포스터 일괄 조회
                                                 .requestMatchers(
                                                                 HttpMethod.POST,
-                                                                "/api/movies/posters/status")
+                                                                "/api/movies/posters/status",
+                                                                "/api/movies/posters/ensure")
                                                 .permitAll()
 
                                                 // 내 리뷰 및 좋아요한 리뷰는 개인 정보이므로 공개 규칙보다 먼저 인증을 요구한다.

@@ -119,8 +119,13 @@ public class PosterFileStorageService {
         if (fileName.contains("/") || fileName.contains("\\")) {
             return;
         }
+        Path file = posterDirectory.resolve(fileName).normalize();
+        if (!file.startsWith(posterDirectory) || file.equals(posterDirectory)) {
+            return;
+        }
+
         try {
-            Files.deleteIfExists(posterDirectory.resolve(fileName).normalize());
+            Files.deleteIfExists(file);
         } catch (IOException exception) {
             log.warn("사용되지 않는 포스터 파일 삭제 실패: {}", fileName, exception);
         }

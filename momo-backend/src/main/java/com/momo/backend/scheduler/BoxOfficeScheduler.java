@@ -33,9 +33,7 @@ public class BoxOfficeScheduler {
                 .minusDays(1)
                 .format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
-        movieService.getDailyBoxOffice(targetDate);
-
-        log.info("박스오피스 자동 조회 완료: {}", targetDate);
+        refreshDailyBoxOffice(targetDate, "예약 작업");
     }
 
     // 서버 시작 시 전날 박스오피스 확인
@@ -46,8 +44,17 @@ public class BoxOfficeScheduler {
                 .minusDays(1)
                 .format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
-        movieService.getDailyBoxOffice(targetDate);
+        refreshDailyBoxOffice(targetDate, "서버 시작");
+    }
 
-        log.info("서버 시작 시 박스오피스 확인 완료: {}", targetDate);
+    // 외부 KOBIS 장애가 애플리케이션 기동이나 예약 작업을 중단시키지 않도록 격리한다.
+    private void refreshDailyBoxOffice(String targetDate, String trigger) {
+        try {
+            movieService.getDailyBoxOffice(targetDate);
+            log.info("{} 박스오피스 조회 완료: {}", trigger, targetDate);
+        } catch (Exception e) {
+            log.warn("{} 박스오피스 조회 실패. 서버 실행을 계속합니다. targetDate: {}",
+                    trigger, targetDate, e);
+        }
     }
 }

@@ -42,16 +42,20 @@ public class KobisApiClient {
     }
 
     public String searchMovies(String keyword, int page, int size) {
-        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
-        return metrics.record("KOBIS", "searchMovies", () -> restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieList.json")
-                        .queryParam("key", apiKey)
-                        .queryParam("movieNm", keyword)
-                        .queryParam("curPage", page)
-                        .queryParam("itemPerPage", size)
-                        .build())
-                .retrieve()
-                .body(String.class));
+        return metrics.record("KOBIS", "searchMovies", () -> ExternalApiRetry.execute(() -> {
+            // 재시도도 실제 외부 요청이므로 각 시도마다 API 예산을 차감한다.
+            apiCallBudgetService.acquire(
+                    "KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieList.json")
+                            .queryParam("key", apiKey)
+                            .queryParam("movieNm", keyword)
+                            .queryParam("curPage", page)
+                            .queryParam("itemPerPage", size)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+        }));
     }
 
     /**
@@ -66,45 +70,53 @@ public class KobisApiClient {
     private String searchCatalogMovies(
             int page, int size, Integer startYear, Integer endYear,
             com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
-        apiCallBudgetService.acquire("KOBIS", trafficType);
-        return metrics.record("KOBIS", "searchCatalogMovies", () -> restClient.get()
-                .uri(uriBuilder -> {
-                    var builder = uriBuilder.path("/movie/searchMovieList.json")
-                            .queryParam("key", apiKey)
-                            .queryParam("curPage", page)
-                            .queryParam("itemPerPage", size);
-                    if (startYear != null) {
-                        builder.queryParam("openStartDt", startYear);
-                    }
-                    if (endYear != null) {
-                        builder.queryParam("openEndDt", endYear);
-                    }
-                    return builder.build();
-                })
-                .retrieve()
-                .body(String.class));
+        return metrics.record("KOBIS", "searchCatalogMovies", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire("KOBIS", trafficType);
+            return restClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/movie/searchMovieList.json")
+                                .queryParam("key", apiKey)
+                                .queryParam("curPage", page)
+                                .queryParam("itemPerPage", size);
+                        if (startYear != null) {
+                            builder.queryParam("openStartDt", startYear);
+                        }
+                        if (endYear != null) {
+                            builder.queryParam("openEndDt", endYear);
+                        }
+                        return builder.build();
+                    })
+                    .retrieve()
+                    .body(String.class);
+        }));
     }
 
     public String getMovieDetail(String movieCode) {
-        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
-        return metrics.record("KOBIS", "getMovieDetail", () -> restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieInfo.json")
-                        .queryParam("key", apiKey)
-                        .queryParam("movieCd", movieCode)
-                        .build())
-                .retrieve()
-                .body(String.class));
+        return metrics.record("KOBIS", "getMovieDetail", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire(
+                    "KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/movie/searchMovieInfo.json")
+                            .queryParam("key", apiKey)
+                            .queryParam("movieCd", movieCode)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+        }));
     }
 
     public String getDailyBoxOffice(String targetDate) {
-        apiCallBudgetService.acquire("KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
-        return metrics.record("KOBIS", "getDailyBoxOffice", () -> restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/boxoffice/searchDailyBoxOfficeList.json")
-                        .queryParam("key", apiKey)
-                        .queryParam("targetDt", targetDate)
-                        .build())
-                .retrieve()
-                .body(String.class));
+        return metrics.record("KOBIS", "getDailyBoxOffice", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire(
+                    "KOBIS", com.momo.backend.service.ApiCallBudgetService.TrafficType.USER_SEARCH);
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/boxoffice/searchDailyBoxOfficeList.json")
+                            .queryParam("key", apiKey)
+                            .queryParam("targetDt", targetDate)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+        }));
     }
 
     public String searchMoviesByGenre(int page) {

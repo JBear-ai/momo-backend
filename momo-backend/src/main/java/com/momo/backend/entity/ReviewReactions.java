@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
                         name = "uk_review_reaction_user_review",
                         columnNames = {"user_id", "review_id"}
                 )
+        },
+        indexes = {
+                @Index(name = "ix_review_reaction_review_liked", columnList = "review_id, liked"),
+                @Index(name = "ix_review_reaction_user_liked", columnList = "user_id, liked, review_id")
         }
 )
 @Getter

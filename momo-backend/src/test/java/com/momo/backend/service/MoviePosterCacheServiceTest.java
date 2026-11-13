@@ -107,6 +107,29 @@ class MoviePosterCacheServiceTest {
     }
 
     @Test
+    void reportsPendingWhenPosterEnsureWasQueuedButCacheCreationHasNotFinished() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        Movie movie = new Movie(
+                "20260012", "비동기 포스터 확인 영화", "", "20260101", "", "", "", "", "");
+
+        when(movieRepository.findAllById(List.of("20260012")))
+                .thenReturn(List.of(movie));
+        when(repository.findAllByMovieCodeIn(List.of("20260012")))
+                .thenReturn(List.of());
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, movieRepository, mock(PosterFileStorageService.class));
+
+        var statuses = service.findPosterStatuses(
+                List.of("20260012"), PosterStatus.PENDING);
+
+        assertEquals(1, statuses.size());
+        assertEquals(PosterStatus.PENDING, statuses.get(0).status());
+        assertEquals("", statuses.get(0).posterUrl());
+    }
+
+    @Test
     void returnsFailedForMoviesWithoutPosterCacheOrSavedPoster() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
         MovieRepository movieRepository = mock(MovieRepository.class);

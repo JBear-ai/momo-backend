@@ -43,7 +43,15 @@ public class TmdbApiClient {
 
     // 검색어 언어에 맞춰 TMDb 결과 제목을 조회한다.
     public String searchMovie(String title, String language) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+        return searchMovie(title, language,
+                com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+    }
+
+    public String searchMovie(
+            String title,
+            String language,
+            com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
+        apiCallBudgetService.acquire("TMDB", trafficType);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
@@ -64,7 +72,15 @@ public class TmdbApiClient {
     }
 
     public String getMovieDetail(long movieId) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+        return getMovieDetail(
+                movieId,
+                com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+    }
+
+    public String getMovieDetail(
+            long movieId,
+            com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
+        apiCallBudgetService.acquire("TMDB", trafficType);
         if (movieId <= 0) {
             throw new IllegalArgumentException("올바르지 않은 TMDb 영화 ID입니다.");
         }
@@ -100,7 +116,7 @@ public class TmdbApiClient {
             throw new IllegalArgumentException("TV 프로그램 제목이 비어 있습니다.");
         }
 
-        return metrics.record("TMDB", "searchTv", () -> restClient.get()
+        return metrics.record("TMDB", "searchTv", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/tv")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", title.trim())
@@ -108,7 +124,7 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 
     public String searchPerson(String name, String language) {
@@ -121,7 +137,7 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "searchPerson", () -> restClient.get()
+        return metrics.record("TMDB", "searchPerson", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/person")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", name.trim())
@@ -129,7 +145,7 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 
     public String getPersonDetail(long personId, String language) {
@@ -142,13 +158,13 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "getPersonDetail", () -> restClient.get()
+        return metrics.record("TMDB", "getPersonDetail", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/person/{personId}")
                         .queryParam("api_key", apiKey)
                         .queryParam("language", safeLanguage)
                         .queryParam("append_to_response", "combined_credits")
                         .build(personId))
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 }

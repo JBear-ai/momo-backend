@@ -1,3 +1,4 @@
+import SafeImage from "../components/common/SafeImage";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
@@ -97,7 +98,10 @@ function PersonDetail() {
         setFilmography([]);
         setVisibleCount(10);
 
-        const response = await AxiosApi.getPersonDetail(type, identifier, controller.signal);
+        // 숫자형 식별자는 TMDb 인물 고유 ID로 조회해 동명이인 오연결을 방지한다.
+        const response = /^\d+$/.test(identifier)
+          ? await AxiosApi.getPersonDetailById(type, identifier, controller.signal)
+          : await AxiosApi.getPersonDetail(type, identifier, controller.signal);
 
         const personData = response?.data?.personInfo;
         const movies = response?.data?.filmography;
@@ -217,17 +221,12 @@ function PersonDetail() {
           "div",
           { className: "movie-detail-poster" },
 
-          person.profileUrl
-            ? React.createElement("img", {
-                src: person.profileUrl,
-                alt: person.name || "인물 사진",
-              })
-            : React.createElement(
-                "div",
-                { className: "poster-placeholder" },
-                React.createElement("span", null, "👤"),
-                React.createElement("p", null, person.name),
-              ),
+          React.createElement(SafeImage, {
+            src: person.profileUrl,
+            alt: person.name || "인물 사진",
+            fallbackClassName: "poster-placeholder",
+            fallbackText: person.name || "인물 사진",
+          }),
         ),
 
         React.createElement(
@@ -317,14 +316,16 @@ function PersonDetail() {
                   },
 
                   // 작품 포스터
-                  movie.posterUrl
-                    ? React.createElement("img", {
-                        src: resolvePosterUrl(movie.posterUrl),
-                        alt: movie.title || "작품 포스터",
-                        loading: "lazy",
-                        onError: (event) => event.currentTarget.remove(),
-                      })
-                    : null,
+                  React.createElement(SafeImage, {
+                    src: resolvePosterUrl(movie.posterUrl),
+                    alt: movie.title || "작품 포스터",
+                    fallback: React.createElement(
+                      "div",
+                      { className: "poster-placeholder" },
+                      "MOMO"
+                    ),
+                    loading: "lazy",
+                  }),
 
                   // 작품 정보
                   React.createElement(

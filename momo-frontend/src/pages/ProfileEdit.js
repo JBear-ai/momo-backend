@@ -15,7 +15,7 @@ const PWD_REGEX =
   /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,20}$/;
 
 // 닉네임: 한글, 영문, 숫자 2~10자
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,10}$/;
+const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
 
 function ProfileEdit() {
   const navigate = useNavigate();
@@ -167,7 +167,7 @@ function ProfileEdit() {
 
   // 전체 유효성
   const isAllValid =
-    isNickname && isPasswordValid && !isSubmitting && !profileImageUploading;
+    isNickname && isEmail && isPasswordValid && !isSubmitting && !profileImageUploading;
 
   /* =========================
      현재 비밀번호 검증
@@ -401,7 +401,7 @@ function ProfileEdit() {
     }
 
     if (!isNickname) {
-      alert("닉네임은 한글, 영문, 숫자로 2~10자 입력해 주세요.");
+      alert("닉네임은 한글, 영문, 숫자로 2~12자 입력해 주세요.");
       return;
     }
 
@@ -409,7 +409,12 @@ function ProfileEdit() {
        이메일 검사
     ========================= */
 
-    if (email.trim() && !isEmail) {
+    if (!email.trim()) {
+      alert("이메일을 입력해 주세요.");
+      return;
+    }
+
+    if (!isEmail) {
       alert("올바른 이메일 형식을 입력해 주세요.");
       return;
     }

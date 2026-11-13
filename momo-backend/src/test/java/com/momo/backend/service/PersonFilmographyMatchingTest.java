@@ -2,7 +2,9 @@ package com.momo.backend.service;
 
 import com.momo.backend.client.KobisApiClient;
 import com.momo.backend.client.TmdbApiClient;
+import com.momo.backend.entity.MovieExternalIdMapping;
 import com.momo.backend.repository.MovieCacheRepository;
+import com.momo.backend.repository.MovieExternalIdMappingRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
@@ -11,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
+import java.util.Optional;
 
 class PersonFilmographyMatchingTest {
 
@@ -22,6 +25,8 @@ class PersonFilmographyMatchingTest {
         MoviePersistenceService moviePersistenceService = mock(MoviePersistenceService.class);
         MoviePosterPersistenceService posterPersistenceService =
                 mock(MoviePosterPersistenceService.class);
+        MovieExternalIdMappingRepository mappingRepository =
+                mock(MovieExternalIdMappingRepository.class);
 
         when(tmdbApiClient.getMovieDetail(tmdbId)).thenReturn("""
                 {
@@ -73,9 +78,14 @@ class PersonFilmographyMatchingTest {
 
         PersonService service = createService(
                 tmdbApiClient, kobisApiClient,
-                moviePersistenceService, posterPersistenceService);
+                moviePersistenceService, posterPersistenceService, mappingRepository);
 
         assertEquals("20241234", service.resolveFilmographyMovie(tmdbId));
+        verify(mappingRepository).saveAndFlush(argThat(mapping ->
+                "TMDB".equals(mapping.getProvider())
+                        && String.valueOf(tmdbId).equals(mapping.getExternalId())
+                        && "20241234".equals(mapping.getMovieCode())
+        ));
 
         verify(moviePersistenceService).saveSearchMovies(argThat(movies ->
                 movies.size() == 1
@@ -216,16 +226,132 @@ class PersonFilmographyMatchingTest {
         assertEquals(409, exception.getStatusCode().value());
     }
 
+
+    @Test
+    void checksLaterKobisPagesBeforeChoosingBetweenSameTitleRemakes() {
+        long tmdbId = 900005L;
+        TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
+        KobisApiClient kobisApiClient = mock(KobisApiClient.class);
+
+        when(tmdbApiClient.getMovieDetail(tmdbId)).thenReturn("""
+                {
+                  "title": "동명 영화",
+                  "original_title": "Same Title",
+                  "release_date": "2024-06-01",
+                  "release_dates": {
+                    "results": [{
+                      "iso_3166_1": "KR",
+                      "release_dates": [{
+                        "release_date": "2024-06-01T00:00:00.000Z",
+                        "type": 3
+                      }]
+                    }]
+                  },
+                  "credits": {
+                    "crew": [{"job": "Director", "name": "정확한 감독"}]
+                  }
+                }
+                """);
+        when(tmdbApiClient.getMovieAlternativeTitles(tmdbId))
+                .thenReturn("{\"titles\":[]}");
+
+        StringBuilder firstPageMovies = new StringBuilder();
+        for (int index = 1; index <= 100; index++) {
+            if (index > 1) firstPageMovies.append(",");
+            firstPageMovies.append("""
+                    {
+                      "movieCd": "%s",
+                      "movieNm": "동명 영화",
+                      "movieNmEn": "Same Title",
+                      "openDt": "20240601",
+                      "prdtYear": "2024",
+                      "directors": []
+                    }
+                    """.formatted("2024" + String.format("%04d", index)));
+        }
+
+        when(kobisApiClient.searchMovies("동명 영화", 1, 100)).thenReturn("""
+                {"movieListResult":{"totCnt":101,"movieList":[%s]}}
+                """.formatted(firstPageMovies));
+        when(kobisApiClient.searchMovies("동명 영화", 2, 100)).thenReturn("""
+                {
+                  "movieListResult": {
+                    "totCnt": 101,
+                    "movieList": [{
+                      "movieCd": "20240101",
+                      "movieNm": "동명 영화",
+                      "movieNmEn": "Same Title",
+                      "openDt": "20240601",
+                      "prdtYear": "2024",
+                      "directors": [{"peopleNm": "정확한 감독"}]
+                    }]
+                  }
+                }
+                """);
+        when(kobisApiClient.searchMovies("Same Title", 1, 100))
+                .thenReturn("{\"movieListResult\":{\"totCnt\":0,\"movieList\":[]}}");
+
+        PersonService service = createService(
+                tmdbApiClient,
+                kobisApiClient,
+                mock(MoviePersistenceService.class),
+                mock(MoviePosterPersistenceService.class)
+        );
+
+        assertEquals("20240101", service.resolveFilmographyMovie(tmdbId));
+        verify(kobisApiClient).searchMovies("동명 영화", 2, 100);
+    }
+
+    @Test
+    void reusesPreviouslyVerifiedExternalMovieMappingWithoutCallingProviders() {
+        long tmdbId = 900004L;
+        TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
+        KobisApiClient kobisApiClient = mock(KobisApiClient.class);
+        MovieExternalIdMappingRepository mappingRepository =
+                mock(MovieExternalIdMappingRepository.class);
+
+        when(mappingRepository.findByProviderAndExternalId("TMDB", String.valueOf(tmdbId)))
+                .thenReturn(Optional.of(
+                        new MovieExternalIdMapping("TMDB", String.valueOf(tmdbId), "20240004")
+                ));
+
+        PersonService service = new PersonService(
+                tmdbApiClient,
+                kobisApiClient,
+                mock(MovieCacheRepository.class),
+                mappingRepository,
+                mock(MoviePersistenceService.class),
+                mock(MoviePosterPersistenceService.class),
+                new ObjectMapper()
+        );
+
+        assertEquals("20240004", service.resolveFilmographyMovie(tmdbId));
+        verifyNoInteractions(tmdbApiClient, kobisApiClient);
+    }
+
     private PersonService createService(
             TmdbApiClient tmdbApiClient,
             KobisApiClient kobisApiClient,
             MoviePersistenceService moviePersistenceService,
             MoviePosterPersistenceService posterPersistenceService
     ) {
+        return createService(
+                tmdbApiClient, kobisApiClient, moviePersistenceService,
+                posterPersistenceService, mock(MovieExternalIdMappingRepository.class));
+    }
+
+    private PersonService createService(
+            TmdbApiClient tmdbApiClient,
+            KobisApiClient kobisApiClient,
+            MoviePersistenceService moviePersistenceService,
+            MoviePosterPersistenceService posterPersistenceService,
+            MovieExternalIdMappingRepository mappingRepository
+    ) {
         return new PersonService(
                 tmdbApiClient,
                 kobisApiClient,
                 mock(MovieCacheRepository.class),
+                mappingRepository,
                 moviePersistenceService,
                 posterPersistenceService,
                 new ObjectMapper()

@@ -7,7 +7,10 @@ import com.momo.backend.dto.person.PersonDetailResponse.FilmographyItem;
 import com.momo.backend.dto.person.PersonDetailResponse.PersonInfo;
 import com.momo.backend.dto.movie.MovieSearchResponse;
 import com.momo.backend.entity.MovieCache;
+import com.momo.backend.entity.MovieExternalIdMapping;
 import com.momo.backend.repository.MovieCacheRepository;
+import com.momo.backend.repository.MovieExternalIdMappingRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -40,6 +43,7 @@ public class PersonService {
     private final TmdbApiClient tmdbApiClient;
     private final KobisApiClient kobisApiClient;
     private final MovieCacheRepository movieCacheRepository;
+    private final MovieExternalIdMappingRepository movieExternalIdMappingRepository;
     private final MoviePersistenceService moviePersistenceService;
     private final MoviePosterPersistenceService moviePosterPersistenceService;
     private final ObjectMapper objectMapper;
@@ -126,6 +130,14 @@ public class PersonService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "올바르지 않은 TMDb 영화 ID입니다.");
         }
 
+        // 이미 검증해 저장한 TMDb-KOBIS 연결은 외부 API를 다시 호출하지 않고 재사용한다.
+        String externalId = String.valueOf(tmdbId);
+        var savedMapping = movieExternalIdMappingRepository
+                .findByProviderAndExternalId("TMDB", externalId);
+        if (savedMapping.isPresent()) {
+            return savedMapping.get().getMovieCode();
+        }
+
         try {
             JsonNode detail = objectMapper.readTree(tmdbApiClient.getMovieDetail(tmdbId));
             String localizedTitle = text(detail, "title");
@@ -183,20 +195,37 @@ public class PersonService {
             String kobisGenre = text(kobisMovie, "genreAlt");
             String kobisDirector = extractKobisDirectorText(kobisMovie);
 
+            if (!movieCode.matches("[A-Za-z0-9]{8}") || kobisTitle.isBlank()) {
+                throw new IllegalStateException("KOBIS 영화 검색 결과의 식별자 또는 제목이 올바르지 않습니다.");
+            }
+
+            // 영화 데이터 저장이 성공한 경우에만 외부 ID 매핑을 확정한다.
+            // 저장 실패를 무시하면 매핑만 남거나 매 요청마다 재매칭하는 상태가 될 수 있다.
+            moviePersistenceService.saveSearchMovies(List.of(
+                    new MovieSearchResponse(
+                            movieCode,
+                            kobisTitle,
+                            kobisReleaseDate,
+                            kobisGenre,
+                            kobisDirector
+                    )
+            ));
+
+            // 제목 유사도 검색으로 검증된 연결 결과를 영구 저장한다.
+            // 같은 TMDb ID를 동시에 처리한 경우 unique 제약조건에 먼저 저장된 연결을 재사용한다.
             try {
-                moviePersistenceService.saveSearchMovies(List.of(
-                        new MovieSearchResponse(
-                                movieCode,
-                                kobisTitle,
-                                kobisReleaseDate,
-                                kobisGenre,
-                                kobisDirector
-                        )
-                ));
-            } catch (Exception persistenceError) {
-                // 영화 연결 자체는 유지하고, 상세 페이지에서 다시 저장할 수 있도록 기록만 남긴다.
-                log.warn("필모그래피 KOBIS 영화 정보 저장 실패. movieCode={}",
-                        movieCode, persistenceError);
+                movieExternalIdMappingRepository.saveAndFlush(
+                        new MovieExternalIdMapping("TMDB", externalId, movieCode)
+                );
+            } catch (DataIntegrityViolationException duplicateMapping) {
+                String existingMovieCode = movieExternalIdMappingRepository
+                        .findByProviderAndExternalId("TMDB", externalId)
+                        .map(MovieExternalIdMapping::getMovieCode)
+                        .orElse(null);
+                if (existingMovieCode != null) {
+                    return existingMovieCode;
+                }
+                throw duplicateMapping;
             }
 
             // 필모그래피 카드가 사용한 TMDb poster_path를 로컬 포스터 파일로 저장한다.
@@ -359,8 +388,6 @@ public class PersonService {
 
             int totalCount = result.path("totCnt").asInt(candidates.size());
             maxPages = Math.min(5, Math.max(1, (totalCount + 99) / 100));
-            boolean foundOnPage = false;
-
             for (JsonNode candidate : candidates) {
                 String movieCode = text(candidate, "movieCd");
                 if (!PosterFileStorageService.isValidMovieCode(movieCode)) continue;
@@ -373,11 +400,11 @@ public class PersonService {
                 if (previous == null || score > previous.score()) {
                     matched.put(movieCode, new ScoredFilmographyCandidate(candidate, score));
                 }
-                foundOnPage = true;
             }
 
-            // 첫 페이지에서 후보가 확인되면 불필요한 페이지 호출을 하지 않는다.
-            if (foundOnPage || candidates.size() < 100) return;
+            // 동명·리메이크 작품이 다음 페이지에 있을 수 있으므로
+            // KOBIS가 반환한 전체 페이지(최대 5페이지)를 비교한다.
+            if (candidates.size() < 100) return;
         }
     }
 

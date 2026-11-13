@@ -13,7 +13,8 @@ class TmdbServiceMovieDetailTest {
     @Test
     void loadsMovieDetailsAndPersonIdsDirectlyFromTmdbId() {
         TmdbApiClient client = mock(TmdbApiClient.class);
-        when(client.getMovieDetail(555094L)).thenReturn("""
+        when(client.getMovieDetail(
+                555094L, ApiCallBudgetService.TrafficType.USER_SEARCH)).thenReturn("""
                 {
                   "id": 555094,
                   "title": "劇場版 薬屋のひとりごと 亡妃の秘宝",
@@ -69,7 +70,8 @@ class TmdbServiceMovieDetailTest {
         assertEquals(2, detail.people().size());
         assertEquals(10L, ((Number) detail.people().get(0).get("personId")).longValue());
         assertEquals(20L, ((Number) detail.people().get(1).get("personId")).longValue());
-        verify(client).getMovieDetail(555094L);
+        verify(client).getMovieDetail(
+                555094L, ApiCallBudgetService.TrafficType.USER_SEARCH);
     }
 
     @Test

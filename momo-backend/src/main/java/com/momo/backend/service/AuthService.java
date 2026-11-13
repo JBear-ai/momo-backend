@@ -2,16 +2,15 @@
 package com.momo.backend.service;
 
 import java.io.IOException;
-import java.util.List;
 
 import com.momo.backend.dto.auth.SignupRequest;
 import com.momo.backend.dto.auth.UserResponse;
 import com.momo.backend.dto.auth.UserUpdateRequest;
-import com.momo.backend.entity.Review;
 import com.momo.backend.entity.User;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.repository.MovieRatingRepository;
+import com.momo.backend.repository.FavoriteMovieRepository;
 import com.momo.backend.repository.ReviewReactionRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
@@ -24,6 +23,9 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -41,6 +43,7 @@ public class AuthService {
     private final CommentReactionRepository commentReactionRepository;
     private final FirebaseStorageService firebaseStorageService;
     private final MovieRatingRepository movieRatingRepository;
+    private final FavoriteMovieRepository favoriteMovieRepository;
     private final RefreshTokenService refreshTokenService;
 
     // 회원가입
@@ -64,7 +67,16 @@ public class AuthService {
                 dto.getNickname(),
                 dto.getEmail());
 
-        return new UserResponse(userRepository.save(user));
+        try {
+            // 중복 사전 조회와 별도로 DB unique 제약조건을 최종 방어선으로 사용한다.
+            return new UserResponse(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException duplicate) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 사용 중인 아이디 또는 닉네임입니다.",
+                    duplicate
+            );
+        }
     }
 
     // 로그인 및 회원 정보 조회
@@ -93,7 +105,9 @@ public class AuthService {
     // 회원 정보 수정
 
     public UserResponse updateMyInfo(String loginId, UserUpdateRequest dto) {
-        User user = getLoginUser(loginId);
+        // 탈퇴·프로필 이미지 변경과 회원 정보 수정을 같은 회원 행 잠금으로 직렬화한다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         if (!user.getNickname().equals(dto.nickname())
                 && userRepository.existsByNickname(dto.nickname())) {
@@ -129,6 +143,17 @@ public class AuthService {
 
         user.updateProfile(dto.nickname(), dto.email());
 
+        try {
+            // 동시 닉네임 변경 요청도 DB unique 제약조건 기준으로 충돌을 반환한다.
+            userRepository.flush();
+        } catch (DataIntegrityViolationException duplicate) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 사용 중인 닉네임입니다.",
+                    duplicate
+            );
+        }
+
         return new UserResponse(user);
     }
 
@@ -150,7 +175,9 @@ public class AuthService {
     // 회원 탈퇴
 
     public void deleteMyAccount(String loginId, String password) {
-        User user = getLoginUser(loginId);
+        // 회원 행을 잠가 다른 생성·반응 요청과 탈퇴 작업을 직렬화한다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
@@ -165,29 +192,26 @@ public class AuthService {
         String profileImage = user.getProfileImage();
 
         // 회원이 남긴 댓글 반응과 리뷰 반응 삭제
-        commentReactionRepository.deleteByUser_UserId(userId);
-        commentReactionRepository.deleteByComment_User_UserId(userId);
-        reviewReactionRepository.deleteByUser_UserId(userId);
+        commentReactionRepository.deleteAuthoredByUserId(userId);
+        reviewReactionRepository.deleteAuthoredByUserId(userId);
+
+        // 회원이 작성한 댓글에 다른 회원이 남긴 반응 삭제
+        commentReactionRepository.deleteForCommentsAuthoredByUser(userId);
 
         // 회원이 작성한 댓글 삭제
-        commentRepository.deleteByUser_UserId(userId);
+        commentRepository.deleteAuthoredByUserId(userId);
 
-        // 회원이 작성한 리뷰에 연결된 댓글과 반응 삭제
-        List<Review> reviews = reviewRepository.findAllByUser_UserId(userId);
+        // 회원이 작성한 리뷰에 달린 댓글 반응과 리뷰 반응을 일괄 삭제
+        commentReactionRepository.deleteForReviewsAuthoredByUser(userId);
+        reviewReactionRepository.deleteForReviewsAuthoredByUser(userId);
 
-        for (Review review : reviews) {
-            Long reviewId = review.getReviewId();
-
-            commentReactionRepository.deleteByComment_Review_ReviewId(reviewId);
-            commentRepository.deleteByReview_ReviewId(reviewId);
-            reviewReactionRepository.deleteByReview_ReviewId(reviewId);
-        }
-
-        // 회원이 작성한 리뷰 삭제
-        reviewRepository.deleteAll(reviews);
+        // 회원이 작성한 리뷰에 달린 댓글 삭제 후 리뷰 일괄 삭제
+        commentRepository.deleteForReviewsAuthoredByUser(userId);
+        reviewRepository.deleteAuthoredByUserId(userId);
 
         // 회원이 남긴 영화 좋아요 및 싫어요 삭제
-        movieRatingRepository.deleteByUser_UserId(userId);
+        movieRatingRepository.deleteAuthoredByUserId(userId);
+        favoriteMovieRepository.deleteAllByUserId(userId);
 
         // 마지막으로 회원 정보 삭제
         userRepository.delete(user);
@@ -225,7 +249,9 @@ public class AuthService {
     public UserResponse updateProfileImage(
             String loginId, MultipartFile file) throws IOException {
 
-        User user = getLoginUser(loginId);
+        // 프로필 업로드와 회원 탈퇴가 동시에 실행되지 않도록 회원 행을 잠근다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         String oldProfileImage = user.getProfileImage();
 
@@ -276,7 +302,9 @@ public class AuthService {
     }
 
     public UserResponse removeProfileImage(String loginId) {
-        User user = getLoginUser(loginId);
+        // 프로필 삭제와 회원 탈퇴가 동시에 실행되지 않도록 회원 행을 잠근다.
+        User user = userRepository.findByLoginIdForUpdate(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         String oldProfileImage = user.getProfileImage();
 

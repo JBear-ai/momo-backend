@@ -12,8 +12,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PWD_REGEX =
   /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,20}$/;
 
-// 닉네임: 한글, 영문, 숫자 2~10자
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,10}$/;
+// 닉네임: 한글, 영문, 숫자 2~12자
+const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
 
 function SignUp() {
   // 입력값
@@ -292,7 +292,7 @@ function SignUp() {
                                           (inputNickname &&
                                                             (isNickname
                                                               ? "사용 가능한 닉네임입니다."
-                                                              : "한글, 영문, 숫자로 2~10자 입력하세요."))
+                                                              : "한글, 영문, 숫자로 2~12자 입력하세요."))
                                         )
                             ),
                     React.createElement(

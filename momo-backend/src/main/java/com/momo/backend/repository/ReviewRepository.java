@@ -2,22 +2,34 @@
 package com.momo.backend.repository;
 
 import com.momo.backend.entity.Review;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
+import java.util.Optional;
+
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
+    // 리뷰 반응·댓글 등록과 리뷰 삭제가 동시에 진행되지 않도록 대상 리뷰 행을 잠근다.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select review from Review review where review.reviewId = :reviewId")
+    Optional<Review> findByIdForUpdate(@Param("reviewId") Long reviewId);
+
     // 전체 영화의 리뷰를 최신순으로 조회
+    @EntityGraph(attributePaths = {"user"})
     Page<Review> findAllByOrderByCreatedAtDescReviewIdDesc(
             Pageable pageable
     );
 
     // 전체 리뷰 검색: 영화 제목, 감독, 배우, 닉네임, 리뷰 제목, 리뷰 내용
+    @EntityGraph(attributePaths = {"user"})
     @Query(
             value = """
                     SELECT r
@@ -144,7 +156,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     );
 
     // 특정 영화의 리뷰를 최신순으로 조회
-    Page<Review> findByMovieCodeOrderByCreatedAtDesc(
+    @EntityGraph(attributePaths = {"user"})
+    Page<Review> findByMovieCodeOrderByCreatedAtDescReviewIdDesc(
             String movieCode,
             Pageable pageable
     );
@@ -156,11 +169,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     );
 
     // 특정 회원이 작성한 리뷰 조회
+    @EntityGraph(attributePaths = {"user"})
     Page<Review> findByUser_UserId(
             Long userId,
             Pageable pageable
     );
 
-    // 특정 회원이 작성한 리뷰 전체 조회
-    List<Review> findAllByUser_UserId(Long userId);
+    // 회원 탈퇴 시 작성한 리뷰를 한 번의 DELETE 쿼리로 정리한다.
+    @Modifying
+    @Query("delete from Review review where review.user.userId = :userId")
+    int deleteAuthoredByUserId(@Param("userId") Long userId);
 }

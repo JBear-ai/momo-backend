@@ -388,6 +388,14 @@ const AxiosApi = {
   },
 
   // 9. 영화 포스터 상태 일괄 조회
+  moviePostersEnsure: async (movieCodes, signal) => {
+    return await axios.post(
+      `${HM_DOMAIN}/api/movies/posters/ensure`,
+      movieCodes,
+      { signal },
+    );
+  },
+
   moviePosterStatuses: async (movieCodes, signal) => {
     return await axios.post(
       `${HM_DOMAIN}/api/movies/posters/status`,
@@ -455,10 +463,28 @@ const AxiosApi = {
     );
   },
 
+  // 계정에 저장된 관심 영화 조회
+  favoriteMovies: async (signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/favorites`, { signal });
+  },
+
+  // 관심 영화 등록 및 기존 영화 정보 갱신
+  favoriteMovieAdd: async (movie) => {
+    return await axios.post(`${HM_DOMAIN}/api/favorites`, movie);
+  },
+
+  // 관심 영화 해제
+  favoriteMovieDelete: async (movieCode) => {
+    return await axios.delete(
+      `${HM_DOMAIN}/api/favorites/${encodeURIComponent(movieCode)}`,
+    );
+  },
+
   // 15. 로그인 사용자 정보 조회
-  memberMe: async () => {
+  memberMe: async (signal) => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me`, {
       withCredentials: true,
+      signal,
     });
   },
 
@@ -484,6 +510,15 @@ const AxiosApi = {
   allReviews: async (page = 0, signal, searchType = "ALL", keyword = "") => {
     return await axios.get(`${HM_DOMAIN}/api/reviews`, {
       params: { page, searchType, keyword },
+      withCredentials: true,
+      signal,
+    });
+  },
+
+  // 한 페이지의 리뷰 댓글·반응 통계를 한 번에 조회
+  reviewSummaries: async (reviewIds, signal) => {
+    return await axios.get(`${HM_DOMAIN}/api/reviews/summaries`, {
+      params: { reviewIds: reviewIds.join(",") },
       withCredentials: true,
       signal,
     });

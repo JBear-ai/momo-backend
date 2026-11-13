@@ -4,6 +4,7 @@ import com.momo.backend.dto.review.ReviewCreateRequest;
 import com.momo.backend.dto.review.ReviewResponse;
 import com.momo.backend.dto.review.ReviewPageResponse;
 import com.momo.backend.dto.review.ReviewUpdateRequest;
+import com.momo.backend.dto.review.ReviewSummaryResponse;
 
 import com.momo.backend.service.ReviewService;
 
@@ -18,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.data.domain.Page;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -38,6 +40,13 @@ public class ReviewController {
         return ResponseEntity.ok(
                 reviewService.getAllReviews(page, searchType, keyword)
         );
+    }
+
+    // 페이지의 리뷰별 댓글·반응 통계를 한 번의 요청으로 조회한다.
+    @GetMapping("/summaries")
+    public ResponseEntity<List<ReviewSummaryResponse>> getReviewSummaries(
+            @RequestParam List<Long> reviewIds) {
+        return ResponseEntity.ok(reviewService.getReviewSummaries(reviewIds));
     }
 
     // 2. 리뷰 작성
