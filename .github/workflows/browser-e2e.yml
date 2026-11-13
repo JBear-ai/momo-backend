@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - perf/momo-stability-pr49
       - fix/autocomplete-saved-posters
 
 concurrency:
