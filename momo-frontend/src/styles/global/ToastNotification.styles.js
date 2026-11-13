@@ -14,7 +14,7 @@ const ToastNotificationStyles = createGlobalStyle`
     --momo-stub-width: 78px;
 
     position: fixed;
-    top: calc(24px + env(safe-area-inset-top, 0px));
+    top: calc(55px + env(safe-area-inset-top, 0px));
     right: 24px;
     z-index: 10000;
     display: flex;
