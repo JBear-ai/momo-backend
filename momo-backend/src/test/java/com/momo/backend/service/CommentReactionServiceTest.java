@@ -9,6 +9,8 @@ import com.momo.backend.repository.CommentRepository;
 import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Optional;
 import static org.mockito.Mockito.*;
 
@@ -42,6 +44,43 @@ class CommentReactionServiceTest {
 
         verify(existing).updateReaction(true);
         verify(reactionRepository, never()).save(any());
+    }
+
+    @Test
+    void readsReactionCountsAndCommentExistenceWithOneQuery() {
+        CommentReactionRepository reactionRepository = mock(CommentReactionRepository.class);
+        CommentRepository commentRepository = mock(CommentRepository.class);
+        ReviewRepository reviewRepository = mock(ReviewRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        CommentReactionRepository.CommentExistsAndReactionCountSummary summary =
+                mock(CommentReactionRepository.CommentExistsAndReactionCountSummary.class);
+
+        when(summary.getLikeCount()).thenReturn(5L);
+        when(summary.getDislikeCount()).thenReturn(2L);
+        when(reactionRepository.findResponseSummaryByCommentId(21L)).thenReturn(summary);
+
+        CommentReactionService service = new CommentReactionService(
+                reactionRepository, commentRepository, reviewRepository, userRepository);
+
+        assertArrayEquals(new long[]{5L, 2L}, service.getReactionCounts(21L));
+        verify(commentRepository, never()).existsById(anyLong());
+        verify(reactionRepository).findResponseSummaryByCommentId(21L);
+    }
+
+    @Test
+    void missingCommentIsDetectedByTheReactionSummaryQuery() {
+        CommentReactionRepository reactionRepository = mock(CommentReactionRepository.class);
+        CommentRepository commentRepository = mock(CommentRepository.class);
+        ReviewRepository reviewRepository = mock(ReviewRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        when(reactionRepository.findResponseSummaryByCommentId(21L)).thenReturn(null);
+
+        CommentReactionService service = new CommentReactionService(
+                reactionRepository, commentRepository, reviewRepository, userRepository);
+
+        assertThrows(com.momo.backend.exception.CustomException.class,
+                () -> service.getReactionCounts(21L));
+        verify(commentRepository, never()).existsById(anyLong());
     }
 
     @Test
