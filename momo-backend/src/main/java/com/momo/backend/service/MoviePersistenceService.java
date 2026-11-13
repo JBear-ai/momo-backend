@@ -1,14 +1,11 @@
 package com.momo.backend.service;
 
 import com.momo.backend.dto.movie.MovieSearchResponse;
-import com.momo.backend.entity.Movie;
-import com.momo.backend.repository.MovieRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.util.ArrayList;
-import java.util.HashMap;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,16 +14,16 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class MoviePersistenceService {
-    private final MovieRepository movieRepository;
 
-    // 검색 결과에 포함된 영화 정보를 DB에 저장하거나 보완
-    @Transactional
+    private final MoviePersistenceWriter moviePersistenceWriter;
+
+    // 검색 결과에 포함된 영화를 코드 기준으로 중복 제거한 뒤 한 건씩 안전하게 저장한다.
+    // 각 저장은 독립 트랜잭션이므로 동시 INSERT 충돌이 전체 검색 결과를 롤백시키지 않는다.
     public void saveSearchMovies(List<MovieSearchResponse> movies) {
         if (movies == null || movies.isEmpty()) {
             return;
         }
 
-        // 같은 영화 코드가 한 응답에 중복으로 들어와도 신규 Entity를 한 번만 만든다.
         Map<String, MovieSearchResponse> uniqueMovies = new LinkedHashMap<>();
         for (MovieSearchResponse item : movies) {
             if (item == null
@@ -43,44 +40,25 @@ public class MoviePersistenceService {
             }
         }
 
-        if (uniqueMovies.isEmpty()) return;
-        List<String> codes = new ArrayList<>(uniqueMovies.keySet());
-
-        Map<String, Movie> existing = new HashMap<>();
-        movieRepository.findAllById(codes).forEach(movie ->
-                existing.put(movie.getMovieCode(), movie));
-        List<Movie> inserts = new ArrayList<>();
+        int savedOrUpdated = 0;
+        int recoveredConflicts = 0;
 
         for (MovieSearchResponse item : uniqueMovies.values()) {
-            Movie saved = existing.get(item.movieCode());
-            if (saved == null) {
-                inserts.add(new Movie(
-                        item.movieCode(),
-                        item.title(),
-                        "",
-                        item.releaseDate(),
-                        "",
-                        item.genre(),
-                        item.director(),
-                        "",
-                        ""
-                ));
-            } else {
-                saved.supplementMissingDetails(
-                        "",
-                        item.releaseDate(),
-                        "",
-                        item.genre(),
-                        item.director(),
-                        "",
-                        "",
-                        "KOBIS_SEARCH"
-                );
+            try {
+                moviePersistenceWriter.saveOrSupplement(item);
+                savedOrUpdated++;
+            } catch (DataIntegrityViolationException duplicate) {
+                // 다른 요청이 같은 영화 코드를 먼저 저장한 경우,
+                // 실패한 트랜잭션이 롤백된 뒤 기존 행만 보완한다.
+                moviePersistenceWriter.supplementAfterConcurrentInsert(item);
+                recoveredConflicts++;
             }
         }
-        if (!inserts.isEmpty()) {
-            movieRepository.saveAll(inserts);
-        }
-        log.info("검색 영화 DB 저장 완료. 신규 저장: {}, 기존 영화: {}", inserts.size(), existing.size());
+
+        log.info(
+                "검색 영화 DB 저장 완료. 처리={}, 동시 저장 충돌 복구={}",
+                savedOrUpdated + recoveredConflicts,
+                recoveredConflicts
+        );
     }
 }
