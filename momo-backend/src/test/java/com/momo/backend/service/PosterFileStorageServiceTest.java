@@ -36,6 +36,49 @@ class PosterFileStorageServiceTest {
     }
 
     @Test
+    void recognizesAllImageFormatsSupportedByThePosterStorageService() throws Exception {
+        PosterFileStorageService storageService =
+                new PosterFileStorageService(temporaryDirectory.toString());
+
+        Files.write(
+                temporaryDirectory.resolve("poster.jpg"),
+                new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}
+        );
+        Files.write(
+                temporaryDirectory.resolve("poster.png"),
+                new byte[]{
+                        (byte) 0x89, 0x50, 0x4E, 0x47,
+                        0x0D, 0x0A, 0x1A, 0x0A
+                }
+        );
+        Files.write(
+                temporaryDirectory.resolve("poster.webp"),
+                new byte[]{
+                        'R', 'I', 'F', 'F', 0x00, 0x00, 0x00, 0x00,
+                        'W', 'E', 'B', 'P'
+                }
+        );
+
+        assertTrue(storageService.exists("/posters/poster.jpg"));
+        assertTrue(storageService.exists("/posters/poster.png"));
+        assertTrue(storageService.exists("/posters/poster.webp"));
+    }
+
+    @Test
+    void rejectsUntrustedPosterHostsBeforeOpeningANetworkConnection() {
+        PosterFileStorageService storageService =
+                new PosterFileStorageService(temporaryDirectory.toString());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> storageService.downloadAndSave("20261109", "http://127.0.0.1/private"));
+        assertThrows(IllegalArgumentException.class,
+                () -> storageService.downloadAndSave("20261109", "https://example.com/poster.jpg"));
+        assertThrows(IllegalArgumentException.class,
+                () -> storageService.downloadAndSave(
+                        "20261109", "https://user:password@image.tmdb.org/poster.jpg"));
+    }
+
+    @Test
     void rejectsFilesThatHaveAnImageExtensionButNoSupportedImageSignature() throws Exception {
         PosterFileStorageService storageService =
                 new PosterFileStorageService(temporaryDirectory.toString());
