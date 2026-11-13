@@ -4,6 +4,7 @@ import com.momo.backend.dto.movie.MoviePosterStatusResponse;
 import com.momo.backend.entity.PosterStatus;
 import com.momo.backend.service.MoviePosterCacheService;
 import com.momo.backend.service.MovieService;
+import com.momo.backend.service.MoviePosterEnsureAsyncService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,8 @@ class MoviePosterControllerTest {
     void ensuresPostersForAllValidMovieCodesAndReturnsTheirStatuses() {
         MovieService movieService = mock(MovieService.class);
         MoviePosterCacheService cacheService = mock(MoviePosterCacheService.class);
-        MoviePosterController controller = new MoviePosterController(movieService, cacheService);
+        MoviePosterEnsureAsyncService ensureAsyncService = mock(MoviePosterEnsureAsyncService.class);
+        MoviePosterController controller = new MoviePosterController(movieService, cacheService, ensureAsyncService);
 
         List<String> codes = List.of("20261101", "2026A101");
         List<MoviePosterStatusResponse> statuses = List.of(
@@ -34,8 +36,9 @@ class MoviePosterControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(statuses, response.getBody());
-        verify(movieService).getMoviePoster("20261101");
-        verify(movieService).getMoviePoster("2026A101");
+        verify(ensureAsyncService).ensurePoster("20261101");
+        verify(ensureAsyncService).ensurePoster("2026A101");
+        verifyNoInteractions(movieService);
         verify(cacheService).findPosterStatuses(codes);
     }
 
@@ -50,6 +53,6 @@ class MoviePosterControllerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNull(response.getBody());
-        verifyNoInteractions(movieService, cacheService);
+        verifyNoInteractions(movieService, cacheService, ensureAsyncService);
     }
 }
