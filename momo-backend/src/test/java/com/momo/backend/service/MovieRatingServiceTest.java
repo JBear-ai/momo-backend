@@ -79,7 +79,6 @@ class MovieRatingServiceTest {
         MovieRatingRepository.MovieRatingResponseSummary summary =
                 mock(MovieRatingRepository.MovieRatingResponseSummary.class);
 
-        when(movieRepository.existsById("20261234")).thenReturn(true);
         when(summary.getLikeCount()).thenReturn(8L);
         when(summary.getDislikeCount()).thenReturn(2L);
         when(summary.getMyRating()).thenReturn(1);
