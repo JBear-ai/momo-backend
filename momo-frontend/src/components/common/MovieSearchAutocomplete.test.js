@@ -40,7 +40,7 @@ describe("MovieSearchAutocomplete poster refresh", () => {
           {
             movieCode: "20260001",
             status: "SUCCESS",
-            posterUrl: "http://localhost:8111/posters/20260001-test.jpg",
+            posterUrl: "/posters/20260001-test.jpg",
           },
         ],
       });
@@ -87,7 +87,7 @@ describe("MovieSearchAutocomplete poster refresh", () => {
 
     expect(AxiosApi.moviePosterStatuses).toHaveBeenCalledTimes(2);
     expect(screen.getByAltText("테스트 영화 포스터").getAttribute("src")).toBe(
-      "/posters/20260001-test.jpg",
+      "http://localhost:8111/posters/20260001-test.jpg",
     );
   });
 });
