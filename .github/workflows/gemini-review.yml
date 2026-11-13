@@ -58,10 +58,18 @@ jobs:
           {code_diff}
           '''
 
-          response = client.models.generate_content(
-              model='gemini-3.8-flash',
-              contents=prompt
-          )
+          try:
+              response = client.models.generate_content(
+                  model='gemini-3.8-flash',
+                  contents=prompt
+              )
+          except Exception as error:
+              # Gemini 무료 티어의 일일 요청 한도(429)는 코드 검토 실패가 아니라
+              # 외부 서비스 쿼터 제한이므로 필수 빌드·테스트 결과를 막지 않는다.
+              if getattr(error, 'status_code', None) == 429:
+                  print('Gemini API quota exceeded (429). AI review is skipped for this run.')
+                  exit(0)
+              raise
 
           review_comment = response.text
 
