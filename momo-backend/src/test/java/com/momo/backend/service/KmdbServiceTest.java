@@ -1,0 +1,172 @@
+package com.momo.backend.service;
+
+import com.momo.backend.client.KmdbApiClient;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class KmdbServiceTest {
+
+    @Test
+    void fallsBackWhenKmdbPosterHasOnlyAnUncorroboratedTitle() {
+        KmdbApiClient kmdbApiClient = mock(KmdbApiClient.class);
+        TmdbService tmdbService = mock(TmdbService.class);
+        KmdbService service = new KmdbService(
+                kmdbApiClient,
+                tmdbService,
+                new ObjectMapper()
+        );
+
+        when(kmdbApiClient.searchMovie("동명 영화")).thenReturn("""
+                {
+                  "Data": [{
+                    "Result": [{
+                      "DOCID": "DOC-1",
+                      "title": "동명 영화",
+                      "titleEng": "",
+                      "prodYear": "",
+                      "repRlsDate": "",
+                      "posters": "https://kmdb.example/posters/movie-1.jpg",
+                      "directors": {"director": []}
+                    }]
+                  }]
+                }
+                """);
+
+        when(tmdbService.findMoviePosterUrl("동명 영화", "", "", "")).thenReturn(null);
+
+        assertNull(service.findPosterUrl("K00000001", "동명 영화", "", "", ""));
+        verify(tmdbService).findMoviePosterUrl("동명 영화", "", "", "");
+    }
+
+    @Test
+    void acceptsMissingKmdbYearWhenEnglishOriginalTitleMatches() {
+        KmdbApiClient kmdbApiClient = mock(KmdbApiClient.class);
+        TmdbService tmdbService = mock(TmdbService.class);
+        KmdbService service = new KmdbService(
+                kmdbApiClient,
+                tmdbService,
+                new ObjectMapper()
+        );
+
+        String result = """
+                {
+                  "Data": [{
+                    "Result": [{
+                      "DOCID": "DOC-ORIGINAL",
+                      "title": "동명 영화",
+                      "titleEng": "Original Title",
+                      "prodYear": "",
+                      "repRlsDate": "",
+                      "posters": "https://kmdb.example/posters/original.jpg",
+                      "directors": {"director": []}
+                    }]
+                  }]
+                }
+                """;
+        when(kmdbApiClient.searchMovie("동명 영화")).thenReturn(result);
+        when(kmdbApiClient.searchMovie("Original Title")).thenReturn(result);
+
+        assertEquals(
+                "https://kmdb.example/posters/original.jpg",
+                service.findPosterUrl(
+                        "K00000002", "동명 영화", "Original Title", "20260101", "")
+        );
+        verify(tmdbService, never()).findMoviePosterUrl(
+                anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void doesNotChooseFirstPosterWhenSameTitleCandidatesAreEquallyRanked() {
+        KmdbApiClient kmdbApiClient = mock(KmdbApiClient.class);
+        TmdbService tmdbService = mock(TmdbService.class);
+        KmdbService service = new KmdbService(
+                kmdbApiClient,
+                tmdbService,
+                new ObjectMapper()
+        );
+
+        when(kmdbApiClient.searchMovie("동명 영화")).thenReturn("""
+                {
+                  "Data": [{
+                    "Result": [
+                      {
+                        "DOCID": "DOC-REMAKE-1",
+                        "title": "동명 영화",
+                        "titleEng": "",
+                        "prodYear": "",
+                        "repRlsDate": "",
+                        "posters": "https://kmdb.example/posters/remake-1.jpg",
+                        "directors": {"director": []}
+                      },
+                      {
+                        "DOCID": "DOC-REMAKE-2",
+                        "title": "동명 영화",
+                        "titleEng": "",
+                        "prodYear": "",
+                        "repRlsDate": "",
+                        "posters": "https://kmdb.example/posters/remake-2.jpg",
+                        "directors": {"director": []}
+                      }
+                    ]
+                  }]
+                }
+                """);
+        when(tmdbService.findMoviePosterUrl("동명 영화", "", "", "")).thenReturn(null);
+
+        assertNull(service.findPosterUrl("K00000001", "동명 영화", "", "", ""));
+        verify(tmdbService).findMoviePosterUrl("동명 영화", "", "", "");
+    }
+    @Test
+    void doesNotEnrichMovieFromEquallyRankedSameTitleRemakes() {
+        KmdbApiClient kmdbApiClient = mock(KmdbApiClient.class);
+        TmdbService tmdbService = mock(TmdbService.class);
+        KmdbService service = new KmdbService(
+                kmdbApiClient,
+                tmdbService,
+                new ObjectMapper()
+        );
+
+        when(kmdbApiClient.searchMovie("동명 영화")).thenReturn("""
+                {
+                  "Data": [{
+                    "Result": [
+                      {
+                        "DOCID": "DOC-REMAKE-1",
+                        "title": "동명 영화",
+                        "titleEng": "",
+                        "prodYear": "",
+                        "repRlsDate": "",
+                        "runtime": "90",
+                        "genre": "드라마",
+                        "directors": {"director": []},
+                        "actors": {"actor": [{"actorNm": "첫 번째 배우"}]}
+                      },
+                      {
+                        "DOCID": "DOC-REMAKE-2",
+                        "title": "동명 영화",
+                        "titleEng": "",
+                        "prodYear": "",
+                        "repRlsDate": "",
+                        "runtime": "110",
+                        "genre": "스릴러",
+                        "directors": {"director": []},
+                        "actors": {"actor": [{"actorNm": "두 번째 배우"}]}
+                      }
+                    ]
+                  }]
+                }
+                """);
+
+        assertTrue(service.findMovieSupplement("동명 영화", "", "", "").isEmpty());
+    }
+
+}

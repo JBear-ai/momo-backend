@@ -1,6 +1,6 @@
 import { createGlobalStyle } from "styled-components";
 
-// 기존 index.css의 브라우저 기본 전역 스타일을 그대로 유지합니다.
+// 앱 전체에 적용하는 브라우저 기본 스타일을 관리합니다.
 const GlobalResetStyles = createGlobalStyle`
 body {
   margin: 0;

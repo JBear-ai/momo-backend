@@ -86,7 +86,6 @@ class CommentServiceTest {
 
         assertEquals(27L, response.getCommentId());
         verify(commentReactionRepository).findResponseSummaryByCommentId(27L, 7L);
-        verify(commentReactionRepository, never()).findCountsByCommentId(27L);
         verify(commentReactionRepository, never())
                 .findByUser_UserIdAndComment_CommentId(7L, 27L);
 
@@ -225,4 +224,86 @@ class CommentServiceTest {
                         org.mockito.ArgumentMatchers.anyLong(),
                         org.mockito.ArgumentMatchers.anyLong());
     }
+
+    @Test
+    void loadsLoggedInCommentReactionsInBatchesInsteadOfPerComment() {
+        Long reviewId = 15L;
+        Long viewerId = 7L;
+        LocalDateTime createdAt = LocalDateTime.now();
+
+        User author = org.mockito.Mockito.mock(User.class);
+        Review review = org.mockito.Mockito.mock(Review.class);
+        when(review.getReviewId()).thenReturn(reviewId);
+        when(reviewRepository.existsById(reviewId)).thenReturn(true);
+        when(userRepository.findByLoginId("member"))
+                .thenReturn(java.util.Optional.of(author));
+        when(author.getUserId()).thenReturn(viewerId);
+        when(author.getNickname()).thenReturn("영화기록자");
+        when(author.getProfileImage()).thenReturn(null);
+
+        Comment first = org.mockito.Mockito.mock(Comment.class);
+        Comment second = org.mockito.Mockito.mock(Comment.class);
+        when(first.getCommentId()).thenReturn(27L);
+        when(first.getUser()).thenReturn(author);
+        when(first.getReview()).thenReturn(review);
+        when(first.getContent()).thenReturn("첫 번째 댓글");
+        when(first.getCreatedAt()).thenReturn(createdAt);
+        when(first.getUpdatedAt()).thenReturn(createdAt);
+        when(second.getCommentId()).thenReturn(28L);
+        when(second.getUser()).thenReturn(author);
+        when(second.getReview()).thenReturn(review);
+        when(second.getContent()).thenReturn("두 번째 댓글");
+        when(second.getCreatedAt()).thenReturn(createdAt.plusSeconds(1));
+        when(second.getUpdatedAt()).thenReturn(createdAt.plusSeconds(1));
+
+        List<Long> commentIds = List.of(27L, 28L);
+        when(commentRepository.findByReview_ReviewIdOrderByCreatedAtAscCommentIdAsc(
+                eq(reviewId), org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(first, second)));
+
+        CommentReactionRepository.CommentReactionCountSummary firstCounts =
+                org.mockito.Mockito.mock(CommentReactionRepository.CommentReactionCountSummary.class);
+        when(firstCounts.getCommentId()).thenReturn(27L);
+        when(firstCounts.getLikeCount()).thenReturn(3L);
+        when(firstCounts.getDislikeCount()).thenReturn(1L);
+        CommentReactionRepository.CommentReactionCountSummary secondCounts =
+                org.mockito.Mockito.mock(CommentReactionRepository.CommentReactionCountSummary.class);
+        when(secondCounts.getCommentId()).thenReturn(28L);
+        when(secondCounts.getLikeCount()).thenReturn(5L);
+        when(secondCounts.getDislikeCount()).thenReturn(0L);
+        when(commentReactionRepository.findReactionCountsByCommentIds(commentIds))
+                .thenReturn(List.of(firstCounts, secondCounts));
+
+        CommentReactionRepository.CommentUserReactionSummary firstMine =
+                org.mockito.Mockito.mock(CommentReactionRepository.CommentUserReactionSummary.class);
+        when(firstMine.getCommentId()).thenReturn(27L);
+        when(firstMine.getLiked()).thenReturn(true);
+        CommentReactionRepository.CommentUserReactionSummary secondMine =
+                org.mockito.Mockito.mock(CommentReactionRepository.CommentUserReactionSummary.class);
+        when(secondMine.getCommentId()).thenReturn(28L);
+        when(secondMine.getLiked()).thenReturn(false);
+        when(commentReactionRepository.findMyReactionsByCommentIds(commentIds, viewerId))
+                .thenReturn(List.of(firstMine, secondMine));
+
+        Page<CommentResponse> result = commentService.getComments(reviewId, 0, "member");
+
+        assertEquals(2, result.getTotalElements());
+        assertEquals(3L, result.getContent().get(0).getLikeCount());
+        assertEquals(1L, result.getContent().get(0).getDislikeCount());
+        assertEquals(true, result.getContent().get(0).getMyReaction());
+        assertEquals(5L, result.getContent().get(1).getLikeCount());
+        assertEquals(0L, result.getContent().get(1).getDislikeCount());
+        assertEquals(false, result.getContent().get(1).getMyReaction());
+
+        verify(commentReactionRepository).findReactionCountsByCommentIds(commentIds);
+        verify(commentReactionRepository).findMyReactionsByCommentIds(commentIds, viewerId);
+        verify(commentReactionRepository, never())
+                .countByComment_CommentIdAndLiked(
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(commentReactionRepository, never())
+                .findByUser_UserIdAndComment_CommentId(
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyLong());
+    }
+
 }

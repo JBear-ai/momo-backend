@@ -52,19 +52,22 @@ public class MoviePosterIntegrityScheduler {
                     continue;
                 }
 
-                // 존재하지 않는 파일 경로를 DB에 남기지 않아 화면에서 깨진 이미지가 재사용되지 않게 한다.
-                movie.updatePosterUrl(null);
-                movieRepository.save(movie);
-
-                posterCacheService.resetMissingPoster(
+                // DB 경로 제거와 재수집 대기열 등록을 서비스의 단일 트랜잭션으로 처리한다.
+                boolean repairQueued = posterCacheService.repairMissingPosterFile(
                         movie.getMovieCode(),
                         movie.getTitle(),
-                        movie.getReleaseDate()
+                        movie.getReleaseDate(),
+                        posterPath
                 );
-                repaired++;
-
-                log.warn("누락된 포스터 파일 감지. 재수집 대기열로 이동. movieCode={}, path={}",
-                        movie.getMovieCode(), posterPath);
+                if (repairQueued) {
+                    repaired++;
+                    log.warn("누락된 포스터 파일 감지. 재수집 대기열로 이동. movieCode={}, path={}",
+                            movie.getMovieCode(), posterPath);
+                } else {
+                    // 검사 이후 다른 작업이 새 포스터 경로를 저장한 경우 정상 경합으로 처리한다.
+                    log.debug("포스터 경로가 이미 변경되어 복구를 건너뜁니다. movieCode={}",
+                            movie.getMovieCode());
+                }
             }
 
             if (batch.size() < 100) {

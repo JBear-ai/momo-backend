@@ -1,5 +1,6 @@
 import React from "react";
-import GlobalResetStyles from "./legacy/GlobalReset.styles";
+import GlobalTokensStyles from "./global/GlobalTokens.styles";
+import GlobalResetStyles from "./global/GlobalReset.styles";
 import FoundationAndProfileStyles from "./legacy/FoundationAndProfile.styles";
 import HomeAndMovieStyles from "./legacy/HomeAndMovie.styles";
 import ReviewComposerAuthRecommendStyles from "./legacy/ReviewComposerAuthRecommend.styles";
@@ -14,7 +15,7 @@ import LikedReviewsStyles from "./legacy/LikedReviews.styles";
 import MovieSearchAutocompleteStyles from "./legacy/MovieSearchAutocomplete.styles";
 
 /**
- * App.css의 전역 토큰과 기본 스타일 위에 기능별 styled-components를 조립합니다.
+ * 전역 디자인 토큰·리셋과 기능별 styled-components를 한 곳에서 조립합니다.
  *
  * CSS 선택자와 DOM className은 기존 호환성을 위해 변경하지 않습니다.
  * 렌더링 순서도 기존 App.css의 선언 순서와 동일하게 유지합니다.
@@ -22,6 +23,7 @@ import MovieSearchAutocompleteStyles from "./legacy/MovieSearchAutocomplete.styl
 function GlobalStyles() {
   return (
     <>
+      <GlobalTokensStyles />
       <GlobalResetStyles />
       <FoundationAndProfileStyles />
       <HomeAndMovieStyles />

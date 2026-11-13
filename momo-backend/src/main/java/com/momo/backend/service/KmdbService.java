@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 @Service
@@ -33,6 +35,10 @@ public class KmdbService {
             return Optional.empty();
         }
 
+        MovieSupplement bestSupplement = null;
+        int bestMatchScore = -1;
+        Set<String> bestCandidateKeys = new LinkedHashSet<>();
+
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
                 String json = kmdbApiClient.searchMovie(searchTitle);
@@ -47,7 +53,12 @@ public class KmdbService {
                 }
 
                 for (JsonNode data : dataList) {
-                    for (JsonNode result : data.path("Result")) {
+                    JsonNode results = data.path("Result");
+                    if (!results.isArray()) {
+                        continue;
+                    }
+
+                    for (JsonNode result : results) {
                         String candidateTitle = getText(result, "title");
                         String candidateTitleEn = firstNonBlank(
                                 getText(result, "titleEng"),
@@ -55,6 +66,8 @@ public class KmdbService {
                         String candidateReleaseDate = validDate(
                                 getText(result, "repRlsDate"));
                         String candidateYear = getText(result, "prodYear");
+                        String verificationDate = firstNonBlank(
+                                candidateReleaseDate, candidateYear);
                         String candidateDirector = String.join(",", nestedNames(
                                 result.path("directors").path("director"),
                                 "directorNm", 5));
@@ -62,16 +75,32 @@ public class KmdbService {
                         if (!MovieMatchVerifier.isSamePosterCandidate(
                                 title, titleEn, releaseDate, director,
                                 candidateTitle, candidateTitleEn,
-                                firstNonBlank(candidateReleaseDate, candidateYear),
-                                candidateDirector)) {
+                                verificationDate, candidateDirector)) {
                             continue;
                         }
 
                         List<String> actors = nestedNames(
                                 result.path("actors").path("actor"),
                                 "actorNm", 10);
+                        int matchScore = MovieMatchVerifier.matchScore(
+                                title, titleEn, releaseDate, director,
+                                candidateTitle, candidateTitleEn,
+                                verificationDate, candidateDirector);
 
-                        return Optional.of(new MovieSupplement(
+                        String candidateId = firstNonBlank(
+                                getText(result, "DOCID"),
+                                getText(result, "movieId"),
+                                getText(result, "movieSeq"));
+                        String candidateKey = candidateId.isBlank()
+                                ? String.join("|",
+                                        normalizeTitle(candidateTitle),
+                                        normalizeTitle(candidateTitleEn),
+                                        verificationDate.replaceAll("[^0-9]", ""),
+                                        normalizeTitle(candidateDirector),
+                                        String.join(",", actors))
+                                : "ID|" + candidateId;
+
+                        MovieSupplement supplement = new MovieSupplement(
                                 candidateTitleEn,
                                 candidateReleaseDate,
                                 getText(result, "runtime"),
@@ -80,7 +109,16 @@ public class KmdbService {
                                 actors,
                                 getText(result, "rating"),
                                 "KMDb"
-                        ));
+                        );
+
+                        if (matchScore > bestMatchScore) {
+                            bestMatchScore = matchScore;
+                            bestSupplement = supplement;
+                            bestCandidateKeys.clear();
+                            bestCandidateKeys.add(candidateKey);
+                        } else if (matchScore == bestMatchScore) {
+                            bestCandidateKeys.add(candidateKey);
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -89,7 +127,13 @@ public class KmdbService {
             }
         }
 
-        return Optional.empty();
+        if (bestCandidateKeys.size() > 1) {
+            log.warn("KMDb 상세정보 후보가 동점으로 여러 편 확인되어 임의 보완을 중단합니다. title={}, score={}",
+                    title, bestMatchScore);
+            return Optional.empty();
+        }
+
+        return Optional.ofNullable(bestSupplement);
     }
 
     // 한글 제목과 영문 제목을 중복 없이 검색어로 사용
@@ -221,6 +265,7 @@ public class KmdbService {
 
         String bestPosterUrl = null;
         int bestMatchScore = -1;
+        Set<String> bestCandidateKeys = new LinkedHashSet<>();
 
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
@@ -257,7 +302,7 @@ public class KmdbService {
                                 candidateReleaseDate, candidateYear);
 
                         // 제목·개봉연도 검증을 통과한 후보만 포스터 대상으로 인정한다.
-                        if (!MovieMatchVerifier.isSameMovie(
+                        if (!MovieMatchVerifier.isSamePosterCandidate(
                                 title, titleEn, releaseDate, director,
                                 candidateTitle, candidateTitleEn,
                                 verificationDate, candidateDirector)) {
@@ -275,9 +320,26 @@ public class KmdbService {
                                 candidateTitle, candidateTitleEn,
                                 verificationDate, candidateDirector);
 
+                        String candidateId = firstNonBlank(
+                                getText(result, "DOCID"),
+                                getText(result, "movieId"),
+                                getText(result, "movieSeq"));
+                        String candidateKey = candidateId.isBlank()
+                                ? String.join("|",
+                                        normalizeTitle(candidateTitle),
+                                        normalizeTitle(candidateTitleEn),
+                                        verificationDate.replaceAll("[^0-9]", ""),
+                                        normalizeTitle(candidateDirector),
+                                        posterUrl)
+                                : "ID|" + candidateId;
+
                         if (matchScore > bestMatchScore) {
                             bestMatchScore = matchScore;
                             bestPosterUrl = posterUrl;
+                            bestCandidateKeys.clear();
+                            bestCandidateKeys.add(candidateKey);
+                        } else if (matchScore == bestMatchScore) {
+                            bestCandidateKeys.add(candidateKey);
                         }
                     }
                 }
@@ -285,6 +347,12 @@ public class KmdbService {
                 // KMDb 한글 제목 검색에 실패해도 영문 제목 검색은 계속한다.
                 log.warn("KMDb 포스터 검색 실패 - 검색어: {}", searchTitle, e);
             }
+        }
+
+        if (bestCandidateKeys.size() > 1) {
+            log.warn("KMDb 포스터 후보가 동점으로 여러 편 확인되어 임의 선택을 중단합니다. title={}, score={}",
+                    title, bestMatchScore);
+            return null;
         }
 
         return bestPosterUrl;

@@ -1,5 +1,5 @@
 import SafeImage from "../components/common/SafeImage";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AxiosApi from "../api/AxiosApi";
 import { resolvePosterUrl } from "../utils/mediaUrl";
@@ -72,6 +72,7 @@ function formatReleaseDate(value) {
 function PersonDetail() {
   const { type, identifier } = useParams();
   const navigate = useNavigate();
+  const filmographyControllerRef = useRef(null);
 
   const [person, setPerson] = useState(null);
   const [filmography, setFilmography] = useState([]);
@@ -146,6 +147,7 @@ function PersonDetail() {
     return () => {
       active = false;
       controller.abort();
+      filmographyControllerRef.current?.abort();
     };
   }, [type, identifier]);
 
@@ -154,14 +156,33 @@ function PersonDetail() {
     const tmdbId = Number(movie?.tmdbId);
     if (!Number.isSafeInteger(tmdbId) || tmdbId <= 0) return;
 
+    // 빠르게 다른 작품을 선택하면 이전 작품 연결 요청은 취소한다.
+    filmographyControllerRef.current?.abort();
+    const controller = new AbortController();
+    filmographyControllerRef.current = controller;
+
     try {
-      const response = await AxiosApi.resolveFilmographyMovie(tmdbId);
+      const response = await AxiosApi.resolveFilmographyMovie(
+        tmdbId,
+        controller.signal,
+      );
+
+      if (controller.signal.aborted) return;
+
       const movieCode = response?.data?.movieCode;
       navigate(`/movie/${encodeURIComponent(movieCode || tmdbId)}`);
     } catch (error) {
       // KOBIS 미등록 영화도 TMDb ID로 통합 영화 상세 경로에서 조회한다.
-      if (error.code !== "ERR_CANCELED") {
+      if (
+        !controller.signal.aborted &&
+        error.code !== "ERR_CANCELED" &&
+        error.name !== "CanceledError"
+      ) {
         navigate(`/movie/${tmdbId}`);
+      }
+    } finally {
+      if (filmographyControllerRef.current === controller) {
+        filmographyControllerRef.current = null;
       }
     }
   };

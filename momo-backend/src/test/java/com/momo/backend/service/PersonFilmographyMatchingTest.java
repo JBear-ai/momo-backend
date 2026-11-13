@@ -11,7 +11,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import java.util.Optional;
 
@@ -357,4 +357,70 @@ class PersonFilmographyMatchingTest {
                 new ObjectMapper()
         );
     }
+
+    @Test
+    void cachesPersonDetailByTmdbIdAndRoleAcrossRepeatedRequests() throws Exception {
+        long personId = 900006L;
+        TmdbApiClient tmdbApiClient = mock(TmdbApiClient.class);
+        when(tmdbApiClient.getPersonDetail(personId, "ko-KR")).thenReturn("""
+                {
+                  "id": 900006,
+                  "name": "ID 캐시 인물",
+                  "profile_path": "/person.jpg",
+                  "known_for_department": "Acting",
+                  "combined_credits": {
+                    "cast": [{
+                      "media_type": "movie",
+                      "id": 700001,
+                      "title": "ID 캐시 영화",
+                      "release_date": "2024-01-01",
+                      "character": "주연",
+                      "poster_path": "/movie.jpg"
+                    }]
+                  }
+                }
+                """);
+
+        MovieCacheRepository cacheRepository = mock(MovieCacheRepository.class);
+        var cachedResponse = new com.momo.backend.dto.person.PersonDetailResponse(
+                new com.momo.backend.dto.person.PersonDetailResponse.PersonInfo(
+                        personId, "ID 캐시 인물", "https://image.tmdb.org/t/p/w500/person.jpg",
+                        null, null, null, null, "Acting"),
+                java.util.List.of(new com.momo.backend.dto.person.PersonDetailResponse.FilmographyItem(
+                        700001L, "ID 캐시 영화", "2024-01-01",
+                        "https://image.tmdb.org/t/p/w500/movie.jpg", "주연"))
+        );
+        var cachedEntity = new com.momo.backend.entity.MovieCache(
+                "PERSON_DETAIL", "ID|actor|900006",
+                new ObjectMapper().writeValueAsString(cachedResponse), 24);
+        when(cacheRepository.findByCacheTypeAndCacheKey("PERSON_DETAIL", "ID|actor|900006"))
+                .thenReturn(java.util.Optional.empty(), java.util.Optional.of(cachedEntity));
+
+        PersonService service = new PersonService(
+                tmdbApiClient,
+                mock(KobisApiClient.class),
+                cacheRepository,
+                mock(MovieExternalIdMappingRepository.class),
+                mock(MoviePersistenceService.class),
+                mock(MoviePosterPersistenceService.class),
+                new ObjectMapper()
+        );
+
+        var first = service.getPersonDetailById("actor", personId);
+        var second = service.getPersonDetailById("actor", personId);
+
+        assertEquals("ID 캐시 인물", first.personInfo().name());
+        assertEquals("ID 캐시 인물", second.personInfo().name());
+        assertEquals(1, second.filmography().size());
+        assertEquals(700001L, second.filmography().get(0).tmdbId());
+        verify(tmdbApiClient, times(1)).getPersonDetail(personId, "ko-KR");
+        verify(cacheRepository).upsert(
+                eq("PERSON_DETAIL"),
+                eq("ID|actor|900006"),
+                anyString(),
+                any(),
+                any()
+        );
+    }
+
 }

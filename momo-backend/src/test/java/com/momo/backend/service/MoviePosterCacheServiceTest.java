@@ -58,7 +58,7 @@ class MoviePosterCacheServiceTest {
     }
 
     @Test
-    void doesNotExposeAnExternalUrlAsASuccessfulLocallyStoredPoster() {
+    void reportsFailedWhenSuccessfulCacheContainsOnlyAnExternalUrl() {
         MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
         PosterFileStorageService storageService = mock(PosterFileStorageService.class);
         MoviePosterCache cache = new MoviePosterCache(
@@ -75,9 +75,55 @@ class MoviePosterCacheServiceTest {
         var statuses = service.findPosterStatuses(List.of("20260009"));
 
         assertEquals(1, statuses.size());
-        assertEquals(PosterStatus.SUCCESS, statuses.get(0).status());
+        assertEquals(PosterStatus.FAILED, statuses.get(0).status());
         assertEquals("", statuses.get(0).posterUrl());
         verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void reportsFailedWhenSuccessfulCachePointsToAMissingLocalFile() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+        MoviePosterCache cache = new MoviePosterCache(
+                "20260013", "파일이 유실된 영화", "20260101");
+        ReflectionTestUtils.setField(cache, "status", PosterStatus.SUCCESS);
+        ReflectionTestUtils.setField(cache, "posterUrl", "/posters/20260013-missing.jpg");
+
+        when(repository.findAllByMovieCodeIn(List.of("20260013")))
+                .thenReturn(List.of(cache));
+        when(movieRepository.findAllById(List.of("20260013"))).thenReturn(List.of());
+        when(storageService.exists("/posters/20260013-missing.jpg")).thenReturn(false);
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, movieRepository, storageService);
+
+        var statuses = service.findPosterStatuses(List.of("20260013"));
+
+        assertEquals(PosterStatus.FAILED, statuses.get(0).status());
+        assertEquals("", statuses.get(0).posterUrl());
+        verify(storageService).exists("/posters/20260013-missing.jpg");
+    }
+
+    @Test
+    void singlePosterStatusDoesNotReportMissingFileAsSuccess() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+        MoviePosterCache cache = new MoviePosterCache(
+                "20260014", "파일이 유실된 영화", "20260101");
+        ReflectionTestUtils.setField(cache, "status", PosterStatus.SUCCESS);
+        ReflectionTestUtils.setField(cache, "posterUrl", "/posters/20260014-missing.jpg");
+
+        when(repository.findById("20260014")).thenReturn(java.util.Optional.of(cache));
+        when(storageService.exists("/posters/20260014-missing.jpg")).thenReturn(false);
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, mock(MovieRepository.class), storageService);
+
+        var status = service.findPosterStatus("20260014").orElseThrow();
+
+        assertEquals(PosterStatus.FAILED, status.status());
+        assertEquals("", status.posterUrl());
     }
 
     @Test
@@ -187,4 +233,77 @@ class MoviePosterCacheServiceTest {
 
         verifyNoInteractions(repository);
     }
+
+    @Test
+    void singlePosterStatusReturnsSavedMoviePosterWhenCacheRowDoesNotExist() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+        Movie movie = new Movie(
+                "20260015", "캐시가 없는 영화", "", "20260101", "", "", "", "", "");
+        movie.updatePosterUrl("/posters/20260015-existing.jpg");
+
+        when(movieRepository.findById("20260015"))
+                .thenReturn(java.util.Optional.of(movie));
+        when(storageService.exists("/posters/20260015-existing.jpg")).thenReturn(true);
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, movieRepository, storageService);
+
+        var status = service.findPosterStatus("20260015").orElseThrow();
+
+        assertEquals(PosterStatus.SUCCESS, status.status());
+        assertEquals("/posters/20260015-existing.jpg", status.posterUrl());
+        verify(repository, never()).findById("20260015");
+    }
+
+    @Test
+    void repairsMissingPosterFileAndQueuesRetryInOneServiceOperation() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        MoviePosterCache cache = new MoviePosterCache(
+                "20260016", "복구 대상 영화", "20260101");
+        when(movieRepository.clearPosterUrlIfMatches(
+                "20260016", "/posters/20260016-missing.jpg")).thenReturn(1);
+        when(repository.existsById("20260016")).thenReturn(false);
+        when(repository.findById("20260016"))
+                .thenReturn(java.util.Optional.of(cache));
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, movieRepository, mock(PosterFileStorageService.class));
+
+        boolean repaired = service.repairMissingPosterFile(
+                "20260016", "복구 대상 영화", "20260101",
+                "/posters/20260016-missing.jpg");
+
+        assertTrue(repaired);
+        verify(movieRepository).clearPosterUrlIfMatches(
+                "20260016", "/posters/20260016-missing.jpg");
+        verify(movieRepository, never()).save(any(Movie.class));
+        verify(repository).insertIfAbsent(
+                eq("20260016"), eq("복구 대상 영화"), eq("20260101"),
+                eq(500), any(LocalDateTime.class));
+        verify(repository).resetMissingPoster(
+                eq("20260016"), any(LocalDateTime.class), any(LocalDateTime.class));
+    }
+
+
+    @Test
+    void doesNotClearOrRequeueWhenPosterPathChangedAfterIntegrityScan() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        when(movieRepository.clearPosterUrlIfMatches(
+                "20260017", "/posters/old-missing.jpg")).thenReturn(0);
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, movieRepository, mock(PosterFileStorageService.class));
+
+        boolean repaired = service.repairMissingPosterFile(
+                "20260017", "새 포스터가 저장된 영화", "20260101",
+                "/posters/old-missing.jpg");
+
+        assertFalse(repaired);
+        verifyNoInteractions(repository);
+    }
+
 }

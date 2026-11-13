@@ -17,6 +17,7 @@ function ProfileAvatar({
   useEffect(() => {
     let active = true;
     let objectUrl = "";
+    const controller = new AbortController();
 
     setLoadedImage("");
     setFailed(false);
@@ -30,13 +31,13 @@ function ProfileAvatar({
 
     const loadImage = async () => {
       try {
-        const response = await AxiosApi.profileImageByUserIdGet(userId);
+        const response = await AxiosApi.profileImageByUserIdGet(userId, controller.signal);
         if (!active) return;
 
         objectUrl = URL.createObjectURL(response.data);
         setLoadedImage(objectUrl);
       } catch (error) {
-        if (active) {
+        if (active && error.code !== "ERR_CANCELED" && error.name !== "CanceledError") {
           setFailed(true);
           if (error.response?.status !== 404) {
             console.error("프로필 이미지 조회 실패:", error);
@@ -49,6 +50,7 @@ function ProfileAvatar({
 
     return () => {
       active = false;
+      controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [userId, hasImage, src]);

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,14 +37,20 @@ public class MovieCatalogSyncService {
     @Value("${momo.catalog.sync.enabled:true}")
     private boolean enabled;
 
+    @Transactional
     public synchronized void syncNextPage() {
         if (!enabled) {
             return;
         }
 
         LocalDateTime now = LocalDateTime.now(KOREA_ZONE);
-        MovieCatalogSyncState state = stateRepository.findById(1)
-                .orElseGet(() -> stateRepository.save(MovieCatalogSyncState.initial()));
+
+        // 다중 서버 환경에서도 단 하나의 인스턴스만 다음 페이지를 가져가도록 DB 행 잠금을 획득한다.
+        stateRepository.insertInitialIfAbsent();
+        MovieCatalogSyncState state = stateRepository.findByIdForUpdate(1)
+                .orElseThrow(() -> new IllegalStateException(
+                        "영화 카탈로그 동기화 상태 행을 생성하거나 잠글 수 없습니다."
+                ));
 
         if (!state.canRetry(now)) {
             return;

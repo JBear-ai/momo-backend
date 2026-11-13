@@ -49,8 +49,8 @@ class MovieMatchVerifierTest {
     }
 
     @Test
-    void acceptsExactTitleWhenBothReleaseYearAndDirectorAreMissing() {
-        assertTrue(MovieMatchVerifier.isSamePosterCandidate(
+    void rejectsExactTitleWhenReleaseYearAndDirectorAreBothMissing() {
+        assertFalse(MovieMatchVerifier.isSamePosterCandidate(
                 "동명 영화",
                 "",
                 "",

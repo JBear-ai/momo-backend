@@ -13,6 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
@@ -106,9 +107,26 @@ public class PosterFileStorageService {
         }
 
         Path file = posterDirectory.resolve(fileName).normalize();
-        return file.startsWith(posterDirectory)
-                && Files.isRegularFile(file)
-                && Files.isReadable(file);
+        if (!file.startsWith(posterDirectory)
+                || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
+                || !Files.isReadable(file)) {
+            return false;
+        }
+
+        try {
+            long fileSize = Files.size(file);
+            if (fileSize <= 0 || fileSize > MAX_IMAGE_BYTES) {
+                return false;
+            }
+
+            // DB에 SUCCESS로 남아 있는 과거 파일도 실제 이미지 서명을 확인한다.
+            // 확장자만 이미지인 HTML 오류 페이지나 손상된 파일은 정상 포스터로 취급하지 않는다.
+            try (InputStream input = Files.newInputStream(file)) {
+                return isSupportedImageSignature(input.readNBytes(12));
+            }
+        } catch (IOException exception) {
+            return false;
+        }
     }
 
     public void delete(String posterPath) {
@@ -239,21 +257,39 @@ public class PosterFileStorageService {
 
     private void validateImageSignature(byte[] bytes, String contentType) {
         boolean valid = switch (contentType) {
-            case "image/jpeg" -> bytes.length >= 3
-                    && (bytes[0] & 0xFF) == 0xFF
-                    && (bytes[1] & 0xFF) == 0xD8
-                    && (bytes[2] & 0xFF) == 0xFF;
-            case "image/png" -> bytes.length >= 8
-                    && (bytes[0] & 0xFF) == 0x89
-                    && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
-            case "image/webp" -> bytes.length >= 12
-                    && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
-                    && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
+            case "image/jpeg" -> isJpegSignature(bytes);
+            case "image/png" -> isPngSignature(bytes);
+            case "image/webp" -> isWebpSignature(bytes);
             default -> false;
         };
         if (!valid) {
             throw new IllegalStateException("포스터 파일의 실제 이미지 형식이 응답 MIME 형식과 일치하지 않습니다.");
         }
+    }
+
+    private static boolean isSupportedImageSignature(byte[] bytes) {
+        return isJpegSignature(bytes) || isPngSignature(bytes) || isWebpSignature(bytes);
+    }
+
+    private static boolean isJpegSignature(byte[] bytes) {
+        return bytes.length >= 3
+                && (bytes[0] & 0xFF) == 0xFF
+                && (bytes[1] & 0xFF) == 0xD8
+                && (bytes[2] & 0xFF) == 0xFF;
+    }
+
+    private static boolean isPngSignature(byte[] bytes) {
+        return bytes.length >= 8
+                && (bytes[0] & 0xFF) == 0x89
+                && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47
+                && bytes[4] == 0x0D && bytes[5] == 0x0A
+                && bytes[6] == 0x1A && bytes[7] == 0x0A;
+    }
+
+    private static boolean isWebpSignature(byte[] bytes) {
+        return bytes.length >= 12
+                && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
     }
 
     private record DownloadedImage(byte[] bytes, String contentType) {}

@@ -110,18 +110,17 @@ public class CommentReactionService {
     @Transactional(readOnly = true)
     public long[] getReactionCounts(Long commentId) {
 
-        // 댓글이 존재하는지 확인
-        if (!commentRepository.existsById(commentId)) {
+        // 댓글 존재 여부와 좋아요·싫어요 수를 단일 쿼리로 조회한다.
+        CommentReactionRepository.CommentExistsAndReactionCountSummary summary =
+                reactionRepository.findResponseSummaryByCommentId(commentId);
+        if (summary == null) {
             throw new CustomException(
                     "COMMENT_NOT_FOUND",
                     "댓글을 찾을 수 없습니다.");
         }
 
-        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
-        CommentReactionRepository.ReactionCountSummary counts =
-                reactionRepository.findCountsByCommentId(commentId);
-        long likeCount = counts.getLikeCount();
-        long dislikeCount = counts.getDislikeCount();
+        long likeCount = summary.getLikeCount();
+        long dislikeCount = summary.getDislikeCount();
 
         return new long[]{likeCount, dislikeCount};
     }

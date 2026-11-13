@@ -67,8 +67,12 @@ function Layout() {
 
   useEffect(() => {
     let active = true;
+    let activeController = null;
 
     const checkLogin = async () => {
+      if (activeController) activeController.abort();
+      const controller = new AbortController();
+      activeController = controller;
       const accessToken = localStorage.getItem("accessToken");
 
       if (!accessToken) {
@@ -80,13 +84,13 @@ function Layout() {
       }
 
       try {
-        const response = await AxiosApi.memberMe();
+        const response = await AxiosApi.memberMe(controller.signal);
 
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
 
         setNickname(response.data.nickname || "회원");
       } catch (error) {
-        if (!active) return;
+        if (!active || controller.signal.aborted || error.code === "ERR_CANCELED" || error.name === "CanceledError") return;
 
         if (error.response?.status === 401) {
           // 인증 만료 처리는 AxiosApi 인터셉터가 담당
@@ -97,7 +101,7 @@ function Layout() {
           setNickname("");
         }
       } finally {
-        if (active) {
+        if (active && !controller.signal.aborted) {
           setAuthLoading(false);
         }
       }
@@ -115,6 +119,7 @@ function Layout() {
 
     return () => {
       active = false;
+      if (activeController) activeController.abort();
       window.removeEventListener("momo-auth-changed", handleAuthChanged);
     };
   }, [location.pathname]);

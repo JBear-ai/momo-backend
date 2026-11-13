@@ -143,7 +143,15 @@ test("인물 ID와 필모그래피 영화 ID가 통합 영화 상세로 정확�
         watchGrade: "전체 관람가",
         overview: "영화 상세 이동 확인",
         posterUrl: "",
-        people: [],
+        people: [
+          {
+            personId: 321,
+            name: "인물 연결 E2E",
+            originalName: "Person Navigation E2E",
+            profileUrl: "",
+            department: "director",
+          },
+        ],
       }),
     }),
   );
@@ -190,5 +198,12 @@ test("인물 ID와 필모그래피 영화 ID가 통합 영화 상세로 정확�
   await expect(page).toHaveURL(/\/movie\/20261234$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "필모그래피 이동 E2E" }),
+  ).toBeVisible();
+
+  // 영화 상세의 TMDb 인물 ID가 이름 검색이 아닌 고유 ID 경로로 연결되는지 확인한다.
+  await page.getByRole("button", { name: "인물 연결 E2E" }).click();
+  await expect(page).toHaveURL(/\/person\/director\/321$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "인물 연결 E2E" }),
   ).toBeVisible();
 });

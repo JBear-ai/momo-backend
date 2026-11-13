@@ -261,9 +261,10 @@ axios.interceptors.response.use(
 
 const AxiosApi = {
   // 1. 회원 아이디 중복 확인
-  memberIdExist: async (loginId) => {
+  memberIdExist: async (loginId, signal) => {
     return await axios.get(
       `${HM_DOMAIN}/api/auth/exists/id/${encodeURIComponent(loginId)}`,
+      { signal },
     );
   },
 
@@ -584,10 +585,11 @@ const AxiosApi = {
   },
 
   // 22. 프로필 이미지 조회
-  profileImageGet: async () => {
+  profileImageGet: async (signal) => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me/profile-image`, {
       withCredentials: true,
       responseType: "blob",
+      signal,
     });
   },
 

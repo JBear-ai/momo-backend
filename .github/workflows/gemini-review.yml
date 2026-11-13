@@ -20,6 +20,8 @@ jobs:
         run: pip install google-genai requests
 
       - name: Run Gemini Review Script
+        # Gemini는 선택적 보조 리뷰다. 외부 모델 장애가 필수 빌드·테스트를 막지 않게 한다.
+        continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GitHub }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,10 +60,35 @@ jobs:
           {code_diff}
           '''
 
-          response = client.models.generate_content(
-              model='gemini-3.8-flash',
-              contents=prompt
-          )
+          try:
+              response = client.models.generate_content(
+                  model='gemini-3.8-flash',
+                  contents=prompt
+              )
+          except Exception as error:
+              # Gemini 무료 티어의 일일 요청 한도(429)는 코드 검토 실패가 아니라
+              # 외부 서비스 쿼터 제한이므로 필수 빌드·테스트 결과를 막지 않는다.
+              error_text = str(error)
+              status_code = (
+                  getattr(error, 'status_code', None)
+                  or getattr(error, 'code', None)
+              )
+              try:
+                  status_code = int(status_code)
+              except (TypeError, ValueError):
+                  status_code = None
+
+              if (
+                  status_code == 429
+                  or '429 RESOURCE_EXHAUSTED' in error_text
+                  or (status_code is not None and 500 <= status_code < 600)
+              ):
+                  print(
+                      f'Gemini API temporarily unavailable ({status_code}). '
+                      'Optional AI review is skipped for this run.'
+                  )
+                  exit(0)
+              raise
 
           review_comment = response.text
 

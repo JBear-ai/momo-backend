@@ -91,9 +91,21 @@ final class MovieMatchVerifier {
 
         boolean directorsProvided = kobisDirector != null && !kobisDirector.isBlank()
                 && candidateDirector != null && !candidateDirector.isBlank();
+        boolean directorMatches = directorsProvided
+                && sameNameScript(kobisDirector, candidateDirector)
+                && matchesDirector(kobisDirector, candidateDirector);
+        boolean englishTitleMatches = !requestedTitleEn.isBlank()
+                && matches(requestedTitleEn, foundTitle, foundOriginalTitle);
+
+        // 한쪽이라도 연도가 없으면 한국어 제목만으로 동명·리메이크를 구분할 수 없다.
+        // 영문 원제 또는 동일 문자 체계의 감독 일치가 추가로 확인된 후보만 허용한다.
+        if (requestedYear.isBlank() || foundYear.isBlank()) {
+            return englishTitleMatches || directorMatches;
+        }
+
         return !directorsProvided
                 || !sameNameScript(kobisDirector, candidateDirector)
-                || matchesDirector(kobisDirector, candidateDirector);
+                || directorMatches;
     }
 
     // 동일 영화 후보 중 제목·개봉일·감독 일치도가 높은 포스터를 우선한다.

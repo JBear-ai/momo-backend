@@ -149,3 +149,46 @@ describe("unified movie detail API", () => {
     );
   });
 });
+
+
+describe("abortable read APIs", () => {
+  test("passes AbortSignal to member ID availability checks", async () => {
+    const controller = new AbortController();
+    axios.get.mockResolvedValue({ data: false });
+
+    await AxiosApi.memberIdExist("momo-user", controller.signal);
+
+    expect(axios.get).toHaveBeenCalledWith(
+      "http://localhost:8111/api/auth/exists/id/momo-user",
+      { signal: controller.signal },
+    );
+  });
+
+  test("passes AbortSignal to filmography movie resolution", async () => {
+    const controller = new AbortController();
+    axios.get.mockResolvedValue({ data: { movieCode: "20240001" } });
+
+    await AxiosApi.resolveFilmographyMovie(12345, controller.signal);
+
+    expect(axios.get).toHaveBeenCalledWith(
+      "http://localhost:8111/api/persons/filmography/12345",
+      { signal: controller.signal },
+    );
+  });
+
+  test("supports aborting the current user's profile image request", async () => {
+    const controller = new AbortController();
+    axios.get.mockResolvedValue({ data: new Blob() });
+
+    await AxiosApi.profileImageGet(controller.signal);
+
+    expect(axios.get).toHaveBeenCalledWith(
+      "http://localhost:8111/api/auth/me/profile-image",
+      {
+        withCredentials: true,
+        responseType: "blob",
+        signal: controller.signal,
+      },
+    );
+  });
+});

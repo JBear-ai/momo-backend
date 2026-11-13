@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
 import AxiosApi from "../api/AxiosApi";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { ProfileDeleteLink } from "../styles/legacy/Profile.styles";
 
 function Profile() {
   const [userId, setUserId] = useState("");
@@ -45,14 +46,14 @@ function Profile() {
 
     const loadProfile = async () => {
       try {
-        const response = await AxiosApi.memberMe();
+        const response = await AxiosApi.memberMe(controller.signal);
 
         if (controller.signal.aborted) return;
 
         setProfileUserId(response.data.userId || null);
         setHasProfileImage(Boolean(response.data.profileImage));
       } catch (error) {
-        if (error.name !== "CanceledError") {
+        if (error.code !== "ERR_CANCELED" && error.name !== "CanceledError") {
           console.error("프로필 정보 조회 실패:", error);
         }
       }
@@ -216,13 +217,12 @@ function Profile() {
             <p>회원 탈퇴를 진행하면 계정 이용에 제한이 생길 수 있습니다.</p>
           </div>
 
-          <Link
+          <ProfileDeleteLink
             to="/profile/delete"
             className="profile-button profile-delete-button"
-            style={{ textDecoration: "none" }}
           >
             회원 탈퇴
-          </Link>
+          </ProfileDeleteLink>
         </section>
       </div>
     </main>
