@@ -51,7 +51,6 @@ public class TmdbApiClient {
             String title,
             String language,
             com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
-        apiCallBudgetService.acquire("TMDB", trafficType);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
@@ -60,7 +59,9 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "searchMovie", () -> ExternalApiRetry.execute(() -> restClient.get()
+        return metrics.record("TMDB", "searchMovie", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire("TMDB", trafficType);
+            return restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/movie")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", title.trim())
@@ -68,7 +69,8 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class)));
+                .body(String.class);
+        }));
     }
 
     public String getMovieDetail(long movieId) {
@@ -80,43 +82,48 @@ public class TmdbApiClient {
     public String getMovieDetail(
             long movieId,
             com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
-        apiCallBudgetService.acquire("TMDB", trafficType);
         if (movieId <= 0) {
             throw new IllegalArgumentException("올바르지 않은 TMDb 영화 ID입니다.");
         }
 
-        return metrics.record("TMDB", "getMovieDetail", () -> ExternalApiRetry.execute(() -> restClient.get()
+        return metrics.record("TMDB", "getMovieDetail", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire("TMDB", trafficType);
+            return restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/movie/{movieId}")
                         .queryParam("api_key", apiKey)
                         .queryParam("language", "ko-KR")
                         .queryParam("append_to_response", "credits,release_dates")
                         .build(movieId))
                 .retrieve()
-                .body(String.class)));
+                .body(String.class);
+        }));
     }
 
     // KOBIS 검색에 사용할 한국 개봉명·대체 제목을 확보한다.
     public String getMovieAlternativeTitles(long movieId) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (movieId <= 0) {
             throw new IllegalArgumentException("올바르지 않은 TMDb 영화 ID입니다.");
         }
 
-        return metrics.record("TMDB", "getMovieAlternativeTitles", () -> ExternalApiRetry.execute(() -> restClient.get()
+        return metrics.record("TMDB", "getMovieAlternativeTitles", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+            return restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/movie/{movieId}/alternative_titles")
                         .queryParam("api_key", apiKey)
                         .build(movieId))
                 .retrieve()
-                .body(String.class)));
+                .body(String.class);
+        }));
     }
 
     public String searchTv(String title) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("TV 프로그램 제목이 비어 있습니다.");
         }
 
-        return metrics.record("TMDB", "searchTv", () -> ExternalApiRetry.execute(() -> restClient.get()
+        return metrics.record("TMDB", "searchTv", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+            return restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/tv")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", title.trim())
@@ -124,11 +131,11 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class)));
+                .body(String.class);
+        }));
     }
 
     public String searchPerson(String name, String language) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("인물 이름이 비어 있습니다.");
         }
@@ -137,7 +144,9 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "searchPerson", () -> ExternalApiRetry.execute(() -> restClient.get()
+        return metrics.record("TMDB", "searchPerson", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+            return restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/person")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", name.trim())
@@ -145,11 +154,11 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class)));
+                .body(String.class);
+        }));
     }
 
     public String getPersonDetail(long personId, String language) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
         if (personId <= 0) {
             throw new IllegalArgumentException("올바르지 않은 TMDb 인물 ID입니다.");
         }
@@ -158,13 +167,16 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "getPersonDetail", () -> ExternalApiRetry.execute(() -> restClient.get()
+        return metrics.record("TMDB", "getPersonDetail", () -> ExternalApiRetry.execute(() -> {
+            apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+            return restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/person/{personId}")
                         .queryParam("api_key", apiKey)
                         .queryParam("language", safeLanguage)
                         .queryParam("append_to_response", "combined_credits")
                         .build(personId))
                 .retrieve()
-                .body(String.class)));
+                .body(String.class);
+        }));
     }
 }
