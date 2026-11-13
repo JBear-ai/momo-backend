@@ -88,7 +88,8 @@ describe("회원별 관심 영화", () => {
   test("최초 서버 동기화 때 기존 localStorage 관심 영화를 계정에 이전한다", async () => {
     localStorage.setItem("accessToken", "token-a");
     localStorage.setItem("username", "member-a");
-    toggleFavoriteMovie(movie);
+    // 실제 이전 버전이 사용하던 전역 key를 첫 계정 로그인에서 가져온다.
+    localStorage.setItem("momo-favorite-movies", JSON.stringify([movie]));
 
     AxiosApi.favoriteMovies
       .mockResolvedValueOnce({ data: [] })
@@ -101,6 +102,8 @@ describe("회원별 관심 영화", () => {
     expect(result).toEqual([movie]);
     expect(getFavoriteMovies()).toEqual([movie]);
     expect(localStorage.getItem("momo-favorites-server-synced:member-a")).toBe("true");
+    expect(localStorage.getItem("momo-favorites-legacy-migrated")).toBe("true");
+    expect(localStorage.getItem("momo-favorite-movies")).toBeNull();
   });
 
   test("최초 동기화 이후에는 서버 목록을 기준으로 로컬 캐시를 교체한다", async () => {
