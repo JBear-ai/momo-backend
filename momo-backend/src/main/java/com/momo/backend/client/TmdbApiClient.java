@@ -100,7 +100,7 @@ public class TmdbApiClient {
             throw new IllegalArgumentException("TV 프로그램 제목이 비어 있습니다.");
         }
 
-        return metrics.record("TMDB", "searchTv", () -> restClient.get()
+        return metrics.record("TMDB", "searchTv", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/tv")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", title.trim())
@@ -108,7 +108,7 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 
     public String searchPerson(String name, String language) {
@@ -121,7 +121,7 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "searchPerson", () -> restClient.get()
+        return metrics.record("TMDB", "searchPerson", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/search/person")
                         .queryParam("api_key", apiKey)
                         .queryParam("query", name.trim())
@@ -129,7 +129,7 @@ public class TmdbApiClient {
                         .queryParam("include_adult", false)
                         .build())
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 
     public String getPersonDetail(long personId, String language) {
@@ -142,13 +142,13 @@ public class TmdbApiClient {
                 ? "ko-KR"
                 : language;
 
-        return metrics.record("TMDB", "getPersonDetail", () -> restClient.get()
+        return metrics.record("TMDB", "getPersonDetail", () -> ExternalApiRetry.execute(() -> restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/person/{personId}")
                         .queryParam("api_key", apiKey)
                         .queryParam("language", safeLanguage)
                         .queryParam("append_to_response", "combined_credits")
                         .build(personId))
                 .retrieve()
-                .body(String.class));
+                .body(String.class)));
     }
 }
