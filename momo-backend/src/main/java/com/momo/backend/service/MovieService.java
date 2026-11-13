@@ -28,6 +28,8 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,9 +68,12 @@ public class MovieService {
 
     private static final String CACHE_SEARCH = "SEARCH";
     private static final String CACHE_DAILY_BOX_OFFICE = "DAILY_BOX_OFFICE";
+    private static final String CACHE_WEEKLY_BOX_OFFICE = "WEEKLY_BOX_OFFICE";
 
     private static final long SEARCH_CACHE_HOURS = 24;
     private static final long DAILY_BOX_OFFICE_CACHE_HOURS = 1;
+    private static final long WEEKLY_BOX_OFFICE_CACHE_HOURS = 24;
+    private static final int RECOMMENDATION_HISTORY_WEEKS = 16;
     private static final long BOX_OFFICE_HISTORY_REFRESH_MINUTES = 45;
     private static final long BOX_OFFICE_HISTORY_FAILURE_RETRY_MINUTES = 5;
 
@@ -1404,7 +1409,81 @@ public class MovieService {
         movieRepository.saveAll(savedMovies.values());
     }
 
-    // 최근 7일 박스오피스 이력 확보
+    // 주간 박스오피스 조회. 16주 이력은 날짜별 MySQL 캐시로 재사용한다.
+    public List<BoxOfficeResponse> getWeeklyBoxOffice(String targetDate) {
+        String lockKey = "WEEKLY_BOX_OFFICE|" + (targetDate == null ? "" : targetDate);
+        Object lock = CACHE_LOCKS[Math.floorMod(lockKey.hashCode(), CACHE_LOCKS.length)];
+        synchronized (lock) {
+            return getWeeklyBoxOfficeInternal(targetDate);
+        }
+    }
+
+    private List<BoxOfficeResponse> getWeeklyBoxOfficeInternal(String targetDate) {
+        if (targetDate == null || !targetDate.matches("\\d{8}")) {
+            throw new IllegalArgumentException("주간 박스오피스 날짜는 YYYYMMDD 형식이어야 합니다.");
+        }
+
+        MovieCache cached = findValidCache(CACHE_WEEKLY_BOX_OFFICE, targetDate);
+        if (cached != null) {
+            try {
+                List<BoxOfficeResponse> cachedMovies = readCachedBoxOffice(cached.getContentJson());
+                markBoxOfficeHistory(cachedMovies, targetDate);
+                return enrichBoxOfficePosters(cachedMovies);
+            } catch (Exception cacheError) {
+                log.warn("주간 박스오피스 캐시 변환 실패. KOBIS 재조회. targetDate={}",
+                        targetDate, cacheError);
+            }
+        }
+
+        String json;
+        try {
+            json = kobisApiClient.getWeeklyBoxOffice(targetDate);
+        } catch (RuntimeException apiError) {
+            MovieCache staleCache = movieCacheRepository
+                    .findByCacheTypeAndCacheKey(CACHE_WEEKLY_BOX_OFFICE, targetDate)
+                    .orElse(null);
+            if (staleCache != null) {
+                try {
+                    List<BoxOfficeResponse> staleMovies = readCachedBoxOffice(staleCache.getContentJson());
+                    log.warn("주간 박스오피스 조회 실패. 만료 캐시를 임시 반환합니다. targetDate={}",
+                            targetDate, apiError);
+                    markBoxOfficeHistory(staleMovies, targetDate);
+                    return enrichBoxOfficePosters(staleMovies);
+                } catch (Exception cacheError) {
+                    apiError.addSuppressed(cacheError);
+                }
+            }
+            throw apiError;
+        }
+
+        JsonNode weeklyList = readRequiredArray(
+                json, "boxOfficeResult", "weeklyBoxOfficeList",
+                "KOBIS 주간 박스오피스 응답이 올바르지 않습니다.");
+        List<BoxOfficeResponse> movies = new ArrayList<>();
+        for (JsonNode item : weeklyList) {
+            String movieCode = item.path("movieCd").asString("");
+            String title = item.path("movieNm").asString("");
+            int rank = item.path("rank").asInt(0);
+            if (isBlank(movieCode) || isBlank(title) || rank < 1) {
+                throw new IllegalStateException("주간 박스오피스 항목의 필수 필드가 누락되었습니다.");
+            }
+            movies.add(new BoxOfficeResponse(
+                    rank,
+                    movieCode,
+                    title,
+                    item.path("openDt").asString(""),
+                    item.path("audiCnt").asString(""),
+                    item.path("audiAcc").asString(""),
+                    ""));
+        }
+
+        markBoxOfficeHistory(movies, targetDate);
+        List<BoxOfficeResponse> enriched = enrichBoxOfficePosters(movies);
+        saveCache(CACHE_WEEKLY_BOX_OFFICE, targetDate, enriched, WEEKLY_BOX_OFFICE_CACHE_HOURS);
+        return enriched;
+    }
+
+    // 최근 일별 7일 + 주간 16주 박스오피스 이력 확보
 
     private void refreshRecentBoxOfficeHistory() {
         LocalDate today = LocalDate.now();
@@ -1436,6 +1515,19 @@ public class MovieService {
                     // 특정 날짜의 API 응답이 실패해도 나머지 날짜는 계속 확인한다.
                     log.warn("최근 박스오피스 이력 수집 실패. targetDate: {}",
                             targetDate, e);
+                }
+            }
+
+            // 최근 16개의 완료된 주간 순위를 오래된 주부터 적용한다.
+            LocalDate lastCompletedSunday = today.with(TemporalAdjusters.previous(DayOfWeek.SUNDAY));
+            for (int weeksAgo = RECOMMENDATION_HISTORY_WEEKS - 1; weeksAgo >= 0; weeksAgo--) {
+                String targetDate = lastCompletedSunday.minusWeeks(weeksAgo)
+                        .format(DateTimeFormatter.BASIC_ISO_DATE);
+                try {
+                    getWeeklyBoxOffice(targetDate);
+                } catch (Exception e) {
+                    failed = true;
+                    log.warn("최근 주간 박스오피스 이력 수집 실패. targetDate: {}", targetDate, e);
                 }
             }
         } finally {
