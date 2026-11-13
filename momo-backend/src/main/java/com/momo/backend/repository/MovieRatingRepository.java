@@ -1,4 +1,3 @@
-
 package com.momo.backend.repository;
 
 import com.momo.backend.entity.MovieRating;
@@ -18,7 +17,29 @@ public interface MovieRatingRepository
         long getDislikeCount();
     }
 
-    // 좋아요와 싫어요를 한 번의 DB 집계 쿼리로 조회한다.
+    interface MovieRatingResponseSummary {
+        long getLikeCount();
+        long getDislikeCount();
+        Integer getMyRating();
+    }
+
+    // 전체 반응 수와 현재 회원의 반응을 한 번의 집계 쿼리로 조회한다.
+    // loginId가 null이면 myRating은 null로 반환된다.
+    @Query("""
+            select count(case when rating.liked = true then 1 end) as likeCount,
+                   count(case when rating.liked = false then 1 end) as dislikeCount,
+                   max(case when rating.user.loginId = :loginId
+                            then case when rating.liked = true then 1 else 0 end
+                            else null end) as myRating
+            from MovieRating rating
+            where rating.movie.movieCode = :movieCode
+            """)
+    MovieRatingResponseSummary findResponseSummaryByMovieCode(
+            @Param("movieCode") String movieCode,
+            @Param("loginId") String loginId
+    );
+
+    // 기존 호출부와의 호환성을 위해 집계 전용 조회도 유지한다.
     @Query("""
             select count(case when rating.liked = true then 1 end) as likeCount,
                    count(case when rating.liked = false then 1 end) as dislikeCount
@@ -27,26 +48,22 @@ public interface MovieRatingRepository
             """)
     MovieRatingCountSummary findCountsByMovieCode(@Param("movieCode") String movieCode);
 
-    // 특정 회원이 특정 영화에 남긴 평가 조회
     Optional<MovieRating> findByUser_UserIdAndMovie_MovieCode(
             Long userId,
             String movieCode
     );
 
-    // 좋아요 목록의 영화 정보를 한 번에 조회해 영화별 추가 조회를 방지한다.
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"movie"})
     List<MovieRating> findByUser_UserIdAndLikedOrderByRatingIdDesc(
             Long userId,
             Boolean liked
     );
 
-    // 특정 영화의 좋아요 개수 조회
     long countByMovie_MovieCodeAndLiked(
             String movieCode,
             Boolean liked
     );
 
-    // 회원 탈퇴 시 본인의 영화 평가를 한 번의 DELETE 쿼리로 정리한다.
     @Modifying
     @Query("delete from MovieRating rating where rating.user.userId = :userId")
     int deleteAuthoredByUserId(@Param("userId") Long userId);
