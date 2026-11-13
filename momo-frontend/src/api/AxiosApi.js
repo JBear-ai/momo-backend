@@ -585,10 +585,11 @@ const AxiosApi = {
   },
 
   // 22. 프로필 이미지 조회
-  profileImageGet: async () => {
+  profileImageGet: async (signal) => {
     return await axios.get(`${HM_DOMAIN}/api/auth/me/profile-image`, {
       withCredentials: true,
       responseType: "blob",
+      signal,
     });
   },
 
