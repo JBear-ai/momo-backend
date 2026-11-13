@@ -52,14 +52,25 @@ public interface CommentReactionRepository
             @Param("userId") Long userId
     );
 
-    // 단일 댓글의 좋아요/싫어요 수를 한 번의 DB 집계 쿼리로 조회한다.
+    interface CommentExistsAndReactionCountSummary {
+        Long getCommentId();
+        long getLikeCount();
+        long getDislikeCount();
+    }
+
+    // 댓글 존재 여부와 좋아요·싫어요 수를 한 번의 DB 쿼리로 조회한다.
     @Query("""
-            select count(case when reaction.liked = true then 1 end) as likeCount,
+            select comment.commentId as commentId,
+                   count(case when reaction.liked = true then 1 end) as likeCount,
                    count(case when reaction.liked = false then 1 end) as dislikeCount
-            from CommentReaction reaction
-            where reaction.comment.commentId = :commentId
+            from Comment comment
+            left join CommentReaction reaction on reaction.comment = comment
+            where comment.commentId = :commentId
+            group by comment.commentId
             """)
-    ReactionCountSummary findCountsByCommentId(@Param("commentId") Long commentId);
+    CommentExistsAndReactionCountSummary findResponseSummaryByCommentId(
+            @Param("commentId") Long commentId
+    );
 
     // 댓글별 좋아요/싫어요 개수를 DB에서 집계해 한 번에 조회한다.
     @Query("""
