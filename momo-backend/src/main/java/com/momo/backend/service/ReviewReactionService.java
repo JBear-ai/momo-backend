@@ -116,18 +116,17 @@ public class ReviewReactionService {
     @Transactional(readOnly = true)
     public long[] getReactionCounts(Long reviewId) {
 
-        // 리뷰가 존재하는지 확인
-        if (!reviewRepository.existsById(reviewId)) {
+        // 리뷰 존재 여부와 좋아요·싫어요 수를 단일 쿼리로 조회한다.
+        ReviewReactionRepository.ReviewResponseSummary summary =
+                reactionRepository.findResponseSummaryByReviewId(reviewId);
+        if (summary == null) {
             throw new CustomException(
                     "REVIEW_NOT_FOUND",
                     "리뷰를 찾을 수 없습니다.");
         }
 
-        // 좋아요와 싫어요 개수를 단일 집계 쿼리로 조회한다.
-        ReviewReactionRepository.ReactionCountSummary counts =
-                reactionRepository.findCountsByReviewId(reviewId);
-        long likeCount = counts.getLikeCount();
-        long dislikeCount = counts.getDislikeCount();
+        long likeCount = summary.getLikeCount();
+        long dislikeCount = summary.getDislikeCount();
 
         return new long[]{likeCount, dislikeCount};
     }
