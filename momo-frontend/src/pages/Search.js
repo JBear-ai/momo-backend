@@ -478,7 +478,35 @@ function Search() {
 
     const controller = new AbortController();
 
-    const POLLING_INTERVAL = 2500;
+    const POLLING_BASE_DELAY = 2500;
+    const MAX_POLL_ATTEMPTS = 4;
+    let pollAttempt = 0;
+
+    const markRemainingPostersFailed = () => {
+      const remaining = {};
+      movies.forEach((movie) => {
+        const status = posterStatusesRef.current[movie.movieCode];
+        if (status !== "success" && status !== "failed") {
+          remaining[movie.movieCode] = "failed";
+        }
+      });
+      if (Object.keys(remaining).length > 0) {
+        setPosterStatuses((previous) => ({ ...previous, ...remaining }));
+      }
+    };
+
+    const scheduleNextPoll = () => {
+      if (cancelled || controller.signal.aborted) return;
+      if (pollAttempt >= MAX_POLL_ATTEMPTS) {
+        markRemainingPostersFailed();
+        return;
+      }
+      const delay = Math.min(
+        POLLING_BASE_DELAY * (2 ** (pollAttempt - 1)),
+        10000,
+      );
+      timerId = setTimeout(checkPosterStatuses, delay);
+    };
 
     const checkPosterStatuses = async () => {
       if (cancelled || controller.signal.aborted) return;
@@ -508,6 +536,12 @@ function Search() {
         }
         return;
       }
+
+      if (pollAttempt >= MAX_POLL_ATTEMPTS) {
+        markRemainingPostersFailed();
+        return;
+      }
+      pollAttempt += 1;
 
       try {
         // 백엔드 일괄 조회 허용량(최대 20개)에 맞춰 순차 분할 요청한다.
@@ -596,7 +630,7 @@ function Search() {
         });
 
         if (hasPending && !cancelled) {
-          timerId = setTimeout(checkPosterStatuses, POLLING_INTERVAL);
+          scheduleNextPoll();
         }
       } catch (err) {
         if (
@@ -606,8 +640,8 @@ function Search() {
         ) {
           console.error("포스터 상태 조회 실패:", err);
 
-          // 일시적인 상태 조회 오류는 다음 주기에 다시 확인
-          timerId = setTimeout(checkPosterStatuses, POLLING_INTERVAL);
+          // 일시적인 상태 조회 오류도 최대 재시도 횟수 안에서만 확인한다.
+          scheduleNextPoll();
         }
       }
     };
