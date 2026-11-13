@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import AxiosApi from "../../api/AxiosApi";
 import SafeImage from "./SafeImage";
 import { resolvePosterUrl } from "../../utils/mediaUrl";
+import { getPosterPollDelay } from "../../utils/posterPolling";
 
 function MovieSearchAutocomplete() {
   const navigate = useNavigate();
@@ -88,6 +89,87 @@ function MovieSearchAutocomplete() {
       }
     };
   }, [keyword, isOpen]);
+
+  // 비동기 포스터 수집이 끝나면 열린 자동완성 결과의 이미지를 갱신한다.
+  // 최대 5회만 재조회해 검색창을 열어 둔 동안에도 불필요한 API 반복을 막는다.
+  const movieCodesKey = movies
+    .map((movie) => movie.movieCode)
+    .filter(Boolean)
+    .join("|");
+
+  useEffect(() => {
+    if (!isOpen || !movieCodesKey) return undefined;
+
+    const movieCodes = movieCodesKey.split("|");
+    let cancelled = false;
+    let timerId = null;
+    let controller = null;
+    let attempt = 0;
+
+    const pollPosterStatuses = () => {
+      timerId = setTimeout(async () => {
+        controller = new AbortController();
+
+        try {
+          const response = await AxiosApi.moviePosterStatuses(
+            movieCodes,
+            controller.signal,
+          );
+
+          if (cancelled) return;
+
+          const statuses = Array.isArray(response.data) ? response.data : [];
+          const statusByMovieCode = new Map(
+            statuses.map((status) => [status.movieCode, status]),
+          );
+
+          setMovies((currentMovies) =>
+            currentMovies.map((movie) => {
+              const status = statusByMovieCode.get(movie.movieCode);
+
+              if (
+                status?.status === "SUCCESS" &&
+                status.posterUrl &&
+                status.posterUrl !== movie.posterUrl
+              ) {
+                return { ...movie, posterUrl: status.posterUrl };
+              }
+
+              return movie;
+            }),
+          );
+
+          const hasPendingPoster = statuses.some(
+            (status) =>
+              status.status === "PENDING" || status.status === "PROCESSING",
+          );
+
+          if (hasPendingPoster && attempt < 4 && !cancelled) {
+            attempt += 1;
+            pollPosterStatuses();
+          }
+        } catch (pollError) {
+          if (
+            !cancelled &&
+            pollError.code !== "ERR_CANCELED" &&
+            pollError.name !== "CanceledError" &&
+            attempt < 4
+          ) {
+            attempt += 1;
+            pollPosterStatuses();
+          }
+        }
+      }, getPosterPollDelay(attempt));
+    };
+
+    pollPosterStatuses();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+      controller?.abort();
+    };
+  }, [isOpen, movieCodesKey]);
 
   // 검색창 외부 클릭 시 자동완성 닫기
   useEffect(() => {
