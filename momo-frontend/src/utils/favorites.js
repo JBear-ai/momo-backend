@@ -2,7 +2,6 @@ import AxiosApi from "../api/AxiosApi";
 
 const FAVORITES_KEY_PREFIX = "momo-favorite-movies:";
 const FAVORITES_SYNCED_KEY_PREFIX = "momo-favorites-server-synced:";
-const LEGACY_FAVORITES_KEY = "momo-favorite-movies";
 
 let syncPromise = null;
 let syncPromiseUserId = null;
