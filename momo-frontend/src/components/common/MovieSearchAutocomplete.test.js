@@ -40,7 +40,7 @@ describe("MovieSearchAutocomplete poster refresh", () => {
           {
             movieCode: "20260001",
             status: "SUCCESS",
-            posterUrl: "/posters/20260001-test.jpg",
+            posterUrl: "http://localhost:8111/posters/20260001-test.jpg",
           },
         ],
       });
