@@ -46,14 +46,14 @@ function Profile() {
 
     const loadProfile = async () => {
       try {
-        const response = await AxiosApi.memberMe();
+        const response = await AxiosApi.memberMe(controller.signal);
 
         if (controller.signal.aborted) return;
 
         setProfileUserId(response.data.userId || null);
         setHasProfileImage(Boolean(response.data.profileImage));
       } catch (error) {
-        if (error.name !== "CanceledError") {
+        if (error.code !== "ERR_CANCELED" && error.name !== "CanceledError") {
           console.error("프로필 정보 조회 실패:", error);
         }
       }
