@@ -2,6 +2,7 @@
 package com.momo.backend.service;
 
 import com.momo.backend.client.TmdbApiClient;
+import com.momo.backend.service.ApiCallBudgetService;
 import com.momo.backend.dto.movie.TmdbMovieDetailResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -227,7 +228,8 @@ public class TmdbService {
 
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
-                String searchJson = searchMovie(searchTitle, titleEn);
+                String searchJson = searchMovie(searchTitle, titleEn,
+                        ApiCallBudgetService.TrafficType.USER_SEARCH);
                 if (searchJson == null || searchJson.isBlank()) continue;
                 JsonNode results = objectMapper.readTree(searchJson).path("results");
                 if (!results.isArray()) continue;
@@ -243,7 +245,8 @@ public class TmdbService {
                     if (movieId <= 0) continue;
                     checked++;
 
-                    String detailJson = tmdbApiClient.getMovieDetail(movieId);
+                    String detailJson = tmdbApiClient.getMovieDetail(
+                            movieId, ApiCallBudgetService.TrafficType.USER_SEARCH);
                     if (detailJson == null || detailJson.isBlank()) continue;
                     JsonNode detail = objectMapper.readTree(detailJson);
                     List<String> directors = new ArrayList<>();
@@ -315,7 +318,8 @@ public class TmdbService {
         }
 
         try {
-            String json = tmdbApiClient.getMovieDetail(tmdbId);
+            String json = tmdbApiClient.getMovieDetail(
+                    tmdbId, ApiCallBudgetService.TrafficType.USER_SEARCH);
             if (json == null || json.isBlank()) {
                 throw new IllegalStateException("TMDb 영화 상세 응답이 비어 있습니다.");
             }
@@ -684,12 +688,19 @@ public class TmdbService {
 
     // 한글 제목은 한국어, 영문 제목은 영어 검색 결과로 조회한다.
     private String searchMovie(String searchTitle, String titleEn) {
+        return searchMovie(searchTitle, titleEn, ApiCallBudgetService.TrafficType.PREFETCH);
+    }
+
+    private String searchMovie(
+            String searchTitle,
+            String titleEn,
+            ApiCallBudgetService.TrafficType trafficType) {
         String language = !normalizeTitle(titleEn).isBlank()
                 && normalizeTitle(searchTitle).equals(normalizeTitle(titleEn))
                         ? "en-US"
                         : "ko-KR";
 
-        return tmdbApiClient.searchMovie(searchTitle, language);
+        return tmdbApiClient.searchMovie(searchTitle, language, trafficType);
     }
 
     // 한글 제목과 영문 제목을 중복 없이 검색어로 사용
