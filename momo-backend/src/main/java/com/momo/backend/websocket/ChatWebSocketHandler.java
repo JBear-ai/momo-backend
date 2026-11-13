@@ -1,7 +1,6 @@
 package com.momo.backend.websocket;
 
 import com.momo.backend.dto.chat.ChatClientMessage;
-import com.momo.backend.dto.chat.ChatHistoryPage;
 import com.momo.backend.dto.chat.ChatServerMessage;
 import com.momo.backend.entity.User;
 import com.momo.backend.repository.UserRepository;

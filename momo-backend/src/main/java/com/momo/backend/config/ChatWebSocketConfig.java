@@ -23,7 +23,7 @@ public class ChatWebSocketConfig implements WebSocketConfigurer {
             @Value("${momo.cors.allowed-origins:http://localhost:3000,http://192.168.0.166:3000}") String origins) {
         this.chatWebSocketHandler = chatWebSocketHandler;
         this.allowedOrigins = Arrays.stream(origins.split(","))
-                .map(String::trim)
+                .map(origin -> origin.trim())
                 .filter(origin -> !origin.isEmpty())
                 .distinct()
                 .toList();

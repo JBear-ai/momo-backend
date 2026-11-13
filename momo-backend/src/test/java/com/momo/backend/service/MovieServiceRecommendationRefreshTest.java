@@ -17,6 +17,11 @@ import static org.mockito.Mockito.*;
 
 class MovieServiceRecommendationRefreshTest {
 
+    @SuppressWarnings("unchecked")
+    private Cache<String, com.momo.backend.entity.MovieCache> mockCache() {
+        return (Cache<String, com.momo.backend.entity.MovieCache>) mock(Cache.class);
+    }
+
     @Test
     void refreshesSevenDaysOnlyOnceDuringTheRefreshWindow() {
         MovieService service = spy(new MovieService(
@@ -32,7 +37,7 @@ class MovieServiceRecommendationRefreshTest {
                 mock(MoviePosterCacheRepository.class),
                 mock(MovieExternalIdMappingRepository.class),
                 mock(PosterFileStorageService.class),
-                mock(Cache.class)
+                mockCache()
         ));
         doReturn(List.of()).when(service).getDailyBoxOffice(anyString());
 
