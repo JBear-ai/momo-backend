@@ -27,9 +27,53 @@ class PosterFileStorageServiceTest {
     void detectsAnExistingLocalPosterFile() throws Exception {
         PosterFileStorageService storageService =
                 new PosterFileStorageService(temporaryDirectory.toString());
-        Files.writeString(temporaryDirectory.resolve("poster.jpg"), "image");
+        Files.write(
+                temporaryDirectory.resolve("poster.jpg"),
+                new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00}
+        );
 
         assertTrue(storageService.exists("/posters/poster.jpg"));
+    }
+
+    @Test
+    void rejectsFilesThatHaveAnImageExtensionButNoSupportedImageSignature() throws Exception {
+        PosterFileStorageService storageService =
+                new PosterFileStorageService(temporaryDirectory.toString());
+        Files.writeString(temporaryDirectory.resolve("fake.jpg"), "<html>not an image</html>");
+
+        assertFalse(storageService.exists("/posters/fake.jpg"));
+    }
+
+    @Test
+    void rejectsPosterFilesLargerThanTheDownloadLimit() throws Exception {
+        PosterFileStorageService storageService =
+                new PosterFileStorageService(temporaryDirectory.toString());
+        byte[] oversized = new byte[12 * 1024 * 1024 + 1];
+        oversized[0] = (byte) 0xFF;
+        oversized[1] = (byte) 0xD8;
+        oversized[2] = (byte) 0xFF;
+        Files.write(temporaryDirectory.resolve("oversized.jpg"), oversized);
+
+        assertFalse(storageService.exists("/posters/oversized.jpg"));
+    }
+
+    @Test
+    void rejectsSymbolicLinksInsteadOfFollowingFilesOutsidePosterDirectory() throws Exception {
+        PosterFileStorageService storageService =
+                new PosterFileStorageService(temporaryDirectory.toString());
+        Path outside = temporaryDirectory.getParent().resolve("momo-outside-image.jpg");
+        Files.write(outside, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
+        Path link = temporaryDirectory.resolve("linked.jpg");
+
+        try {
+            Files.createSymbolicLink(link, outside);
+            assertFalse(storageService.exists("/posters/linked.jpg"));
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException ignored) {
+            // Windows 실행 계정에 심볼릭 링크 권한이 없으면 해당 환경에서는 검증을 건너뛴다.
+        } finally {
+            Files.deleteIfExists(link);
+            Files.deleteIfExists(outside);
+        }
     }
 
     @Test
