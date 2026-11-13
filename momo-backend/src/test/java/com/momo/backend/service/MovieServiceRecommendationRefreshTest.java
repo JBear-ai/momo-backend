@@ -84,11 +84,24 @@ class MovieServiceRecommendationRefreshTest {
                 "", "드라마", "", "", "");
         movie.markBoxOfficeEntered(1, "20261112");
 
-        movie.markWeeklyBoxOfficeEntered(4);
+        movie.markWeeklyBoxOfficeEntered(4, "20261112");
 
         assertEquals("20261112", movie.getLastBoxOfficeDate());
         assertEquals(1, movie.getLastBoxOfficeRank());
         assertEquals(1, movie.getBestBoxOfficeRank());
+    }
+
+    @Test
+    void newerWeeklyHistoryUpdatesLastRankWhenNoNewerDailyEntryExists() {
+        Movie movie = new Movie(
+                "20167904", "테스트 영화", "", "20260101",
+                "", "드라마", "", "", "");
+        movie.markBoxOfficeEntered(3, "20261110");
+
+        movie.markWeeklyBoxOfficeEntered(2, "20261112");
+
+        assertEquals("20261112", movie.getLastBoxOfficeDate());
+        assertEquals(2, movie.getLastBoxOfficeRank());
     }
 
     @Test
