@@ -6,6 +6,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -89,4 +90,48 @@ class KmdbServiceTest {
         assertNull(service.findPosterUrl("K00000001", "동명 영화", "", "", ""));
         verify(tmdbService).findMoviePosterUrl("동명 영화", "", "", "");
     }
+    @Test
+    void doesNotEnrichMovieFromEquallyRankedSameTitleRemakes() {
+        KmdbApiClient kmdbApiClient = mock(KmdbApiClient.class);
+        TmdbService tmdbService = mock(TmdbService.class);
+        KmdbService service = new KmdbService(
+                kmdbApiClient,
+                tmdbService,
+                new ObjectMapper()
+        );
+
+        when(kmdbApiClient.searchMovie("동명 영화")).thenReturn("""
+                {
+                  "Data": [{
+                    "Result": [
+                      {
+                        "DOCID": "DOC-REMAKE-1",
+                        "title": "동명 영화",
+                        "titleEng": "",
+                        "prodYear": "",
+                        "repRlsDate": "",
+                        "runtime": "90",
+                        "genre": "드라마",
+                        "directors": {"director": []},
+                        "actors": {"actor": [{"actorNm": "첫 번째 배우"}]}
+                      },
+                      {
+                        "DOCID": "DOC-REMAKE-2",
+                        "title": "동명 영화",
+                        "titleEng": "",
+                        "prodYear": "",
+                        "repRlsDate": "",
+                        "runtime": "110",
+                        "genre": "스릴러",
+                        "directors": {"director": []},
+                        "actors": {"actor": [{"actorNm": "두 번째 배우"}]}
+                      }
+                    ]
+                  }]
+                }
+                """);
+
+        assertTrue(service.findMovieSupplement("동명 영화", "", "", "").isEmpty());
+    }
+
 }
