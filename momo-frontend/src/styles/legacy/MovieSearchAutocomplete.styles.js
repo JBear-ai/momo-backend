@@ -95,7 +95,8 @@ const MovieSearchAutocompleteStyles = createGlobalStyle`
   }
 
   .momo-search-result:hover,
-  .momo-search-result:focus-visible {
+  .momo-search-result:focus-visible,
+  .momo-search-result.is-active {
     background: #fffaec;
     outline: none;
   }
