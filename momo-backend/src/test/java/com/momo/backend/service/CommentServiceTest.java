@@ -70,12 +70,13 @@ class CommentServiceTest {
         when(comment.getContent()).thenReturn("동시성 검증 댓글");
         when(comment.getCreatedAt()).thenReturn(now);
         when(comment.getUpdatedAt()).thenReturn(now);
-        CommentReactionRepository.ReactionCountSummary reactionCounts =
-                org.mockito.Mockito.mock(CommentReactionRepository.ReactionCountSummary.class);
-        when(reactionCounts.getLikeCount()).thenReturn(0L);
-        when(reactionCounts.getDislikeCount()).thenReturn(0L);
-        when(commentReactionRepository.findCountsByCommentId(27L))
-                .thenReturn(reactionCounts);
+        CommentReactionRepository.CommentResponseSummary reactionSummary =
+                org.mockito.Mockito.mock(CommentReactionRepository.CommentResponseSummary.class);
+        when(reactionSummary.getLikeCount()).thenReturn(0L);
+        when(reactionSummary.getDislikeCount()).thenReturn(0L);
+        when(reactionSummary.getMyReaction()).thenReturn(null);
+        when(commentReactionRepository.findResponseSummaryByCommentId(27L, 7L))
+                .thenReturn(reactionSummary);
 
         CommentRequest request = new CommentRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(
@@ -84,6 +85,10 @@ class CommentServiceTest {
         CommentResponse response = commentService.createComment(15L, "member", request);
 
         assertEquals(27L, response.getCommentId());
+        verify(commentReactionRepository).findResponseSummaryByCommentId(27L, 7L);
+        verify(commentReactionRepository, never()).findCountsByCommentId(27L);
+        verify(commentReactionRepository, never())
+                .findByUser_UserIdAndComment_CommentId(7L, 27L);
 
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(
                 userRepository, reviewRepository, commentRepository);
