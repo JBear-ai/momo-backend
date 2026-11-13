@@ -14,10 +14,10 @@ public class BoxOfficeHistoryScheduler {
 
     private final MovieService movieService;
 
-    // 서버 시작 30초 후 최초 수집, 이후 30분마다 만료 캐시와 누락 주차를 보완한다.
+    // 서버 시작 30초 후 최초 수집, 이후 10분마다 만료 캐시와 누락 주차를 보완한다.
     @Scheduled(
             initialDelayString = "${momo.boxoffice.history.initial-delay-ms:30000}",
-            fixedDelayString = "${momo.boxoffice.history.refresh-delay-ms:1800000}"
+            fixedDelayString = "${momo.boxoffice.history.refresh-delay-ms:600000}"
     )
     public void refreshWeeklyHistory() {
         try {
