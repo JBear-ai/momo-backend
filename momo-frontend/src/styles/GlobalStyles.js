@@ -1,4 +1,5 @@
 import React from "react";
+import GlobalTokensStyles from "./global/GlobalTokens.styles";
 import GlobalResetStyles from "./legacy/GlobalReset.styles";
 import FoundationAndProfileStyles from "./legacy/FoundationAndProfile.styles";
 import HomeAndMovieStyles from "./legacy/HomeAndMovie.styles";
@@ -22,6 +23,7 @@ import MovieSearchAutocompleteStyles from "./legacy/MovieSearchAutocomplete.styl
 function GlobalStyles() {
   return (
     <>
+      <GlobalTokensStyles />
       <GlobalResetStyles />
       <FoundationAndProfileStyles />
       <HomeAndMovieStyles />
