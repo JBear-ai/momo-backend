@@ -94,10 +94,17 @@ public class Movie {
         boxOfficeEntered = true;
     }
 
-    // 주간 이력은 흥행 진입 여부와 최고 순위만 갱신하고, 홈의 최신 일별 순위는 보존한다.
-    public void markWeeklyBoxOfficeEntered(int rank) {
+    // 주간 순위는 더 최근의 기록일 때만 최신 순위로 반영한다.
+    // 같은 날짜의 일별 순위는 주간 순위로 덮어쓰지 않는다.
+    public void markWeeklyBoxOfficeEntered(int rank, String targetDate) {
         if (rank > 0 && (bestBoxOfficeRank == null || rank < bestBoxOfficeRank)) {
             bestBoxOfficeRank = rank;
+        }
+
+        if (targetDate != null && targetDate.matches("\\d{8}")
+                && (lastBoxOfficeDate == null || targetDate.compareTo(lastBoxOfficeDate) > 0)) {
+            lastBoxOfficeDate = targetDate;
+            lastBoxOfficeRank = rank;
         }
         boxOfficeEntered = true;
     }
