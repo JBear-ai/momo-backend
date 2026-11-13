@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getFavoriteMovies } from "../utils/favorites";
 import AxiosApi from "../api/AxiosApi";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { ProfileDeleteLink } from "../styles/legacy/Profile.styles";
 
 function Profile() {
   const [userId, setUserId] = useState("");
@@ -216,13 +217,12 @@ function Profile() {
             <p>회원 탈퇴를 진행하면 계정 이용에 제한이 생길 수 있습니다.</p>
           </div>
 
-          <Link
+          <ProfileDeleteLink
             to="/profile/delete"
             className="profile-button profile-delete-button"
-            style={{ textDecoration: "none" }}
           >
             회원 탈퇴
-          </Link>
+          </ProfileDeleteLink>
         </section>
       </div>
     </main>
