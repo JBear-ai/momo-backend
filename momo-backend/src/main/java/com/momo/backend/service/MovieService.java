@@ -578,8 +578,9 @@ public class MovieService {
     }
 
     // 영화 상세정보 조회
+    // 이 메서드 전체를 트랜잭션으로 감싸면 Java 잠금 해제 후 DB 커밋이 발생한다.
+    // Repository 저장 트랜잭션이 잠금 안에서 커밋되도록 메서드 단위 트랜잭션은 사용하지 않는다.
 
-    @Transactional
     public MovieDetailResponse getMovieDetail(String movieCode) {
         if (isBlank(movieCode)) {
             throw new IllegalArgumentException("영화 코드가 필요합니다.");
