@@ -210,6 +210,16 @@ public class TmdbService {
     // 기존 Movie 테이블의 이름 문자열은 유지하고, 화면 표시용 인물 메타데이터만 실시간 보완한다.
     public List<java.util.Map<String, Object>> findMoviePeople(
             String title, String titleEn, String releaseDate, String kobisDirector) {
+        return findMoviePeople(title, titleEn, releaseDate, kobisDirector, null);
+    }
+
+    // 영화 메타데이터가 검증된 경우에만 호출자에게 TMDb 영화 ID를 전달한다.
+    public List<java.util.Map<String, Object>> findMoviePeople(
+            String title,
+            String titleEn,
+            String releaseDate,
+            String kobisDirector,
+            java.util.function.LongConsumer onVerifiedMovieId) {
         List<java.util.Map<String, Object>> people = new ArrayList<>();
         if ((title == null || title.isBlank()) && (titleEn == null || titleEn.isBlank())) {
             return people;
@@ -259,7 +269,12 @@ public class TmdbService {
                     for (JsonNode cast : detail.path("credits").path("cast")) {
                         addMoviePerson(people, seen, cast, "actor", getText(cast, "character"));
                     }
-                    if (!people.isEmpty()) return people;
+                    if (!people.isEmpty()) {
+                        if (onVerifiedMovieId != null) {
+                            onVerifiedMovieId.accept(movieId);
+                        }
+                        return people;
+                    }
                 }
             } catch (Exception e) {
                 log.warn("TMDb 영화 인물 정보 조회 실패 - 검색어: {}", searchTitle, e);
