@@ -233,4 +233,28 @@ class MoviePosterCacheServiceTest {
 
         verifyNoInteractions(repository);
     }
+
+    @Test
+    void singlePosterStatusReturnsSavedMoviePosterWhenCacheRowDoesNotExist() {
+        MoviePosterCacheRepository repository = mock(MoviePosterCacheRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        PosterFileStorageService storageService = mock(PosterFileStorageService.class);
+        Movie movie = new Movie(
+                "20260015", "캐시가 없는 영화", "", "20260101", "", "", "", "", "");
+        movie.updatePosterUrl("/posters/20260015-existing.jpg");
+
+        when(movieRepository.findById("20260015"))
+                .thenReturn(java.util.Optional.of(movie));
+        when(storageService.exists("/posters/20260015-existing.jpg")).thenReturn(true);
+
+        MoviePosterCacheService service = new MoviePosterCacheService(
+                repository, movieRepository, storageService);
+
+        var status = service.findPosterStatus("20260015").orElseThrow();
+
+        assertEquals(PosterStatus.SUCCESS, status.status());
+        assertEquals("/posters/20260015-existing.jpg", status.posterUrl());
+        verify(repository, never()).findById("20260015");
+    }
+
 }
