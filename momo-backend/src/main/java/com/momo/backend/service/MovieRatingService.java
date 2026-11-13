@@ -11,6 +11,7 @@ import com.momo.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.util.HashMap;
 import java.util.List;
@@ -128,6 +129,8 @@ public class MovieRatingService {
                 .toList();
     }
 
+    // 영화 상세 등록이 끝나기 전에 잠금이 풀리지 않도록 외부 트랜잭션을 시작하지 않는다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     // 특정 영화의 전체 평가 및 로그인 회원의 평가 상태 조회
     public Map<String, Object> getMovieRating(
             String movieCode,
