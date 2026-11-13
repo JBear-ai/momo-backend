@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 @Service
@@ -221,6 +223,7 @@ public class KmdbService {
 
         String bestPosterUrl = null;
         int bestMatchScore = -1;
+        Set<String> bestCandidateKeys = new LinkedHashSet<>();
 
         for (String searchTitle : searchTitles(title, titleEn)) {
             try {
@@ -257,7 +260,7 @@ public class KmdbService {
                                 candidateReleaseDate, candidateYear);
 
                         // 제목·개봉연도 검증을 통과한 후보만 포스터 대상으로 인정한다.
-                        if (!MovieMatchVerifier.isSameMovie(
+                        if (!MovieMatchVerifier.isSamePosterCandidate(
                                 title, titleEn, releaseDate, director,
                                 candidateTitle, candidateTitleEn,
                                 verificationDate, candidateDirector)) {
@@ -275,9 +278,26 @@ public class KmdbService {
                                 candidateTitle, candidateTitleEn,
                                 verificationDate, candidateDirector);
 
+                        String candidateId = firstNonBlank(
+                                getText(result, "DOCID"),
+                                getText(result, "movieId"),
+                                getText(result, "movieSeq"));
+                        String candidateKey = candidateId.isBlank()
+                                ? String.join("|",
+                                        normalizeTitle(candidateTitle),
+                                        normalizeTitle(candidateTitleEn),
+                                        verificationDate.replaceAll("[^0-9]", ""),
+                                        normalizeTitle(candidateDirector),
+                                        posterUrl)
+                                : "ID|" + candidateId;
+
                         if (matchScore > bestMatchScore) {
                             bestMatchScore = matchScore;
                             bestPosterUrl = posterUrl;
+                            bestCandidateKeys.clear();
+                            bestCandidateKeys.add(candidateKey);
+                        } else if (matchScore == bestMatchScore) {
+                            bestCandidateKeys.add(candidateKey);
                         }
                     }
                 }
@@ -285,6 +305,12 @@ public class KmdbService {
                 // KMDb 한글 제목 검색에 실패해도 영문 제목 검색은 계속한다.
                 log.warn("KMDb 포스터 검색 실패 - 검색어: {}", searchTitle, e);
             }
+        }
+
+        if (bestCandidateKeys.size() > 1) {
+            log.warn("KMDb 포스터 후보가 동점으로 여러 편 확인되어 임의 선택을 중단합니다. title={}, score={}",
+                    title, bestMatchScore);
+            return null;
         }
 
         return bestPosterUrl;
