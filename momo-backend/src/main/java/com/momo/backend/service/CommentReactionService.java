@@ -7,6 +7,7 @@ import com.momo.backend.entity.User;
 import com.momo.backend.exception.CustomException;
 import com.momo.backend.repository.CommentReactionRepository;
 import com.momo.backend.repository.CommentRepository;
+import com.momo.backend.repository.ReviewRepository;
 import com.momo.backend.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class CommentReactionService {
     // 댓글 반응, 댓글, 회원 DB 접근
     private final CommentReactionRepository reactionRepository;
     private final CommentRepository commentRepository;
+    private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
 
     // 로그인한 사용자의 댓글 좋아요/싫어요 저장 및 변경
@@ -33,12 +35,20 @@ public class CommentReactionService {
                                 "USER_NOT_FOUND",
                                 "회원 정보를 찾을 수 없습니다."));
 
-        // 반응을 남길 댓글 조회
+        // 부모 리뷰를 먼저 잠가 리뷰 삭제와 댓글 반응 저장의 잠금 순서를 맞춘다.
+        Comment commentReference = commentRepository.findById(commentId)
+                .orElseThrow(() -> new CustomException(
+                        "COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다."));
+        Long reviewId = commentReference.getReview().getReviewId();
+
+        reviewRepository.findByIdForUpdate(reviewId)
+                .orElseThrow(() -> new CustomException(
+                        "REVIEW_NOT_FOUND", "리뷰를 찾을 수 없습니다."));
+
+        // 부모 리뷰 잠금 이후 댓글 행을 잠근다.
         Comment comment = commentRepository.findByIdForUpdate(commentId)
-                .orElseThrow(() ->
-                        new CustomException(
-                                "COMMENT_NOT_FOUND",
-                                "댓글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(
+                        "COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다."));
 
         // 좋아요/싫어요 선택 여부 확인
         if (liked == null) {
@@ -68,7 +78,16 @@ public class CommentReactionService {
                                 "USER_NOT_FOUND",
                                 "회원 정보를 찾을 수 없습니다."));
 
-        // 댓글 삭제와 반응 삭제를 같은 댓글 행 잠금으로 직렬화한다.
+        // 리뷰 삭제와 댓글 삭제에 같은 잠금 순서를 사용한다.
+        Comment commentReference = commentRepository.findById(commentId)
+                .orElseThrow(() -> new CustomException(
+                        "COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다."));
+        Long reviewId = commentReference.getReview().getReviewId();
+
+        reviewRepository.findByIdForUpdate(reviewId)
+                .orElseThrow(() -> new CustomException(
+                        "REVIEW_NOT_FOUND", "리뷰를 찾을 수 없습니다."));
+
         commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() -> new CustomException(
                         "COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다."));
