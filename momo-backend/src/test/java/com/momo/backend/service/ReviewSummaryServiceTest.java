@@ -19,9 +19,11 @@ import static org.mockito.Mockito.*;
 class ReviewSummaryServiceTest {
 
     @Test
-    void loadsCommentAndReactionCountsInTwoBatchQueries() {
+    void loadsCommentReactionAndMovieSummariesInBatchQueries() {
         CommentRepository commentRepository = mock(CommentRepository.class);
         ReviewReactionRepository reactionRepository = mock(ReviewReactionRepository.class);
+        ReviewRepository reviewRepository = mock(ReviewRepository.class);
+        MovieRepository movieRepository = mock(MovieRepository.class);
 
         CommentRepository.ReviewCommentCountSummary commentSummary =
                 mock(CommentRepository.ReviewCommentCountSummary.class);
@@ -50,9 +52,9 @@ class ReviewSummaryServiceTest {
                 .thenReturn(List.of(reactionSummary));
 
         ReviewService service = new ReviewService(
-                mock(ReviewRepository.class),
+                reviewRepository,
                 mock(UserRepository.class),
-                mock(MovieRepository.class),
+                movieRepository,
                 commentRepository,
                 reactionRepository,
                 mock(CommentReactionRepository.class)
@@ -75,6 +77,8 @@ class ReviewSummaryServiceTest {
 
         verify(commentRepository).countByReviewIds(List.of(11L, 12L));
         verify(reactionRepository).findCountsByReviewIds(List.of(11L, 12L));
+        verify(reviewRepository).findAllById(List.of(11L, 12L));
+        verify(movieRepository).findAllById(List.of("20261101"));
         verifyNoMoreInteractions(commentRepository, reactionRepository);
     }
 
