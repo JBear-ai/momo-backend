@@ -688,19 +688,26 @@ public class TmdbService {
 
     // 한글 제목은 한국어, 영문 제목은 영어 검색 결과로 조회한다.
     private String searchMovie(String searchTitle, String titleEn) {
-        return searchMovie(searchTitle, titleEn, ApiCallBudgetService.TrafficType.PREFETCH);
+        String language = getSearchLanguage(searchTitle, titleEn);
+        return tmdbApiClient.searchMovie(searchTitle, language);
     }
 
     private String searchMovie(
             String searchTitle,
             String titleEn,
             ApiCallBudgetService.TrafficType trafficType) {
-        String language = !normalizeTitle(titleEn).isBlank()
+        String language = getSearchLanguage(searchTitle, titleEn);
+        if (trafficType == ApiCallBudgetService.TrafficType.PREFETCH) {
+            return tmdbApiClient.searchMovie(searchTitle, language);
+        }
+        return tmdbApiClient.searchMovie(searchTitle, language, trafficType);
+    }
+
+    private String getSearchLanguage(String searchTitle, String titleEn) {
+        return !normalizeTitle(titleEn).isBlank()
                 && normalizeTitle(searchTitle).equals(normalizeTitle(titleEn))
                         ? "en-US"
                         : "ko-KR";
-
-        return tmdbApiClient.searchMovie(searchTitle, language, trafficType);
     }
 
     // 한글 제목과 영문 제목을 중복 없이 검색어로 사용
