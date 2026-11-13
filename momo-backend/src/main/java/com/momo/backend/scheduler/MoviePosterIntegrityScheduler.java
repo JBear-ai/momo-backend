@@ -52,11 +52,8 @@ public class MoviePosterIntegrityScheduler {
                     continue;
                 }
 
-                // 존재하지 않는 파일 경로를 DB에 남기지 않아 화면에서 깨진 이미지가 재사용되지 않게 한다.
-                movie.updatePosterUrl(null);
-                movieRepository.save(movie);
-
-                posterCacheService.resetMissingPoster(
+                // DB 경로 제거와 재수집 대기열 등록을 서비스의 단일 트랜잭션으로 처리한다.
+                posterCacheService.repairMissingPosterFile(
                         movie.getMovieCode(),
                         movie.getTitle(),
                         movie.getReleaseDate()
