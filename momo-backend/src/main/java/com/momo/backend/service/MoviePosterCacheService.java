@@ -156,6 +156,16 @@ public class MoviePosterCacheService {
     }
 
     public Optional<MoviePosterStatusResponse> findPosterStatus(String movieCode) {
+        // 단건 조회도 목록 조회와 동일하게 movies 테이블의 실제 포스터 파일을 먼저 확인한다.
+        // 캐시 행이 없다는 이유로 이미 저장된 정상 포스터를 누락 처리하지 않는다.
+        Movie movie = movieRepository.findById(movieCode).orElse(null);
+        String moviePosterUrl = movie == null ? "" : movie.getPosterUrl();
+
+        if (isPosterFileAvailable(moviePosterUrl)) {
+            return Optional.of(new MoviePosterStatusResponse(
+                    movieCode, PosterStatus.SUCCESS, moviePosterUrl));
+        }
+
         return posterCacheRepository.findById(movieCode)
                 .map(cache -> {
                     boolean posterAvailable = isPosterFileAvailable(cache.getPosterUrl());
