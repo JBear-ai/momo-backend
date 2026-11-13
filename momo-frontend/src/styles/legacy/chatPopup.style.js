@@ -1,6 +1,15 @@
 import styled, { createGlobalStyle } from "styled-components";
 
-const ChatPopupGlobalStyles = createGlobalStyle``;
+const ChatPopupGlobalStyles = createGlobalStyle`
+  .chat-avatar {
+    display: block;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+`;
 export default ChatPopupGlobalStyles;
 
 

@@ -217,7 +217,7 @@ const FavoritesAndProfileOverridesStyles = createGlobalStyle`
 }
 
 /* 포스터 카드 안의 버튼이 카드 전체 높이를 차지하도록 고정한다. */
-.favorite-page-poster > button {
+.favorite-page-poster > .favorite-page-open-button {
   display: block;
   width: 100%;
   height: 100%;
@@ -227,7 +227,7 @@ const FavoritesAndProfileOverridesStyles = createGlobalStyle`
   cursor: pointer;
 }
 
-.favorite-page-poster > button:focus-visible {
+.favorite-page-poster > .favorite-page-open-button:focus-visible {
   outline: 3px solid #a37e1c;
   outline-offset: -3px;
 }

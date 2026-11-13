@@ -16,6 +16,7 @@ jest.mock("../../api/AxiosApi", () => ({
     memberMe: jest.fn(),
     chatImageUpload: jest.fn(),
     chatImageGet: jest.fn(),
+    profileImageByUserIdGet: jest.fn(),
   },
 }));
 
@@ -57,6 +58,8 @@ describe("ChatPopup", () => {
     AxiosApi.memberMe.mockResolvedValue({ data: { userId: 7 } });
     AxiosApi.chatImageUpload.mockResolvedValue({ data: { imageId: "9c9bb1a8-f922-4ea1-8c41-2f2d987eadd1" } });
     AxiosApi.chatImageGet.mockResolvedValue({ data: new Blob(["image-bytes"], { type: "image/png" }) });
+    AxiosApi.profileImageByUserIdGet.mockResolvedValue({ data: new Blob(["avatar-bytes"], { type: "image/png" }) });
+    AxiosApi.profileImageByUserIdGet.mockResolvedValue({ data: new Blob(["avatar"], { type: "image/png" }) });
     URL.createObjectURL = jest.fn(() => "blob:test-image");
     URL.revokeObjectURL = jest.fn();
     MockWebSocket.instances = [];
@@ -146,25 +149,36 @@ describe("ChatPopup", () => {
     expect(screen.queryByLabelText("새 메시지 1개")).not.toBeInTheDocument();
   });
 
-  test("minimizes and restores the chat panel", async () => {
+  test("does not show a minimize control and keeps the message composer visible", async () => {
+    render(<ChatPopup />);
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "공용 채팅 열기" }));
+
+    expect(screen.queryByRole("button", { name: "채팅 최소화" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "채팅 복원" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "채팅 메시지" })).toBeInTheDocument();
+  });
+
+  test("loads member avatars through the authenticated profile image API", async () => {
     render(<ChatPopup />);
     await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
     fireEvent.click(screen.getByRole("button", { name: "공용 채팅 열기" }));
     act(() => MockWebSocket.instances[0].receive({ type: "AUTHENTICATED", userId: 7, streamId: "stream-1" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "채팅 최소화" }));
-    expect(screen.getByRole("button", { name: "채팅 복원" })).toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: "채팅 메시지" })).not.toBeInTheDocument();
-
     act(() => MockWebSocket.instances[0].receive({
-      type: "MESSAGE",
-      message: { id: 1, userId: 9, nickname: "다른 회원", content: "최소화 중", createdAt: new Date().toISOString() },
+      type: "HISTORY",
+      messages: [{
+        id: 2,
+        userId: 9,
+        nickname: "회원",
+        profileImageAvailable: true,
+        content: "프로필 확인",
+        createdAt: new Date().toISOString(),
+      }],
+      hasMore: false,
     }));
-    expect(screen.getByLabelText("새 메시지 1개")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "채팅 복원" }));
-    expect(screen.getByRole("textbox", { name: "채팅 메시지" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("새 메시지 1개")).not.toBeInTheDocument();
+    await waitFor(() => expect(AxiosApi.profileImageByUserIdGet).toHaveBeenCalledWith(9, expect.any(AbortSignal)));
+    expect(await screen.findByAltText("회원 프로필")).toHaveAttribute("src", "blob:test-image");
   });
 
   test("closes the active socket when local logout clears authentication", async () => {
@@ -357,6 +371,14 @@ describe("ChatPopup", () => {
     fireEvent.mouseUp(window);
     expect(Number.parseInt(panel.style.width, 10)).toBeGreaterThan(380);
     expect(Number.parseInt(panel.style.height, 10)).toBeGreaterThan(560);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "채팅 닫기" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "공용 채팅 열기" }));
+    const reopenedPanel = screen.getByRole("region", { name: "전체 회원 채팅" });
+    expect(reopenedPanel.style.left).toBe("");
+    expect(reopenedPanel.style.top).toBe("");
+    expect(reopenedPanel.style.width).toBe("380px");
+    expect(reopenedPanel.style.height).toBe("560px");
   });
 
   test("fits a small browser window while keeping controls and message input accessible", async () => {
@@ -368,7 +390,6 @@ describe("ChatPopup", () => {
 
     expect(panel.style.width).toBe("328px");
     expect(panel.style.height).toBe("324px");
-    expect(screen.getByRole("button", { name: "채팅 최소화" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "채팅 닫기" })).toHaveLength(2);
     expect(screen.getByRole("textbox", { name: "채팅 메시지" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "전송" })).toBeInTheDocument();

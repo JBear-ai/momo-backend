@@ -111,6 +111,7 @@ function FavoriteMovies() {
                         type: "button",
                         onClick: () => navigate(`/movie/${movie.movieCode}`),
                         "aria-label": `${movie.title} 상세 보기`,
+                        className: "favorite-page-open-button",
                       },
                       React.createElement(SafeImage, {
                         src: resolvePosterUrl(movie.posterUrl),
