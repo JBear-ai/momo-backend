@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import AxiosApi from "../../api/AxiosApi";
+import ProfileAvatar from "../ProfileAvatar";
 import {
-  Avatar,
   AvatarFallback,
   ChatHeader,
   ChatHeading,
@@ -108,9 +108,8 @@ function ChatImagePreview({ imageId, onSelect }) {
 
 /** 로그인 회원이 이용하는 단일 공용 채팅 팝업과 브라우저 WebSocket 연결을 관리한다. */
 export default function ChatPopup() {
-  // 팝업 표시, 최소화, 크기/위치 상태를 분리해 창 크기 변경과 복원이 서로 덮어쓰지 않게 한다.
+  // 팝업 표시와 크기/위치 상태를 분리해 창 크기 변경과 복원이 서로 덮어쓰지 않게 한다.
   const [open, setOpen] = useState(false);
-  const [minimized, setMinimized] = useState(false);
   const [bounds, setBounds] = useState(getDefaultBounds);
   const [status, setStatus] = useState("closed");
   const [messages, setMessages] = useState([]);
@@ -131,7 +130,6 @@ export default function ChatPopup() {
   const resizeRef = useRef(null);
   const userResizedRef = useRef(false);
   const openRef = useRef(false);
-  const minimizedRef = useRef(false);
   const myUserIdRef = useRef(null);
   const shouldConnectRef = useRef(false);
   const connectingRef = useRef(false);
@@ -157,7 +155,7 @@ export default function ChatPopup() {
     if (unseen.length === 0) return;
 
     setMessages((current) => mergeMessagesById(current, unseen));
-    if (shouldNotify && (!openRef.current || minimizedRef.current)) {
+    if (shouldNotify && !openRef.current) {
       const remoteMessages = unseen.filter(
         (message) => message.userId !== myUserIdRef.current,
       );
@@ -536,8 +534,6 @@ export default function ChatPopup() {
         if (socket && socket.readyState < WebSocket.CLOSING) socket.close(1000);
         setOpen(false);
         openRef.current = false;
-        setMinimized(false);
-        minimizedRef.current = false;
         setMessages([]);
         knownMessageIdsRef.current.clear();
         lastMessageIdRef.current = null;
@@ -569,21 +565,17 @@ export default function ChatPopup() {
     if (openRef.current) {
       openRef.current = false;
       setOpen(false);
+      setBounds(getDefaultBounds());
+      userResizedRef.current = false;
+      dragRef.current = null;
+      resizeRef.current = null;
       return;
     }
     openRef.current = true;
-    minimizedRef.current = false;
-    setMinimized(false);
     setUnreadCount(0);
     setOpen(true);
   };
 
-  const toggleMinimized = () => {
-    const nextMinimized = !minimizedRef.current;
-    minimizedRef.current = nextMinimized;
-    setMinimized(nextMinimized);
-    if (!nextMinimized) setUnreadCount(0);
-  };
 
   const sendMessage = (event) => {
     event.preventDefault();
@@ -658,12 +650,12 @@ export default function ChatPopup() {
           aria-label="전체 회원 채팅"
           style={
             bounds.x === null
-              ? { width: bounds.width, height: minimized ? 58 : bounds.height }
+              ? { width: bounds.width, height: bounds.height }
               : {
                   left: bounds.x,
                   top: bounds.y,
                   width: bounds.width,
-                  height: minimized ? 58 : bounds.height,
+                  height: bounds.height,
                 }
           }
         >
@@ -680,20 +672,8 @@ export default function ChatPopup() {
                       : "연결 종료"}
               </ConnectionStatus>
               <OnlineCount>접속 {onlineCount}명</OnlineCount>
-              {minimized && unreadCount > 0 && (
-                <UnreadBadge aria-label={`새 메시지 ${unreadCount}개`}>
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </UnreadBadge>
-              )}
             </ChatHeading>
             <WindowActions>
-              <WindowActionButton
-                type="button"
-                onClick={toggleMinimized}
-                aria-label={minimized ? "채팅 복원" : "채팅 최소화"}
-              >
-                {minimized ? "□" : "−"}
-              </WindowActionButton>
               <WindowActionButton
                 type="button"
                 onClick={togglePopup}
@@ -704,8 +684,7 @@ export default function ChatPopup() {
             </WindowActions>
           </ChatHeader>
 
-          {!minimized && (
-            <>
+          <>
               <MessageList aria-live="polite">
                 {hasMore && (
                   <SecondaryButton
@@ -724,11 +703,11 @@ export default function ChatPopup() {
                     $isOwn={myUserId === message.userId}
                   >
                     {message.profileImageAvailable && !message.deleted ? (
-                      <Avatar
-                        src={`${HTTP_BASE_URL}/api/auth/users/${message.userId}/profile-image`}
-                        alt=""
-                        width="32"
-                        height="32"
+                      <ProfileAvatar
+                        userId={message.userId}
+                        hasImage
+                        alt={`${message.nickname} 프로필`}
+                        className="chat-avatar"
                       />
                     ) : (
                       <AvatarFallback aria-hidden="true">
@@ -824,8 +803,7 @@ export default function ChatPopup() {
                 aria-label="채팅창 크기 조절"
                 onMouseDown={startResize}
               />
-            </>
-          )}
+          </>
         </ChatPanel>
       )}
 
