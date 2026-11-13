@@ -13,7 +13,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 class MovieRatingServiceTest {
@@ -72,13 +71,10 @@ class MovieRatingServiceTest {
     }
 
     @Test
-    void readsCountsAndCurrentMemberReactionWithOneAggregateQuery() {
+    void readsCountsAndCurrentMemberReactionWithRepositoryQueries() {
         UserRepository userRepository = mock(UserRepository.class);
         MovieRepository movieRepository = mock(MovieRepository.class);
         MovieRatingRepository ratingRepository = mock(MovieRatingRepository.class);
-        MovieRatingRepository.MovieRatingResponseSummary summary =
-                mock(MovieRatingRepository.MovieRatingResponseSummary.class);
-
         User user = mock(User.class);
         MovieRating rating = mock(MovieRating.class);
         when(movieRepository.existsById("20261234")).thenReturn(true);
@@ -133,9 +129,6 @@ class MovieRatingServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         MovieRepository movieRepository = mock(MovieRepository.class);
         MovieRatingRepository ratingRepository = mock(MovieRatingRepository.class);
-        MovieRatingRepository.MovieRatingResponseSummary summary =
-                mock(MovieRatingRepository.MovieRatingResponseSummary.class);
-
         when(movieRepository.existsById("20261234")).thenReturn(true);
         when(ratingRepository.countByMovie_MovieCodeAndLiked("20261234", true)).thenReturn(0L);
         when(ratingRepository.countByMovie_MovieCodeAndLiked("20261234", false)).thenReturn(0L);
