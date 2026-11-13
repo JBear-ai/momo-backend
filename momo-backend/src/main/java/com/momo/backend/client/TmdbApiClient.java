@@ -43,7 +43,15 @@ public class TmdbApiClient {
 
     // 검색어 언어에 맞춰 TMDb 결과 제목을 조회한다.
     public String searchMovie(String title, String language) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+        return searchMovie(title, language,
+                com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+    }
+
+    public String searchMovie(
+            String title,
+            String language,
+            com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
+        apiCallBudgetService.acquire("TMDB", trafficType);
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("영화 제목이 비어 있습니다.");
         }
@@ -64,7 +72,15 @@ public class TmdbApiClient {
     }
 
     public String getMovieDetail(long movieId) {
-        apiCallBudgetService.acquire("TMDB", com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+        return getMovieDetail(
+                movieId,
+                com.momo.backend.service.ApiCallBudgetService.TrafficType.PREFETCH);
+    }
+
+    public String getMovieDetail(
+            long movieId,
+            com.momo.backend.service.ApiCallBudgetService.TrafficType trafficType) {
+        apiCallBudgetService.acquire("TMDB", trafficType);
         if (movieId <= 0) {
             throw new IllegalArgumentException("올바르지 않은 TMDb 영화 ID입니다.");
         }
