@@ -46,7 +46,8 @@ class MoviePosterControllerTest {
     void rejectsInvalidMovieCodesBeforeStartingPosterCollection() {
         MovieService movieService = mock(MovieService.class);
         MoviePosterCacheService cacheService = mock(MoviePosterCacheService.class);
-        MoviePosterController controller = new MoviePosterController(movieService, cacheService);
+        MoviePosterEnsureAsyncService ensureAsyncService = mock(MoviePosterEnsureAsyncService.class);
+        MoviePosterController controller = new MoviePosterController(movieService, cacheService, ensureAsyncService);
 
         ResponseEntity<List<MoviePosterStatusResponse>> response =
                 controller.ensurePosterCollection(List.of("20261101", "../path"));
