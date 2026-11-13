@@ -507,6 +507,17 @@ public class MovieService {
             return;
         }
 
+        // 포스터 수집 대상의 기존 영화 정보는 한 번에 조회한다.
+        // 기존에는 영화 한 편마다 findById를 실행해 검색 페이지 크기만큼 추가 SELECT가 발생했다.
+        List<String> movieCodes = movies.stream()
+                .map(MovieSearchResponse::movieCode)
+                .filter(code -> !isBlank(code))
+                .distinct()
+                .toList();
+        Map<String, Movie> savedMovies = new HashMap<>();
+        movieRepository.findAllById(movieCodes).forEach(
+                savedMovie -> savedMovies.put(savedMovie.getMovieCode(), savedMovie));
+
         for (MovieSearchResponse movie : movies) {
 
             String movieCode = movie.movieCode();
@@ -520,8 +531,7 @@ public class MovieService {
             try {
 
                 // DB에 포스터가 있으면 외부 API를 호출하지 않는다.
-                Movie savedMovie = movieRepository.findById(movieCode)
-                        .orElse(null);
+                Movie savedMovie = savedMovies.get(movieCode);
 
                 if (savedMovie != null
                         && !isBlank(savedMovie.getPosterUrl())) {
