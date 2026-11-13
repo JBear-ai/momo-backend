@@ -370,6 +370,14 @@ describe("ChatPopup", () => {
     fireEvent.mouseUp(window);
     expect(Number.parseInt(panel.style.width, 10)).toBeGreaterThan(380);
     expect(Number.parseInt(panel.style.height, 10)).toBeGreaterThan(560);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "채팅 닫기" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "공용 채팅 열기" }));
+    const reopenedPanel = screen.getByRole("region", { name: "전체 회원 채팅" });
+    expect(reopenedPanel.style.left).toBe("");
+    expect(reopenedPanel.style.top).toBe("");
+    expect(reopenedPanel.style.width).toBe("380px");
+    expect(reopenedPanel.style.height).toBe("560px");
   });
 
   test("fits a small browser window while keeping controls and message input accessible", async () => {
