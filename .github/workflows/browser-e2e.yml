@@ -1,8 +1,13 @@
 name: MOMO Browser E2E
 
 on:
+  pull_request:
+    branches: [main]
   push:
-    branches: [fix/autocomplete-saved-posters]
+    branches:
+      - main
+      - perf/momo-stability-pr49
+      - fix/autocomplete-saved-posters
 
 concurrency:
   group: momo-browser-e2e-${{ github.ref }}
