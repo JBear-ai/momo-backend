@@ -1,6 +1,7 @@
 package com.momo.backend.client;
 
 import com.momo.backend.service.ApiCallMetrics;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ public class TmdbApiClient {
     private final ApiCallMetrics metrics;
     private final com.momo.backend.service.ApiCallBudgetService apiCallBudgetService;
 
+    @Autowired
     public TmdbApiClient(
             @Value("${tmdb.api.base-url}") String baseUrl,
             @Value("${tmdb.api.key}") String apiKey,
