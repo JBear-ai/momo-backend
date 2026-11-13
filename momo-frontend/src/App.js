@@ -1,5 +1,6 @@
 import React from "react";
 import GlobalStyles from "./styles/GlobalStyles";
+import ToastNotification from "./components/common/ToastNotification";
 
 import { BrowserRouter, Navigate, Routes, Route, useParams } from "react-router-dom";
 
@@ -30,6 +31,7 @@ function App() {
   return (
     <BrowserRouter>
       <GlobalStyles />
+      <ToastNotification />
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />

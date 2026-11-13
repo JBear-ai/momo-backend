@@ -30,11 +30,8 @@ function Login() {
       }
 
       const loginId = response.data.loginId || inputId.trim();
-
       const nickname = response.data.nickname || "회원";
-
       const accessToken = response.data.accessToken;
-
       const refreshToken = response.data.refreshToken;
 
       // 토큰 발급 여부 확인
@@ -51,7 +48,12 @@ function Login() {
       // 내부에서 인증 상태 변경 이벤트도 발생시킨다.
       storeLoginTokens(accessToken, refreshToken);
 
-      alert("로그인에 성공했습니다.");
+      // 로그인 화면이 바뀌어도 알림이 유지되도록 전역 이벤트로 전달한다.
+      window.dispatchEvent(
+        new CustomEvent("momo-toast", {
+          detail: { nickname },
+        }),
+      );
 
       navigate("/", { replace: true });
     } catch (error) {

@@ -1,6 +1,7 @@
 import React from "react";
 import GlobalTokensStyles from "./global/GlobalTokens.styles";
 import GlobalResetStyles from "./global/GlobalReset.styles";
+import ToastNotificationStyles from "./global/ToastNotification.styles";
 import FoundationAndProfileStyles from "./legacy/FoundationAndProfile.styles";
 import HomeAndMovieStyles from "./legacy/HomeAndMovie.styles";
 import ReviewComposerAuthRecommendStyles from "./legacy/ReviewComposerAuthRecommend.styles";
@@ -26,6 +27,7 @@ function GlobalStyles() {
     <>
       <GlobalTokensStyles />
       <GlobalResetStyles />
+      <ToastNotificationStyles />
       <FoundationAndProfileStyles />
       <HomeAndMovieStyles />
       <ReviewComposerAuthRecommendStyles />
