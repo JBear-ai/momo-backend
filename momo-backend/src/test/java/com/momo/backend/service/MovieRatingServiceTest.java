@@ -35,7 +35,7 @@ class MovieRatingServiceTest {
                 .thenReturn(Optional.empty());
 
         MovieRatingService service = new MovieRatingService(
-                ratingRepository, movieRepository, userRepository);
+                ratingRepository, movieRepository, userRepository, mock(MovieService.class));
 
         service.saveRating("member", "20261234", true);
 
@@ -62,7 +62,7 @@ class MovieRatingServiceTest {
                 .thenReturn(Optional.of(existing));
 
         MovieRatingService service = new MovieRatingService(
-                ratingRepository, movieRepository, userRepository);
+                ratingRepository, movieRepository, userRepository, mock(MovieService.class));
 
         service.saveRating("member", "20261234", false);
 
@@ -79,14 +79,19 @@ class MovieRatingServiceTest {
         MovieRatingRepository.MovieRatingResponseSummary summary =
                 mock(MovieRatingRepository.MovieRatingResponseSummary.class);
 
-        when(summary.getLikeCount()).thenReturn(8L);
-        when(summary.getDislikeCount()).thenReturn(2L);
-        when(summary.getMyRating()).thenReturn(1);
-        when(ratingRepository.findResponseSummaryByMovieCode("20261234", "member"))
-                .thenReturn(summary);
+        User user = mock(User.class);
+        MovieRating rating = mock(MovieRating.class);
+        when(movieRepository.existsById("20261234")).thenReturn(true);
+        when(ratingRepository.countByMovie_MovieCodeAndLiked("20261234", true)).thenReturn(8L);
+        when(ratingRepository.countByMovie_MovieCodeAndLiked("20261234", false)).thenReturn(2L);
+        when(userRepository.findByLoginId("member")).thenReturn(Optional.of(user));
+        when(user.getUserId()).thenReturn(7L);
+        when(ratingRepository.findByUser_UserIdAndMovie_MovieCode(7L, "20261234"))
+                .thenReturn(Optional.of(rating));
+        when(rating.getLiked()).thenReturn(true);
 
         MovieRatingService service = new MovieRatingService(
-                ratingRepository, movieRepository, userRepository);
+                ratingRepository, movieRepository, userRepository, mock(MovieService.class));
 
         Map<String, Object> result = service.getMovieRating("20261234", "member");
 
@@ -96,31 +101,31 @@ class MovieRatingServiceTest {
         assertEquals(80.0, result.get("positiveRate"));
         assertEquals(true, result.get("myRating"));
 
-        verify(ratingRepository).findResponseSummaryByMovieCode("20261234", "member");
-        verify(movieRepository, never()).existsById(anyString());
-        verify(ratingRepository, never()).findCountsByMovieCode(anyString());
-        verify(ratingRepository, never())
-                .findByUser_UserIdAndMovie_MovieCode(anyLong(), anyString());
-        verify(userRepository, never()).findByLoginId(anyString());
+        verify(movieRepository).existsById("20261234");
+        verify(ratingRepository).countByMovie_MovieCodeAndLiked("20261234", true);
+        verify(ratingRepository).countByMovie_MovieCodeAndLiked("20261234", false);
+        verify(ratingRepository).findByUser_UserIdAndMovie_MovieCode(7L, "20261234");
     }
 
     @Test
-    void missingMovieIsDetectedByTheAggregateQueryWithoutAnExtraExistsQuery() {
+    void registersMissingMovieBeforeReturningAnEmptyRatingSummary() {
         UserRepository userRepository = mock(UserRepository.class);
         MovieRepository movieRepository = mock(MovieRepository.class);
         MovieRatingRepository ratingRepository = mock(MovieRatingRepository.class);
+        MovieService movieService = mock(MovieService.class);
 
-        when(ratingRepository.findResponseSummaryByMovieCode("missing", null))
-                .thenReturn(null);
-
+        when(movieRepository.existsById("20167904"))
+                .thenReturn(false, true);
         MovieRatingService service = new MovieRatingService(
-                ratingRepository, movieRepository, userRepository);
+                ratingRepository, movieRepository, userRepository, movieService);
 
-        assertThrows(com.momo.backend.exception.CustomException.class,
-                () -> service.getMovieRating("missing", null));
+        Map<String, Object> result = service.getMovieRating("20167904", null);
 
-        verify(movieRepository, never()).existsById(anyString());
-        verify(ratingRepository).findResponseSummaryByMovieCode("missing", null);
+        verify(movieService).getMovieDetail("20167904");
+        assertEquals(0L, result.get("likeCount"));
+        assertEquals(0L, result.get("dislikeCount"));
+        assertEquals(0L, result.get("totalCount"));
+        assertNull(result.get("myRating"));
     }
 
     @Test
@@ -132,14 +137,11 @@ class MovieRatingServiceTest {
                 mock(MovieRatingRepository.MovieRatingResponseSummary.class);
 
         when(movieRepository.existsById("20261234")).thenReturn(true);
-        when(summary.getLikeCount()).thenReturn(0L);
-        when(summary.getDislikeCount()).thenReturn(0L);
-        when(summary.getMyRating()).thenReturn(null);
-        when(ratingRepository.findResponseSummaryByMovieCode("20261234", null))
-                .thenReturn(summary);
+        when(ratingRepository.countByMovie_MovieCodeAndLiked("20261234", true)).thenReturn(0L);
+        when(ratingRepository.countByMovie_MovieCodeAndLiked("20261234", false)).thenReturn(0L);
 
         MovieRatingService service = new MovieRatingService(
-                ratingRepository, movieRepository, userRepository);
+                ratingRepository, movieRepository, userRepository, mock(MovieService.class));
 
         Map<String, Object> result = service.getMovieRating("20261234", null);
 
@@ -149,8 +151,9 @@ class MovieRatingServiceTest {
         assertNull(result.get("positiveRate"));
         assertNull(result.get("myRating"));
 
-        verify(ratingRepository).findResponseSummaryByMovieCode("20261234", null);
-        verify(movieRepository, never()).existsById(anyString());
+        verify(movieRepository).existsById("20261234");
+        verify(ratingRepository).countByMovie_MovieCodeAndLiked("20261234", true);
+        verify(ratingRepository).countByMovie_MovieCodeAndLiked("20261234", false);
         verify(userRepository, never()).findByLoginId(anyString());
     }
 }
