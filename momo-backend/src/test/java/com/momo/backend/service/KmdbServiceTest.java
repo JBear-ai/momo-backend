@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 class KmdbServiceTest {
 
     @Test
-    void acceptsExactPosterTitleWhenKmdbReleaseYearAndDirectorAreMissing() {
+    void fallsBackWhenKmdbPosterHasOnlyAnUncorroboratedTitle() {
         KmdbApiClient kmdbApiClient = mock(KmdbApiClient.class);
         TmdbService tmdbService = mock(TmdbService.class);
         KmdbService service = new KmdbService(
@@ -41,9 +41,44 @@ class KmdbServiceTest {
                 }
                 """);
 
+        when(tmdbService.findMoviePosterUrl("동명 영화", "", "", "")).thenReturn(null);
+
+        assertNull(service.findPosterUrl("K00000001", "동명 영화", "", "", ""));
+        verify(tmdbService).findMoviePosterUrl("동명 영화", "", "", "");
+    }
+
+    @Test
+    void acceptsMissingKmdbYearWhenEnglishOriginalTitleMatches() {
+        KmdbApiClient kmdbApiClient = mock(KmdbApiClient.class);
+        TmdbService tmdbService = mock(TmdbService.class);
+        KmdbService service = new KmdbService(
+                kmdbApiClient,
+                tmdbService,
+                new ObjectMapper()
+        );
+
+        String result = """
+                {
+                  "Data": [{
+                    "Result": [{
+                      "DOCID": "DOC-ORIGINAL",
+                      "title": "동명 영화",
+                      "titleEng": "Original Title",
+                      "prodYear": "",
+                      "repRlsDate": "",
+                      "posters": "https://kmdb.example/posters/original.jpg",
+                      "directors": {"director": []}
+                    }]
+                  }]
+                }
+                """;
+        when(kmdbApiClient.searchMovie("동명 영화")).thenReturn(result);
+        when(kmdbApiClient.searchMovie("Original Title")).thenReturn(result);
+
         assertEquals(
-                "https://kmdb.example/posters/movie-1.jpg",
-                service.findPosterUrl("K00000001", "동명 영화", "", "", "")
+                "https://kmdb.example/posters/original.jpg",
+                service.findPosterUrl(
+                        "K00000002", "동명 영화", "Original Title", "20260101", "")
         );
         verify(tmdbService, never()).findMoviePosterUrl(
                 anyString(), anyString(), anyString(), anyString());
