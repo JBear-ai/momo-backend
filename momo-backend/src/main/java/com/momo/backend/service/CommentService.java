@@ -211,10 +211,11 @@ public class CommentService {
     private CommentResponse toResponse(Comment comment, Long currentUserId) {
         Long commentId = comment.getCommentId();
 
-        long likeCount = commentReactionRepository
-                .countByComment_CommentIdAndLiked(commentId, true);
-        long dislikeCount = commentReactionRepository
-                .countByComment_CommentIdAndLiked(commentId, false);
+        // 좋아요와 싫어요 수는 단일 집계 쿼리로 조회한다.
+        CommentReactionRepository.ReactionCountSummary counts =
+                commentReactionRepository.findCountsByCommentId(commentId);
+        long likeCount = counts == null ? 0L : counts.getLikeCount();
+        long dislikeCount = counts == null ? 0L : counts.getDislikeCount();
 
         Boolean myReaction = currentUserId == null
                 ? null
