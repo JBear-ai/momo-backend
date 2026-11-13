@@ -3,11 +3,13 @@ package com.momo.backend.scheduler;
 import com.momo.backend.service.MovieService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 // 추천 요청에서 외부 KOBIS 16주 조회를 수행하지 않도록 백그라운드로 분리한다.
 @Component
+@ConditionalOnProperty(name = "momo.boxoffice.scheduler.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class BoxOfficeHistoryScheduler {
