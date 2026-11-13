@@ -205,8 +205,11 @@ body {
 /* 영화 활동 섹션 */
 .profile-activity-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* 화면이 좁을 때는 줄바꿈되거나 유연하게 줄어들고, 
+     넓어질 때는 150px 이상 크기로 각 카드가 공간을 나눠 갖도록 설정 */
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
   gap: 14px;
+  width: 100%;
 }
 
 .profile-activity-item {
@@ -215,7 +218,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-width: 0;
+  min-width: 0; /* 내부 텍스트나 flex 아이템이 칸을 뚫고 나가지 않게 방지 */
   min-height: 145px;
   padding: 20px 12px;
   background: var(--momo-note);
